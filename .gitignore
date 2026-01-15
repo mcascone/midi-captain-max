@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+
+# CircuitPython / device artifacts
+*.mpy
+boot_out.txt
+settings.toml
+
+# Local release bundles / copied device images
+dist/
+build/
