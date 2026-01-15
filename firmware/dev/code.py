@@ -1,3 +1,4 @@
+print("\n=== MIDI CAPTAIN HK DEV BUILD ===\n")
 import board
 import neopixel
 import time
