@@ -1,0 +1,342 @@
+# MIDI Captain Reverse Engineering / Refactor Effort — Handoff Summary (Jan 14, 2026)
+
+Author of this summary: ChatGPT (working with Max)
+
+## 0. What this is
+This document captures the full context of a reverse-engineering + refactor effort around custom CircuitPython firmware for Paint Audio’s MIDI Captain foot controllers. It is intended for import into a new chat agent so they can continue without misunderstandings.
+
+Key devices:
+- MIDI Captain “STD” 10-switch unit (“10-switch”)
+- MIDI Captain “Mini6” 6-switch unit (“Mini6”)
+
+Primary goals:
+1) Understand Helmut Keller’s custom firmware deeply enough to refactor it cleanly.
+2) Make the firmware generic and configurable (less hardcoded to Helmut’s DAW/plugin use case).
+3) Add/strengthen bidirectional MIDI: device should RECEIVE MIDI CC / SysEx to update LEDs + LCD based on host state.
+4) Support multiple hardware variants (Mini6 first; later others).
+
+Constraints/realities:
+- Max is not the original author but can communicate with author (uncertain support).
+- Desire to publish on GitHub eventually; licensing/permission not yet confirmed (explicit “NO LICENSE GRANTED YET” placeholder in repo).
+
+Time zone: America/Chicago
+Current date at the time: Wed Jan 14, 2026
+
+
+## 1. Projects / repos created
+### 1.1 Mini6 hardware investigation repo
+Repo name: `midicaptain-mini6-hw`
+Status: created, committed, pushed to GitHub (Max confirmed pushed).
+Purpose:
+- Empirically determine Mini6 hardware properties (display, NeoPixels, switch pins, etc.)
+Outcome (high confidence):
+- Display + NeoPixels confirmed working and compatible with Helmut firmware assumptions (pins/params).
+- Footswitch mapping discovered (including “weird” inputs used as switches).
+
+### 1.2 Helmut firmware refactor repo
+Repo name: `midicaptain-hk-firmware`
+Structure:
+- `firmware/original_helmut/` — pristine baseline snapshot (do not edit)
+- `firmware/dev/` — working copy to refactor
+- `docs/`, `tools/`, root README/LICENSE/.gitignore
+Licensing:
+- `LICENSE` currently contains a placeholder:
+  “NO LICENSE GRANTED YET … Do not redistribute or publish builds until licensing/permission is clarified.”
+
+Git commits (as seen in terminal transcript):
+- `bacbc82` — initialized repo structure (README, LICENSE placeholder, .gitignore)
+- `cd1268b` — committed baseline snapshot in `firmware/original_helmut/` (code.py + HKAudioSetup + fonts)
+- `b61646e` — created `firmware/dev/` by rsync mirroring baseline
+- `a441217` — added a one-line “dev build banner” to `firmware/dev/code.py`
+Note: An rsync later overwrote dev/banner, leaving `firmware/dev/code.py` modified relative to `a441217`. Max planned to restore the banner commit.
+
+Device abstraction start:
+- Created `firmware/dev/devices/__init__.py`
+- Created `firmware/dev/devices/std10.py` containing extracted “hardware constants” (pins, counts, display params).
+
+
+## 2. Files involved (uploaded earlier in the session)
+From earlier in the session, Max uploaded:
+- Helmut firmware: a `code.py` (the first uploaded `code.py`) and supporting documentation PDF + HKAudioSetup.
+- Mini firmware: a separate “original mini firmware” `code.py` which just imports a compiled module.
+- Mini6 `lib.zip` containing a compiled module `midicaptain6s.mpy` and typical Adafruit libs.
+- `boot.py` and `boot_out.txt` from devices.
+
+In VS Code context later, the full Helmut baseline `firmware/original_helmut/code.py` is visible and summarized below.
+
+
+## 3. Mini6 hardware investigation — definitive findings
+
+### 3.1 Platform identity (from boot_out.txt)
+Mini6 runs:
+- CircuitPython 7.3.1 (build 2022-06-22)
+- Board ID: `raspberry_pi_pico`
+- MCU: RP2040
+Implication: Same platform class as standard unit; shared core firmware feasible.
+
+### 3.2 boot.py behavior (both devices)
+boot.py uses GP1 as a “mode pin” controlling USB mass storage:
+- If GP1 is True: disables USB drive and remounts / RW
+- Else: volume label MIDICAPTAIN, enable USB drive, then remount RO
+Also disables autoreload by default.
+Implication: GP1 is “special” and shared with a footswitch on Mini6 (top-left switch). It’s read at boot, but can be used as a switch afterward.
+
+### 3.3 Display on Mini6
+Tested on-device with a minimal ST7789 fill/blink script.
+Confirmed working with Helmut’s parameters and wiring:
+- Controller: ST7789
+- Resolution: 240x240
+- rowstart: 80
+- rotation: 180
+Pins:
+- SCK/CLK: GP14
+- MOSI: GP15
+- DC: GP12
+- CS: GP13
+Reset: none
+Conclusion: Display init in Helmut firmware is compatible with Mini6.
+
+Earlier symptom: “black screen with tiny icon upper left” occurred before display rootgroup was set or due to mismatch in earlier test; once correct init used, display works.
+
+### 3.4 NeoPixels on Mini6
+Confirmed NeoPixels work with:
+- Pin: GP7 (same as Helmut baseline)
+A test that blinked all LEDs red succeeded.
+Earlier confusion:
+- A scan script that attempted NeoPixel init on multiple sizes returned `ValueError('GP7 in use')` for GP7 repeatedly; later resolved. The final working test used GP7 successfully.
+Note: NeoPixel “object created” success does NOT imply actual LEDs unless visually confirmed. Visual confirmation done: “all leds blinking red!!”.
+
+Pixel count on Mini6:
+- Not definitively measured in this session (exact count TBD). The test used PIXELS=18 for blink; user reported “all LEDs blinking red” (suggesting 18 may match, but needs confirmation if the device actually has more/less). For STD10 Helmut uses 30 (10 switches x 3).
+
+### 3.5 Mini6 footswitch mapping (definitive)
+Using a digital input scan script, Max pressed switches and clarified mapping:
+
+Top row (left → right):
+- Top-left: GP1
+- Top-middle: board.LED  (repurposed as input by hardware)
+- Top-right: board.VBUS_SENSE (repurposed as input by hardware)
+
+Bottom row (left → right):
+- Bottom-left: GP9
+- Bottom-middle: GP10
+- Bottom-right: GP11
+
+Important: board.LED and board.VBUS_SENSE toggled directly with specific footswitches, so they are intentionally used as inputs.
+
+### 3.6 Serial console / reboot workflow
+- CircuitPython USB CDC disconnects on reset; cannot keep the same serial session “alive.”
+- Practical workflow used: macOS `screen` with an auto-reconnect loop.
+- Autoreload was sometimes enabled temporarily for rapid iteration; normally disabled for performance.
+- User reported needing manual power-cycle for reboot during tests.
+
+
+## 4. Helmut Keller baseline firmware — key technical facts (from firmware/original_helmut/code.py)
+
+File: `firmware/original_helmut/code.py`
+Firmware description:
+- Target: MIDI Captain STD, Blue or Gold (10-switch class).
+- Implements CC 11–24 in both directions (TX/RX).
+- CC mapping described in header comment:
+  - CC 11: rotary encoder
+  - CC 12–13: EXP1/EXP2 analog
+  - CC 14: encoder push button (switch 0)
+  - CC 15–18: footswitches “1” to “4” (comment mismatches code labels; see switch list)
+  - CC 19: “Up”
+  - CC 20–23: footswitches “A” to “D”
+  - CC 24: “Down” (header has a duplicated “Up”; actual code uses Down)
+  - CC 25: received sets tuner mode
+- Tuner mode: center display shows note name + pitch bend pointer; normal mode shows a name set by SysEx.
+
+Hardware constants and init (as implemented):
+- NeoPixel:
+  - neo_pin = board.GP7
+  - LED_count = 30
+  - brightness = 0.3
+  - LED = neopixel.NeoPixel(...)
+  - pixelpin mapping: 10 logical LEDs * 3 pixels each, indices [0..29] grouped per footswitch.
+  - LED_on(x) sets pixels to palette[color_index[x+4]]
+  - LED_dim(x) uses dim_palette with same color index mapping.
+- Switches:
+  - Custom Switch class uses digitalio input pull-up.
+  - switch list length = 11, in this order (index i used to compute CC = 14+i in SwitchEvent):
+    0: GP0  (Encoder push) → CC14
+    1: GP1  (Switch A)     → CC15
+    2: GP25 (Switch B)     → CC16
+    3: GP24 (Switch C)     → CC17
+    4: GP23 (Switch D)     → CC18
+    5: GP20 (Switch Up)    → CC19
+    6: GP9  (Switch 1)     → CC20
+    7: GP10 (Switch 2)     → CC21
+    8: GP11 (Switch 3)     → CC22
+    9: GP18 (Switch 4)     → CC23 (code comment typo says “Switch 3”)
+    10: GP19 (Switch Down) → CC24
+  - In tuner mode, switches index 5 and 10 (Up/Down) are ignored.
+  - On press: send CC (14+i) value 127 on both USB and serial MIDI; on release send value 0.
+- Encoder:
+  - rotaryio.IncrementalEncoder(board.GP2, board.GP3, 2)
+  - encoder_value initialized 38; on delta sends CC11.
+- Analog:
+  - exp1 = AnalogIn(board.A1), exp2 = AnalogIn(board.A2), bat = AnalogIn(board.A3)
+  - automatic min/max calibration; sends CC12/13 when maxed and changed
+  - battery voltage computed with simple low-pass and displayed in element 11
+- Display:
+  - displayio.release_displays()
+  - pins:
+    - tft_pwm = board.GP8 (declared but not used later in code)
+    - tft_cs  = board.GP13
+    - tft_dc  = board.GP12
+    - spi_mosi = board.GP15
+    - spi_clk  = board.GP14
+  - SPI configured to 24 MHz
+  - ST7789(width=240,height=240,rowstart=80,rotation=180)
+  - Fonts loaded from `/fonts/`:
+    - PTSans-Regular-20.pcf
+    - PTSans-NarrowBold-54.pcf
+    - PTSans-Bold-60.pcf
+  - UI layout:
+    - 14 display elements laid out with arrays x,y,w,h
+    - element 6 is the large center block
+    - element 11 shows battery voltage (“3.30 V” default)
+    - color/text/value arrays c,f,t,v with change flags cc/vc/tc
+    - loads overrides from `/setup/HKAudioSetup.txt` (parses “CC# : color, label”)
+- MIDI:
+  - USB MIDI: `adafruit_midi.MIDI(midi_out=usb_midi.ports[1], midi_in=usb_midi.ports[0])`
+  - Serial MIDI: UART tx=GP16 rx=GP17 baud=31250 timeout=0.003 receiver_buffer_size=512; wrapped in adafruit_midi.MIDI.
+  - MIDI_parse handles:
+    - ControlChange:
+      - CC 11–24: updates internal v[] and redraw flags; for CC>=15 controls LEDs (on if >63 else dim)
+      - CC 25: toggles tuner mode visibility
+    - SystemExclusive:
+      - manufacturer_id [0x59]; data: [k_cc, c_cc, ascii label...]
+      - updates colors and labels for CC 11–25 (color palette index <27)
+    - NoteOn/NoteOff/PitchBend only in tuner mode (note name + pitch pointer)
+- Concurrency:
+  - Uses asyncio tasks:
+    - MidiEvent: polls usb + serial receive and parses
+    - SwitchEvent: scans 11 switches and sends CCs on change
+    - EncoderEvent: polls encoder and sends CC11
+    - AnalogInEvent: reads exp1/2 + battery, sends CC12/13, updates battery label
+    - ReDraw: updates display elements based on flags
+  - Main: asyncio.run(main())
+
+Notable hardcoded / “Helmut-specific” aspects (targets for refactor):
+- Fixed CC mapping 11–25 and special tuner mode on CC25
+- Battery voltage display element (Max wants removed)
+- Layout arrays x/y/w/h fixed for STD display; Max wants a 5-top/5-bottom evenly spaced layout and more LCD control.
+- Names/colors controlled by HKAudioSetup and SysEx; likely keep, but make more generic schema.
+- Switch list hardcoded to STD pins; for Mini6 will differ (including board.LED and board.VBUS_SENSE).
+- MIDI receive already supported for CC 11–24 and SysEx [0x59]; this is good foundation for “host updates device state.”
+
+Mini6 compatibility inference:
+- Display pins/params match.
+- NeoPixel pin matches.
+- UART pins likely match.
+- Switch pins differ; Mini6 has 6 switches and uses unusual pins for top-middle/top-right (board.LED and board.VBUS_SENSE). Device abstraction is needed.
+
+
+## 5. Current refactor status and intended next steps
+
+### 5.1 Device abstraction started
+File created: `firmware/dev/devices/std10.py`
+Purpose: centralize hardware constants.
+
+Current std10.py contents (created by Max in terminal):
+- LED_PIN=GP7, LED_COUNT=30
+- SWITCH_PINS: GP0,GP1,GP25,GP24,GP23,GP20,GP9,GP10,GP11,GP18,GP19
+- ENCODER pins GP2/GP3
+- EXP1=A1, EXP2=A2, BATTERY=A3
+- Display pins GP12/GP13/GP14/GP15
+- Display params width/height/rowstart/rotation
+
+### 5.2 Planned refactor step (in-progress)
+Goal: modify `firmware/dev/code.py` to import from `devices.std10` and use those constants, without behavior changes.
+Mechanics:
+- Add `from devices.std10 import ...` in dev code
+- Replace hardcoded board pins and counts with imported constants
+- Keep all logic identical
+
+### 5.3 Mini6 device file (planned next)
+Create `firmware/dev/devices/mini6.py` with:
+- LED pin GP7
+- Display pins/params same as STD
+- Switch pins in physical order:
+  [board.GP1, board.LED, board.VBUS_SENSE, board.GP9, board.GP10, board.GP11]
+- Encoder/EXP/battery: TBD (needs probing whether present/usable on Mini6)
+This will enable multi-device selection.
+
+### 5.4 High-level feature roadmap (Max’s stated wants)
+- Make firmware more generic; less purpose-built for Helmut’s DAW mapping.
+- Strong bidirectional MIDI so LEDs/LCD follow host state (already partially implemented via MIDI_parse CC receive).
+- LCD control improvements:
+  - even-spaced slots for all five top/bottom row switches (STD10)
+  - remove battery voltage display
+  - tuner monitoring is interesting but optional
+- Support smaller devices (Mini6 first priority), then other variations.
+- Track/maintain via GitHub; release/promotion.
+
+### 5.5 Collaboration / workflow notes
+- Max is experienced with git; prefers minimal handholding.
+- Reliable truth source is terminal (`git status`, `ls`, etc.).
+- For device testing, serial auto-reconnect loops (screen) + manual power-cycles used.
+
+
+## 6. Immediate action items for the next agent
+1) Restore `firmware/dev/code.py` to include the “DEV BUILD” banner commit (a441217) if desired.
+2) Implement the import-and-replace extraction in `firmware/dev/code.py` to use `devices/std10.py` constants:
+   - neo_pin, LED_count, encoder pins, AnalogIn pins, display pins/params, switch pins
+3) Add `devices/mini6.py` using the empirically verified switch mapping and shared display/neopixel pins.
+4) Decide how to select device at runtime:
+   - simplest: constant `DEVICE="std10"` / `DEVICE="mini6"` in code.py
+   - next: auto-detect via config or runtime probe.
+5) Begin UI/layout refactor:
+   - treat display elements as a layout object separate from device/pins
+   - remove battery element behind a feature flag
+   - implement 5+5 slot layout option for STD10.
+6) Licensing: get permission/license before public redistribution; placeholder license warns no license granted.
+
+
+## 7. Appendix: std10.py (verbatim)
+import board
+
+# NeoPixels
+LED_PIN = board.GP7
+LED_COUNT = 30  # 10 switches * 3 pixels
+
+# Footswitches (as used by Helmut firmware)
+SWITCH_PINS = [
+    board.GP0,
+    board.GP1,
+    board.GP25,
+    board.GP24,
+    board.GP23,
+    board.GP20,
+    board.GP9,
+    board.GP10,
+    board.GP11,
+    board.GP18,
+    board.GP19,
+]
+
+# Encoder
+ENCODER_A_PIN = board.GP2
+ENCODER_B_PIN = board.GP3
+
+# Analog inputs
+EXP1_PIN = board.A1
+EXP2_PIN = board.A2
+BATTERY_PIN = board.A3
+
+# Display (ST7789 over SPI)
+TFT_DC_PIN = board.GP12
+TFT_CS_PIN = board.GP13
+TFT_SCK_PIN = board.GP14
+TFT_MOSI_PIN = board.GP15
+
+# ST7789 parameters
+DISPLAY_WIDTH = 240
+DISPLAY_HEIGHT = 240
+DISPLAY_ROWSTART = 80
+DISPLAY_ROTATION = 180
+
+End of handoff summary.

@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create firmware package
+        run: |
+          mkdir -p dist
+          # Package dev firmware (excludes original_helmut)
+          cd firmware/dev
+          zip -r ../../dist/midicaptain-firmware-${{ steps.version.outputs.VERSION }}.zip \
+            code.py \
+            devices/ \
+            *.txt \
+            *.pcf \
+            -x "*.pyc" -x "__pycache__/*"
+          cd ../..
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          # Extract version type for release notes header
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          if [[ "$VERSION" == *"alpha"* ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_OUTPUT
+            echo "NOTES=⚠️ **Alpha Release** - For testing only. Not recommended for production use." >> $GITHUB_OUTPUT
+          elif [[ "$VERSION" == *"beta"* ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_OUTPUT
+            echo "NOTES=🧪 **Beta Release** - Feature complete, undergoing final testing." >> $GITHUB_OUTPUT
+          else
+            echo "PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "NOTES=✅ **Stable Release**" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          prerelease: ${{ steps.notes.outputs.PRERELEASE }}
+          generate_release_notes: true
+          body: |
+            ${{ steps.notes.outputs.NOTES }}
+
+            ## Installation
+            1. Download the firmware zip below
+            2. Extract to your CIRCUITPY drive
+            3. See README for configuration options
+
+            ## What's Changed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
