@@ -146,9 +146,15 @@ Recommended approach: Use `blinka` + `pytest` for unit testing core logic, on-de
 
 ## Licensing
 
-**NO LICENSE GRANTED YET**
+**Permission granted by Helmut Keller** to fork and redistribute with attribution.
 
-This repository contains code derived from Helmut Keller's work. Do not redistribute or publish builds until licensing is clarified. The `LICENSE` file contains a placeholder warning.
+> "My code is available on my website only.
+> Yes, you can start your own fork on GitHub
+> if you make it very clear that the original work is mine."
+
+- Original code in `firmware/original_helmut/` remains Helmut's work (see https://hfrk.de)
+- New code in `firmware/dev/` is MIT licensed with required attribution to Helmut
+- See `LICENSE` file for full terms
 
 ---
 

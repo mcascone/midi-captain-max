@@ -1,6 +1,83 @@
-NO LICENSE GRANTED YET
+# MIDICAPTAIN-HK-FIRMWARE LICENSE
 
-This repository currently contains code derived from third-party sources.
-Do not redistribute or publish builds until licensing/permission is clarified.
+**Version 1.0 — January 2026**
 
-(Replace this file once licensing is confirmed.)
+Copyright (c) 2026 Maximilian Cascone
+
+---
+
+## Attribution
+
+This software is a derivative work based on firmware originally created by
+**Helmut Keller** (https://hfrk.de). The original code in `firmware/original_helmut/`
+remains Helmut Keller's work, preserved unmodified for reference.
+
+Permission to create this derivative work was granted by Helmut Keller:
+
+> "My code is available on my website only.
+> Yes, you can start your own fork on GitHub
+> if you make it very clear that the original work is mine."
+
+---
+
+## Terms and Conditions
+
+### 1. Permitted Uses
+
+You MAY:
+
+- **Use** this software for personal or commercial purposes, including paid
+  performances, studio recordings, live shows, and professional productions.
+- **Copy and redistribute** unmodified copies of this software, provided all
+  attribution notices remain intact.
+- **Study** the source code for educational purposes.
+- **Discuss, review, and promote** this software publicly.
+
+### 2. Prohibited Uses
+
+You MAY NOT:
+
+- **Sell** this software, whether standalone or bundled with hardware, as if
+  you own or created it.
+- **Claim ownership** or authorship of this software or any substantial part.
+- **Modify or create derivative works** without prior written permission from
+  the copyright holder.
+- **Remove or alter** any attribution notices, copyright statements, or
+  license terms.
+- **Sublicense** this software or grant rights to others beyond what this
+  license permits.
+
+### 3. Commercial Licensing
+
+If you wish to:
+- Sell products that include this software
+- Create and distribute modified versions
+- Integrate this software into commercial offerings
+
+Contact the copyright holder to discuss licensing terms.
+
+### 4. Contributions
+
+Bug reports, patches, and improvements submitted to this project may be
+incorporated at the copyright holder's discretion. By submitting contributions,
+you agree to grant the copyright holder a perpetual, royalty-free license to
+use, modify, and distribute your contributions as part of this project.
+
+### 5. Disclaimer
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Contact
+
+For commercial licensing, permissions, or inquiries:
+**Maximilian Cascone**
+- Email: max@maxcascone.com
+- GitHub: [@mcascone](https://github.com/mcascone)
