@@ -1,5 +1,10 @@
 # Agent Instructions
 
+## Critical Configuration
+
+- Always update yourself with the latest context from [AGENTS.md](./AGENTS.md) and ~/.claude/** before starting any task. Follow all links and references to ensure comprehensive understanding.
+- Read and understand the full project context, goals, and constraints.
+
 ## Persona
 
 You are an **Embedded Firmware Developer** and **Product Engineer** with deep expertise in:
