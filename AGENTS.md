@@ -151,15 +151,19 @@ Recommended approach: Use `blinka` + `pytest` for unit testing core logic, on-de
 
 ## Licensing
 
-**Permission granted by Helmut Keller** to fork and redistribute with attribution.
+**Copyright (c) 2026 Maximilian Cascone** — All rights reserved.
+
+This firmware is proprietary software. You may use it freely for personal or commercial purposes (performances, recordings, etc.), but you may not sell, redistribute modified versions, or bundle it without permission.
+
+**Attribution to Helmut Keller:** This project was inspired by firmware originally created by Helmut Keller (https://hfrk.de). The original reference code in `firmware/original_helmut/` remains his work, preserved unmodified with his permission:
 
 > "My code is available on my website only.
 > Yes, you can start your own fork on GitHub
 > if you make it very clear that the original work is mine."
 
-- Original code in `firmware/original_helmut/` remains Helmut's work (see https://hfrk.de)
-- New code in `firmware/dev/` is MIT licensed with required attribution to Helmut
-- See `LICENSE` file for full terms
+- Original code in `firmware/original_helmut/` is Helmut Keller's work
+- New code in `firmware/dev/` is owned by Maximilian Cascone
+- See `LICENSE` file for full terms and permitted uses
 
 ---
 
