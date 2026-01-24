@@ -4,6 +4,7 @@
 
 - Always update yourself with the latest context from [AGENTS.md](./AGENTS.md) and ~/.claude/** before starting any task. Follow all links and references to ensure comprehensive understanding.
 - Read and understand the full project context, goals, and constraints.
+- Review the **Design Document**: [docs/plans/2026-01-23-custom-firmware-design.md](docs/plans/2026-01-23-custom-firmware-design.md)
 
 ## Persona
 
@@ -21,18 +22,67 @@ You approach problems with both engineering rigor and product sensibility. You w
 
 ## Project Context
 
-This repository refactors **Helmut Keller's CircuitPython firmware** for Paint Audio MIDI Captain foot controllers into a **generic, config-driven, multi-device firmware** suitable for diverse MIDI performance scenarios.
+This repository creates **custom CircuitPython firmware** for Paint Audio MIDI Captain foot controllers — a **generic, config-driven, bidirectional MIDI firmware** suitable for diverse performance scenarios.
 
-### Goals
+### Primary Goals
 - **Bidirectional MIDI sync** — host controls LEDs/LCD state, device sends switch/encoder events
 - **Config-driven mapping** — YAML-based configuration for MIDI assignments and UI layouts
-- **Multi-device support** — STD10 (10-switch) and Mini6 (6-switch) primary targets; extensible to 1/2/4 variants
+- **Multi-device support** — STD10 (10-switch) and Mini6 (6-switch) primary targets
+- **Hybrid state model** — local toggle for instant feedback, host-authoritative when it speaks
 - **Clean architecture** — device abstraction layer, separation of concerns, testable components
 
-### Use Cases
-- Live performance control of DAWs, plugin hosts, or multi-effect units
-- Configurable button-to-CC/PC/Note mappings
-- Visual feedback (LEDs, LCD) reflecting host state
+### Target Users
+- Musicians controlling DAWs, plugin hosts (MainStage, Gig Performer), or multi-effect units
+- Power users who want configurable button-to-CC/PC/Note mappings
+- Anyone needing visual feedback (LEDs, LCD) reflecting host state
+
+---
+
+## Design Decisions (from Brainstorming)
+
+These decisions were made during the 2026-01-23 brainstorming session:
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Source of truth** | Hybrid | Local state for instant feedback, host overrides when it speaks |
+| **MIDI types** | CC + PC + SysEx + Notes | Full protocol support; Notes enable tuner display |
+| **Display MVP** | Button label slots | Each switch gets a labeled area; center status area later |
+| **Config format** | YAML | Standard, predictable, web-tool-friendly |
+| **Architecture** | Hybrid | Helmut's asyncio core + lightweight abstractions |
+| **Button modes** | All | Momentary, toggle, long-press, tap tempo (phased rollout) |
+
+### Feature Priority (MVP)
+
+| Priority | Feature | Status |
+|----------|---------|--------|
+| 1 | Bidirectional CC (host → device LED sync) | 🔨 Demo built |
+| 2 | Button label slots on screen | Planned |
+| 3 | YAML config for button→MIDI mappings | Planned |
+| 4 | Momentary + Toggle modes per button | Planned |
+| 5 | Multi-device support (STD10 + Mini6) | Abstraction started |
+| 6 | SysEx for dynamic labels/colors | Post-MVP |
+| 7 | Long-press detection | Post-MVP |
+| 8 | Center status area | Post-MVP |
+
+---
+
+## Prior Art & Reference Implementations
+
+### OEM SuperMode Firmware
+- **Docs**: `docs/FW-SuperMode-4.0-BriefGuide.txt`, `docs/Super_Mode_V1.2.en.pdf`
+- **Strengths**: Keytimes (multi-press cycling), 99 pages, 3-segment LED control, HID keyboard
+- **Weaknesses**: No bidirectional MIDI — device can't respond to host state changes
+
+### Helmut Keller's Firmware
+- **Code**: `firmware/original_helmut/code.py`
+- **Docs**: `docs/a midi foot controller...pdf`, `docs/GLOBAL RACKSPACE Script...gpscript`
+- **Strengths**: Bidirectional CC/SysEx, tuner mode, clean asyncio architecture
+- **Weaknesses**: Hardcoded to Helmut's workflow, fixed CC mapping, STD10-only
+
+### PySwitch (Tunetown)
+- **Repo**: https://github.com/Tunetown/PySwitch
+- **Strengths**: Action/callback architecture, web config tool, multi-device support
+- **Weaknesses**: Complex architecture, heavily Kemper-focused, Python config (not YAML)
 
 ---
 
@@ -47,8 +97,11 @@ All code in `firmware/original_helmut/` is authored by **Helmut Keller** and mus
 |------|---------|
 | `firmware/original_helmut/` | Helmut Keller's original firmware — **DO NOT MODIFY** |
 | `firmware/dev/` | Active development — refactored code goes here |
-| `firmware/dev/devices/` | Device abstraction modules (std10.py, mini6.py, etc.) |
+| `firmware/dev/devices/` | Device abstraction modules (std10.py, mini6.py) |
+| `firmware/dev/experiments/` | Throwaway experiments and proof-of-concepts |
+| `firmware/dev/core/` | Core modules (planned: button.py, led.py, display.py, etc.) |
 | `docs/` | Architecture notes, MIDI protocol docs, hardware findings |
+| `docs/plans/` | Design documents and implementation plans |
 | `tools/` | Helper scripts (packaging, validation, deployment) |
 
 ### New Code Guidelines
@@ -90,7 +143,7 @@ git push origin v1.0.0-alpha.1
 ### Configuration
 - **YAML** for user-facing configuration (MIDI mappings, layouts, device settings)
 - Keep config schema documented and validated
-- Future: Web/app-based config tool (tracked in roadmap)
+- Design with future web/app config tool in mind
 
 ---
 
@@ -123,7 +176,7 @@ Hardware pin mappings are documented in [docs/midicaptain_reverse_engineering_ha
 
 ### Device Abstraction
 Device-specific constants live in `firmware/dev/devices/`:
-- `std10.py` — STD10 pin definitions and counts
+- `std10.py` — STD10 pin definitions and counts ✅
 - `mini6.py` — Mini6 pin definitions (planned)
 
 ---
@@ -133,7 +186,14 @@ Device-specific constants live in `firmware/dev/devices/`:
 ### On-Device Testing
 - Copy code to CIRCUITPY volume, observe behavior via serial console
 - Use `screen` with auto-reconnect loop for serial monitoring
-- Minimal test scripts to validate individual components
+- Experiments in `firmware/dev/experiments/` for isolated testing
+
+### Deployment
+```bash
+# Assuming CIRCUITPY is mounted
+cp firmware/dev/experiments/bidirectional_demo.py /Volumes/CIRCUITPY/code.py
+cp -r firmware/dev/devices /Volumes/CIRCUITPY/
+```
 
 ### Desktop Testing (Future)
 Options for RP2040/CircuitPython simulation and mocking:
@@ -171,17 +231,27 @@ This firmware is proprietary software. You may use it freely for personal or com
 
 Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 
-### Near-term
-- [ ] Complete device abstraction (Mini6 support)
-- [ ] Refactor `code.py` to use device modules
-- [ ] YAML config loading for MIDI mappings
-- [ ] Bidirectional CC handling (host → device LEDs)
+### Current Phase: Experiments
+- [x] Bidirectional MIDI demo (`experiments/bidirectional_demo.py`)
+- [x] Device abstraction started (`devices/std10.py`)
+- [x] Design document written
+- [ ] Test demo on STD10 hardware
+- [ ] Display layout experiment
+- [ ] YAML config loading experiment
+
+### Phase 2: MVP Integration
+- [ ] Merge experiments into main `code.py`
+- [ ] Full asyncio task structure
+- [ ] Mini6 device support
+- [ ] Complete YAML config schema
 
 ### Future
 - [ ] Web-based configuration tool
 - [ ] Support for 1/2/4-switch variants
 - [ ] Custom display layouts
 - [ ] SysEx protocol documentation
+- [ ] Keytimes / multi-press cycling
+- [ ] Pages / banks
 
 ---
 
@@ -192,7 +262,10 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 | `firmware/original_helmut/code.py` | Helmut's original firmware (reference only) |
 | `firmware/dev/code.py` | Active development firmware |
 | `firmware/dev/devices/std10.py` | STD10 hardware constants |
-| `docs/midicaptain_reverse_engineering_handoff.txt` | Full project history and hardware findings |
+| `firmware/dev/experiments/bidirectional_demo.py` | Current bidirectional MIDI experiment |
+| `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
+| `docs/midicaptain_reverse_engineering_handoff.txt` | Project history and hardware findings |
+| `docs/FW-SuperMode-4.0-BriefGuide.txt` | OEM firmware config reference |
 
 ---
 
