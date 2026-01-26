@@ -189,15 +189,15 @@ Device-specific constants live in `firmware/dev/devices/`:
 ## Testing Strategy
 
 ### On-Device Testing
-- Copy code to CIRCUITPY volume, observe behavior via serial console
+- Copy code to MIDICAPTAIN volume, observe behavior via serial console
 - Use `screen` with auto-reconnect loop for serial monitoring
 - Experiments in `firmware/dev/experiments/` for isolated testing
 
 ### Deployment
 ```bash
-# Assuming CIRCUITPY is mounted
-cp firmware/dev/experiments/bidirectional_demo.py /Volumes/CIRCUITPY/code.py
-cp -r firmware/dev/devices /Volumes/CIRCUITPY/
+# MIDI Captain mounts as MIDICAPTAIN (not CIRCUITPY)
+cp firmware/dev/experiments/bidirectional_demo.py /Volumes/MIDICAPTAIN/code.py
+cp -r firmware/dev/devices /Volumes/MIDICAPTAIN/
 ```
 
 ### Desktop Testing (Future)
