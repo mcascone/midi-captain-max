@@ -22,14 +22,14 @@ jobs:
       - name: Create firmware package
         run: |
           mkdir -p dist
-          # Package dev firmware (excludes original_helmut)
+          # Package dev firmware (excludes original_helmut and experiments)
           cd firmware/dev
           zip -r ../../dist/midicaptain-firmware-${{ steps.version.outputs.VERSION }}.zip \
             code.py \
             devices/ \
             *.txt \
             *.pcf \
-            -x "*.pyc" -x "__pycache__/*"
+            -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__"
           cd ../..
 
       - name: Generate release notes
