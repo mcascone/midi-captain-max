@@ -126,11 +126,12 @@ All code in `firmware/original_helmut/` is authored by **Helmut Keller** and mus
 
 ### CI/CD (GitHub Actions)
 - **CI workflow** (`.github/workflows/ci.yml`): Runs on push/PR to `main`
-  - Lints code with Ruff
+  - Lints code with Ruff (ignores E501, F401, E402 for CircuitPython compatibility)
   - Validates Python syntax
+  - Uses `requirements-dev.txt` for dependencies
   - Future: Unit tests with pytest + blinka
 - **Release workflow** (`.github/workflows/release.yml`): Triggered by version tags
-  - Packages `firmware/dev/` into a zip
+  - Packages `firmware/dev/` into a zip (excludes `experiments/`, `__pycache__/`)
   - Creates GitHub Release with artifacts
   - Auto-detects alpha/beta for pre-release flag
 
@@ -139,6 +140,10 @@ To create a release:
 git tag v1.0.0-alpha.1
 git push origin v1.0.0-alpha.1
 ```
+
+### Dependencies
+- **`requirements-dev.txt`**: CI/dev tools (ruff, future pytest/blinka)
+- **`requirements-circuitpython.txt`**: On-device libraries for `circup install -r`
 
 ### Configuration
 - **YAML** for user-facing configuration (MIDI mappings, layouts, device settings)
@@ -235,6 +240,7 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [x] Bidirectional MIDI demo (`experiments/bidirectional_demo.py`)
 - [x] Device abstraction started (`devices/std10.py`)
 - [x] Design document written
+- [x] CI/CD pipelines working (lint, syntax check, release packaging)
 - [ ] Test demo on STD10 hardware
 - [ ] Display layout experiment
 - [ ] YAML config loading experiment
