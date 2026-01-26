@@ -1,0 +1,10 @@
+# CircuitPython library dependencies
+# Install with circup: circup install -r requirements-circuitpython.txt
+# Or download from: https://circuitpython.org/libraries
+
+adafruit_midi
+adafruit_display_text
+adafruit_bitmap_font
+adafruit_display_shapes
+adafruit_st7789
+neopixel

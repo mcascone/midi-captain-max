@@ -1,0 +1,9 @@
+# Development dependencies for CI and local development
+# Install with: pip install -r requirements-dev.txt
+
+# Linting
+ruff>=0.14.0
+
+# Future: Testing with hardware mocks
+# pytest>=8.0.0
+# adafruit-blinka>=8.0.0
