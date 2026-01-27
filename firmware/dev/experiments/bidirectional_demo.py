@@ -26,6 +26,7 @@ from devices.std10 import (
     LED_PIN,
     LED_COUNT,
     SWITCH_PINS,
+    switch_to_led,
 )
 
 # --- Configuration ---
@@ -98,33 +99,38 @@ print(f"MIDI initialized on channel {MIDI_CHANNEL + 1}")
 
 # --- State ---
 
-# Track LED states (True = on, False = off) for switches 0-9 (we have 10 LEDs)
+# Track LED states (True = on, False = off) for LEDs 0-9
 led_states = [False] * 10
 
 def update_led_from_state(switch_idx):
     """Update LED based on current state."""
-    if switch_idx < 10:  # Only 10 switches have LEDs
-        color = COLOR_ON if led_states[switch_idx] else COLOR_OFF
-        set_switch_leds(switch_idx, color)
+    led_idx = switch_to_led(switch_idx)
+    if led_idx is not None:
+        color = COLOR_ON if led_states[led_idx] else COLOR_OFF
+        set_switch_leds(led_idx, color)
         pixels.show()
 
 # --- Main Loop ---
 
 def handle_incoming_midi():
-    """Check for incoming MIDI and update LEDs."""
-    msg = midi_usb.receive()
-    if msg is not None:
+    """Check for incoming MIDI and update LEDs. Drains all pending messages."""
+    # Process all pending messages to reduce latency
+    while True:
+        msg = midi_usb.receive()
+        if msg is None:
+            break
         if isinstance(msg, ControlChange):
             cc_num = msg.control
             cc_val = msg.value
             
-            # Map CC20-29 to switches 0-9
+            # Map CC to switch index (CC20 → switch 0, CC26 → switch 6, etc.)
             switch_idx = cc_num - CC_START
-            if 0 <= switch_idx < 10:
+            led_idx = switch_to_led(switch_idx)
+            if led_idx is not None:
                 # Value > 63 = on, else off
-                led_states[switch_idx] = cc_val > 63
+                led_states[led_idx] = cc_val > 63
                 update_led_from_state(switch_idx)
-                print(f"RX: CC{cc_num}={cc_val} → Switch {switch_idx} {'ON' if cc_val > 63 else 'OFF'}")
+                print(f"RX: CC{cc_num}={cc_val} → LED {led_idx} {'ON' if cc_val > 63 else 'OFF'}")
 
 def handle_switches():
     """Check switches and send MIDI on change."""
@@ -137,8 +143,9 @@ def handle_switches():
             print(f"TX: Switch {i} {'pressed' if pressed else 'released'} → CC{cc_num}={cc_val}")
             
             # Also update local LED state on press (hybrid mode: local + host)
-            if i < 10 and pressed:
-                led_states[i] = not led_states[i]  # Toggle on press
+            led_idx = switch_to_led(i)
+            if led_idx is not None and pressed:
+                led_states[led_idx] = not led_states[led_idx]  # Toggle on press
                 update_led_from_state(i)
 
 # --- Startup ---
