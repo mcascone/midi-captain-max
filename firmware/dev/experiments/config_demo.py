@@ -24,6 +24,7 @@ import adafruit_midi
 from adafruit_midi.control_change import ControlChange
 from adafruit_display_text import label
 from adafruit_st7789 import ST7789
+from adafruit_bitmap_font import bitmap_font
 
 # Import device constants
 from devices.std10 import (
@@ -48,6 +49,23 @@ COLORS = {
     "white": (255, 255, 255),
     "off": (0, 0, 0),
 }
+
+# =============================================================================
+# Fonts
+# =============================================================================
+
+# Try to load PCF fonts, fall back to built-in
+# Note: 20pt font works well for Mini6 (6 switches = wider boxes)
+# For STD10 (10 switches), built-in font fits better
+try:
+    # BUTTON_FONT = bitmap_font.load_font("/fonts/PTSans-Regular-20.pcf")  # Use for Mini6
+    BUTTON_FONT = terminalio.FONT  # Better for STD10's narrow boxes
+    STATUS_FONT = bitmap_font.load_font("/fonts/PTSans-Regular-20.pcf")
+    print("Loaded PCF fonts")
+except Exception as e:
+    print(f"Font load failed: {e}, using built-in")
+    BUTTON_FONT = terminalio.FONT
+    STATUS_FONT = terminalio.FONT
 
 def get_color(name):
     """Get RGB tuple from color name, with fallback to white."""
@@ -142,7 +160,7 @@ main_group.append(bg_sprite)
 button_labels = []
 button_boxes = []
 button_width = 46
-button_height = 30
+button_height = 30  # Back to smaller height for 20pt font
 button_spacing = 48
 top_row_y = 5       # Top of display
 bottom_row_y = 205  # Bottom of display
@@ -182,8 +200,8 @@ for i in range(10):
     # Create label centered in box
     color_hex = (color_rgb[0] << 16) | (color_rgb[1] << 8) | color_rgb[2]
     lbl = label.Label(
-        terminalio.FONT,
-        text=btn_config.get("label", str(i+1))[:5],  # Max 5 chars
+        BUTTON_FONT,
+        text=btn_config.get("label", str(i+1))[:4],  # Max 4 chars for larger font
         color=color_hex,
         anchor_point=(0.5, 0.5),
         anchored_position=(x + button_width // 2, y + button_height // 2)
@@ -193,7 +211,7 @@ for i in range(10):
 
 # Status area
 status_label = label.Label(
-    terminalio.FONT,
+    STATUS_FONT,
     text="Config Demo Ready",
     color=0xFFFFFF,
     anchor_point=(0.5, 0.5),
