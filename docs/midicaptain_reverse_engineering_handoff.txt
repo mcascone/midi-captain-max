@@ -1,6 +1,9 @@
 # MIDI Captain Reverse Engineering / Refactor Effort — Handoff Summary (Jan 14, 2026)
 
 > **⚠️ HISTORICAL DOCUMENT**
+> THIS DOCUMENT IS FOR HISTORICAL CONTEXT ONLY.
+> It summarizes the reverse engineering and refactor effort around Paint Audio's MIDI Captain foot controllers as of January 14, 2026.
+> It is not actively maintained and is not the source of truth for current hardware or firmware details.
 > This document captures the state of the project as of January 14, 2026.
 > For current hardware specifications, see [hardware-reference.md](hardware-reference.md).
 > Kept for historical context on the reverse engineering process.

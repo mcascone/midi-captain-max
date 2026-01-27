@@ -167,7 +167,7 @@ All devices use `boot.py` with GP1 as a mode pin:
 # If GP1 is False: enable USB drive as MIDICAPTAIN, remount RO
 ```
 
-- **Volume Label:** `MIDICAPTAIN` (not CIRCUITPY)
+- **Volume Label:** `CIRCUITPY` (changed from MIDICAPTAIN for extension compatibility)
 - **Autoreload:** Disabled by default for performance
 - GP1 is read at boot but can be used as a switch afterward
 

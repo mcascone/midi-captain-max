@@ -201,9 +201,9 @@ Device-specific constants live in `firmware/dev/devices/`:
 
 ### Deployment
 ```bash
-# MIDI Captain mounts as MIDICAPTAIN (not CIRCUITPY)
-cp firmware/dev/experiments/bidirectional_demo.py /Volumes/MIDICAPTAIN/code.py
-cp -r firmware/dev/devices /Volumes/MIDICAPTAIN/
+# MIDI Captain mounts as CIRCUITPY
+cp firmware/dev/experiments/bidirectional_demo.py /Volumes/CIRCUITPY/code.py
+cp -r firmware/dev/devices /Volumes/CIRCUITPY/
 ```
 
 ### Desktop Testing (Future)
