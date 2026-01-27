@@ -91,6 +91,9 @@ These decisions were made during the 2026-01-23 brainstorming session:
 ### ⚠️ Original Code Preservation
 All code in `firmware/original_helmut/` is authored by **Helmut Keller** and must remain **untouched** with full attribution. This serves as the pristine reference baseline.
 
+### Development Philosophy
+**Helmut's code was a starting point, not a constraint.** We are free to completely refactor, redesign, or rewrite any functionality. There is no requirement to stay close to his architecture, naming conventions, or approach. Build what makes sense for this project.
+
 ### Directory Layout
 
 | Path | Purpose |
@@ -241,7 +244,7 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [x] Device abstraction started (`devices/std10.py`)
 - [x] Design document written
 - [x] CI/CD pipelines working (lint, syntax check, release packaging)
-- [ ] Test demo on STD10 hardware
+- [x] Test demo on STD10 hardware (2026-01-26: switches + LEDs + bidirectional CC working)
 - [ ] Display layout experiment
 - [ ] YAML config loading experiment
 
