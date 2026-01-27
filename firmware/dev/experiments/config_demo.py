@@ -201,7 +201,7 @@ for i in range(10):
     color_hex = (color_rgb[0] << 16) | (color_rgb[1] << 8) | color_rgb[2]
     lbl = label.Label(
         BUTTON_FONT,
-        text=btn_config.get("label", str(i+1))[:4],  # Max 4 chars for larger font
+        text=btn_config.get("label", str(i+1))[:6],  # Max 6 chars
         color=color_hex,
         anchor_point=(0.5, 0.5),
         anchored_position=(x + button_width // 2, y + button_height // 2)

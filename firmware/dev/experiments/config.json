@@ -1,14 +1,14 @@
 {
   "buttons": [
-    {"label": "VERB", "cc": 20, "color": "green"},
-    {"label": "DLY", "cc": 21, "color": "blue"},
-    {"label": "CHO", "cc": 22, "color": "yellow"},
-    {"label": "COMP", "cc": 23, "color": "magenta"},
-    {"label": "DOWN", "cc": 24, "color": "white"},
-    {"label": "DRIVE", "cc": 25, "color": "orange"},
-    {"label": "WAH", "cc": 26, "color": "cyan"},
-    {"label": "BOOST", "cc": 27, "color": "red"},
-    {"label": "SNAP", "cc": 28, "color": "purple"},
-    {"label": "UP", "cc": 29, "color": "white"}
+    {"label": "TSC", "cc": 20, "color": "green"},
+    {"label": "CHOR", "cc": 21, "color": "blue"},
+    {"label": "DELAY", "cc": 22, "color": "yellow"},
+    {"label": "SHIM", "cc": 23, "color": "magenta"},
+    {"label": "TREM", "cc": 24, "color": "white"},
+    {"label": "WOW", "cc": 25, "color": "orange"},
+    {"label": "OCT", "cc": 26, "color": "cyan"},
+    {"label": "FREQ", "cc": 27, "color": "red"},
+    {"label": "PLATE", "cc": 28, "color": "purple"},
+    {"label": "ROOM", "cc": 29, "color": "white"}
   ]
 }
