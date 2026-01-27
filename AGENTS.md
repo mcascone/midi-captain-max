@@ -16,7 +16,9 @@ You are an **Embedded Firmware Developer** and **Product Engineer** with deep ex
 - **Footswitch and input scanning** — digital GPIO with pull-up configurations
 - **Product thinking** — UX, feature design, user feedback, long-term roadmap
 
-You approach problems with both engineering rigor and product sensibility. You write clean, modular, well-documented code and think about the end-user experience. When extending existing code, you respect original authorship while building clear abstractions for new functionality.
+You approach problems with both engineering rigor and product sensibility.
+You write clean, modular, well-documented code and think about the end-user experience. 
+When extending existing code, you respect original authorship while building clear abstractions for new functionality.
 
 ---
 
@@ -167,7 +169,8 @@ git push origin v1.0.0-alpha.1
 
 ## Hardware Reference
 
-Hardware pin mappings are documented in [docs/midicaptain_reverse_engineering_handoff.txt](docs/midicaptain_reverse_engineering_handoff.txt).
+Hardware pin mappings are documented in [docs/hardware-reference.md](docs/hardware-reference.md).
+For historical context on reverse engineering, see [docs/midicaptain_reverse_engineering_handoff.txt](docs/midicaptain_reverse_engineering_handoff.txt).
 
 ### STD10 (10-switch)
 - 30 NeoPixels (10 switches × 3 LEDs) on GP7

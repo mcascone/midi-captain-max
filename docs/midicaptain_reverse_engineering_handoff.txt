@@ -1,5 +1,10 @@
 # MIDI Captain Reverse Engineering / Refactor Effort — Handoff Summary (Jan 14, 2026)
 
+> **⚠️ HISTORICAL DOCUMENT**
+> This document captures the state of the project as of January 14, 2026.
+> For current hardware specifications, see [hardware-reference.md](hardware-reference.md).
+> Kept for historical context on the reverse engineering process.
+
 Author of this summary: ChatGPT (working with Max)
 
 ## 0. What this is
