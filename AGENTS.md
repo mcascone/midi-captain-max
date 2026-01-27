@@ -57,9 +57,9 @@ These decisions were made during the 2026-01-23 brainstorming session:
 
 | Priority | Feature | Status |
 |----------|---------|--------|
-| 1 | Bidirectional CC (host → device LED sync) | 🔨 Demo built |
-| 2 | Button label slots on screen | Planned |
-| 3 | YAML config for button→MIDI mappings | Planned |
+| 1 | Bidirectional CC (host → device LED sync) | ✅ Working |
+| 2 | Button label slots on screen | ✅ Working |
+| 3 | JSON config for button→MIDI mappings | ✅ Working |
 | 4 | Momentary + Toggle modes per button | Planned |
 | 5 | Multi-device support (STD10 + Mini6) | Abstraction started |
 | 6 | SysEx for dynamic labels/colors | Post-MVP |
@@ -248,8 +248,10 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [x] Design document written
 - [x] CI/CD pipelines working (lint, syntax check, release packaging)
 - [x] Test demo on STD10 hardware (2026-01-26: switches + LEDs + bidirectional CC working)
-- [ ] Display layout experiment
-- [ ] YAML config loading experiment
+- [x] Display layout experiment (`experiments/display_demo.py`, `midi_display_demo.py`)
+- [x] JSON config loading experiment (`experiments/config_demo.py`, `config.json`)
+- [x] PCF font support (20pt for status, built-in for buttons)
+- [x] Hardware reference doc (`docs/hardware-reference.md`)
 
 ### Phase 2: MVP Integration
 - [ ] Merge experiments into main `code.py`
@@ -274,10 +276,12 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 | `firmware/original_helmut/code.py` | Helmut's original firmware (reference only) |
 | `firmware/dev/code.py` | Active development firmware |
 | `firmware/dev/devices/std10.py` | STD10 hardware constants |
-| `firmware/dev/experiments/bidirectional_demo.py` | Current bidirectional MIDI experiment |
+| `firmware/dev/experiments/config_demo.py` | **Current**: Config-driven MIDI + display demo |
+| `firmware/dev/experiments/config.json` | Button labels, CC numbers, colors |
+| `firmware/dev/experiments/bidirectional_demo.py` | Earlier bidirectional MIDI experiment |
+| `docs/hardware-reference.md` | Verified hardware specs (pins, display, LEDs) |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
-| `docs/midicaptain_reverse_engineering_handoff.txt` | Project history and hardware findings |
-| `docs/FW-SuperMode-4.0-BriefGuide.txt` | OEM firmware config reference |
+| `docs/midicaptain_reverse_engineering_handoff.txt` | Historical: reverse engineering notes |
 
 ---
 
