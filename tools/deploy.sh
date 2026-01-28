@@ -87,6 +87,13 @@ done
 echo -e "${BLUE}=== MIDI Captain Firmware Deploy ===${NC}"
 echo ""
 
+# Auto-detect mount point if not specified
+if [ ! -d "$MOUNT_POINT" ]; then
+    if [ -d "/Volumes/MIDICAPTAIN" ]; then
+        MOUNT_POINT="/Volumes/MIDICAPTAIN"
+    fi
+fi
+
 # Check if device is mounted
 if [ ! -d "$MOUNT_POINT" ]; then
     echo -e "${RED}❌ Device not found at $MOUNT_POINT${NC}"
@@ -94,7 +101,7 @@ if [ ! -d "$MOUNT_POINT" ]; then
     echo "Make sure your MIDI Captain is:"
     echo "  1. Connected via USB"
     echo "  2. Running CircuitPython (not in bootloader mode)"
-    echo "  3. Mounted as CIRCUITPY"
+    echo "  3. Mounted as CIRCUITPY or MIDICAPTAIN"
     echo ""
     echo "If CircuitPython is not installed:"
     echo "  1. Hold BOOTSEL while plugging in USB"
@@ -149,7 +156,35 @@ fi
 echo ""
 echo "📁 Source: $DEV_DIR"
 echo "📱 Target: $MOUNT_POINT"
+
+# Detect device type from existing config on device, or by mount point
+DEVICE_TYPE=""
+if [ -f "$MOUNT_POINT/config.json" ]; then
+    # Try to read device type from existing config
+    DETECTED=$(grep -o '"device"[[:space:]]*:[[:space:]]*"[^"]*"' "$MOUNT_POINT/config.json" 2>/dev/null | sed 's/.*"\([^"]*\)"$/\1/')
+    if [ -n "$DETECTED" ]; then
+        DEVICE_TYPE="$DETECTED"
+    fi
+fi
+
+# Fallback: use mount point as heuristic
+if [ -z "$DEVICE_TYPE" ]; then
+    if [ "$MOUNT_POINT" = "/Volumes/MIDICAPTAIN" ]; then
+        DEVICE_TYPE="mini6"
+    else
+        DEVICE_TYPE="std10"
+    fi
+fi
+
+echo "🎛️  Device type: $DEVICE_TYPE"
 echo ""
+
+# Select appropriate config file
+if [ "$DEVICE_TYPE" = "mini6" ]; then
+    CONFIG_FILE="$DEV_DIR/config-mini6.json"
+else
+    CONFIG_FILE="$DEV_DIR/config.json"
+fi
 
 echo "🚀 Deploying changed files..."
 
@@ -164,8 +199,16 @@ rsync -av --checksum --inplace --itemize-changes \
     --exclude='experiments' \
     "$DEV_DIR/boot.py" \
     "$DEV_DIR/code.py" \
-    "$DEV_DIR/config.json" \
     "$MOUNT_POINT/"
+
+# Deploy config (use device-specific if available)
+if [ -f "$CONFIG_FILE" ]; then
+    rsync -av --checksum --inplace --itemize-changes \
+        "$CONFIG_FILE" "$MOUNT_POINT/config.json"
+else
+    rsync -av --checksum --inplace --itemize-changes \
+        "$DEV_DIR/config.json" "$MOUNT_POINT/config.json"
+fi
 
 # Sync directories separately (rsync handles incremental updates)
 rsync -av --checksum --inplace --itemize-changes \
@@ -199,15 +242,19 @@ elif [ "$DO_RESET" = true ]; then
             kill $SCREEN_PIDS 2>/dev/null || true
             sleep 0.5
         fi
-        # Send Ctrl+C (interrupt running code) then Ctrl+D (soft reload)
-        # Small delay between to ensure REPL is ready
-        printf '\x03' > "$SERIAL_PORT"
-        sleep 0.2
-        printf '\x04' > "$SERIAL_PORT"
+        # Send Ctrl+C (interrupt) then Ctrl+D (soft reload) via stty
+        # Open port briefly, send bytes, close
+        (
+            exec 3<>"$SERIAL_PORT"
+            stty -f "$SERIAL_PORT" 115200 raw -echo 2>/dev/null || true
+            printf '\x03' >&3
+            sleep 0.2
+            printf '\x04' >&3
+            exec 3>&-
+        ) 2>/dev/null
         echo "✅ Deploy complete! Device is reloading."
     else
-        echo "⚠️  No serial port found. Device may need manual reset."
-        echo "   Press Ctrl+C then Ctrl+D in serial console, or eject device."
+        echo "⚠️  No serial port found. Power-cycle device to reload."
     fi
 else
     echo "✅ Deploy complete!"
