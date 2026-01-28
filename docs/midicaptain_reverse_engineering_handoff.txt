@@ -42,7 +42,7 @@ Outcome (high confidence):
 - Footswitch mapping discovered (including “weird” inputs used as switches).
 
 ### 1.2 Helmut firmware refactor repo
-Repo name: `midicaptain-hk-firmware`
+Repo name: `midi-captain-max` (formerly `midicaptain-hk-firmware`)
 Structure:
 - `firmware/original_helmut/` — pristine baseline snapshot (do not edit)
 - `firmware/dev/` — working copy to refactor
