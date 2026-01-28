@@ -349,7 +349,7 @@ def handle_midi():
 
 def handle_switches():
     """Handle footswitch presses."""
-    for i in range(1, 11):  # Skip encoder push (index 0) for now
+    for i in range(1, 11):  # Footswitches 1-10
         sw = switches[i]
         changed, pressed = sw.changed()
 
@@ -364,6 +364,16 @@ def handle_switches():
             cc = btn_config.get("cc", 20 + idx)
             midi.send(ControlChange(cc, 127 if new_state else 0))
             status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+
+
+def handle_encoder_button():
+    """Handle encoder push button."""
+    sw = switches[0]  # Encoder push is switch index 0
+    changed, pressed = sw.changed()
+    if changed:
+        cc_val = 127 if pressed else 0
+        midi.send(ControlChange(CC_ENCODER_PUSH, cc_val))
+        status_label.text = f"TX CC{CC_ENCODER_PUSH}={cc_val}"
 
 
 def handle_encoder():
@@ -434,5 +444,6 @@ print("\nRunning...")
 while True:
     handle_midi()
     handle_switches()
+    handle_encoder_button()
     handle_encoder()
     handle_expression()
