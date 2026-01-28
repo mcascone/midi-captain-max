@@ -1,0 +1,11 @@
+{
+  "device": "mini6",
+  "buttons": [
+    {"label": "1", "cc": 20, "color": "green"},
+    {"label": "2", "cc": 21, "color": "blue"},
+    {"label": "3", "cc": 22, "color": "yellow"},
+    {"label": "4", "cc": 23, "color": "red"},
+    {"label": "5", "cc": 24, "color": "cyan"},
+    {"label": "6", "cc": 25, "color": "white"}
+  ]
+}
