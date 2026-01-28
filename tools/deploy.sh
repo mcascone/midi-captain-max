@@ -1,15 +1,18 @@
 #!/bin/bash
 # Deploy firmware to MIDI Captain device
 #
-# Usage: ./tools/deploy.sh [mount_point]
-#   mount_point: Optional. Defaults to /Volumes/CIRCUITPY
+# Usage: ./tools/deploy.sh [options] [mount_point]
 #
 # Options:
-#   --no-eject    Don't eject after deploy (device resets on each file)
+#   --eject       Eject device after deploy (for performance mode)
+#   --no-reset    Don't send soft reset after deploy
 #
-# Example:
-#   ./tools/deploy.sh                    # Deploy to default mount
-#   ./tools/deploy.sh /Volumes/MIDICAPT  # Deploy to custom mount
+# Examples:
+#   ./tools/deploy.sh                    # Deploy + soft reset (dev mode)
+#   ./tools/deploy.sh --eject            # Deploy + eject (clean disconnect)
+#   ./tools/deploy.sh /Volumes/MIDICAPT  # Custom mount point
+#
+# Requires boot.py on device with autoreload disabled for best results.
 
 set -e
 
@@ -17,13 +20,18 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DEV_DIR="$PROJECT_ROOT/firmware/dev"
 MOUNT_POINT="/Volumes/CIRCUITPY"
-DO_EJECT=true
+DO_EJECT=false
+DO_RESET=true
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
-        --no-eject)
-            DO_EJECT=false
+        --eject)
+            DO_EJECT=true
+            DO_RESET=false
+            ;;
+        --no-reset)
+            DO_RESET=false
             ;;
         /*)
             MOUNT_POINT="$arg"
@@ -52,6 +60,7 @@ trap "rm -rf $STAGING" EXIT
 echo "📦 Staging files..."
 
 # Stage all files
+cp "$DEV_DIR/boot.py" "$STAGING/" 2>/dev/null || true
 cp "$DEV_DIR/code.py" "$STAGING/"
 cp "$DEV_DIR/config.json" "$STAGING/"
 cp -r "$DEV_DIR/devices" "$STAGING/"
@@ -68,6 +77,9 @@ rsync -av --delete \
     --exclude='.DS_Store' \
     --exclude='*.pyc' \
     --exclude='__pycache__' \
+    --exclude='BOOTEX.LOG' \
+    --exclude='.fseventsd' \
+    --exclude='.Trashes' \
     "$STAGING/" "$MOUNT_POINT/"
 
 # Sync filesystem
@@ -76,11 +88,22 @@ sync
 echo ""
 
 if [ "$DO_EJECT" = true ]; then
-    echo "⏏️  Ejecting to trigger clean reset..."
+    echo "⏏️  Ejecting device..."
     diskutil eject "$MOUNT_POINT" 2>/dev/null || true
-    echo ""
-    echo "✅ Deploy complete! Reconnect device or wait for auto-remount."
+    echo "✅ Deploy complete! Reconnect device to start firmware."
+elif [ "$DO_RESET" = true ]; then
+    echo "🔄 Sending soft reset..."
+    # Find CircuitPython serial port and send Ctrl+D
+    SERIAL_PORT=$(ls /dev/tty.usbmodem* 2>/dev/null | head -1)
+    if [ -n "$SERIAL_PORT" ]; then
+        # Send Ctrl+D (EOF) to trigger soft reload
+        printf '\x04' > "$SERIAL_PORT"
+        echo "✅ Deploy complete! Device is reloading."
+    else
+        echo "⚠️  No serial port found. Device may need manual reset."
+        echo "   Press Ctrl+D in serial console, or eject device."
+    fi
 else
     echo "✅ Deploy complete!"
-    echo "   Device will auto-reload on each file change."
+    echo "   Send Ctrl+D in serial console to reload, or eject device."
 fi
