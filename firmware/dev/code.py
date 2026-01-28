@@ -81,6 +81,18 @@ def rgb_to_hex(rgb):
     """Convert RGB tuple to hex integer for display."""
     return (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]
 
+
+def get_off_color(color_rgb, off_mode="dim"):
+    """Get the color to use when button is off.
+    
+    Args:
+        color_rgb: The button's on-state RGB color
+        off_mode: "dim" for dimmed color, "off" for completely off
+    """
+    if off_mode == "off":
+        return (0, 0, 0)
+    return dim_color(color_rgb)
+
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -245,12 +257,14 @@ for i in range(10):
         y = bottom_row_y
 
     color_rgb = get_color(btn_config.get("color", "white"))
+    off_mode = btn_config.get("off_mode", "dim")  # "dim" or "off"
+    off_color = get_off_color(color_rgb, off_mode)
 
     # Create box background with border
     box_bitmap = displayio.Bitmap(button_width, button_height, 2)
     box_palette = displayio.Palette(2)
     box_palette[0] = 0x000000
-    box_palette[1] = rgb_to_hex(dim_color(color_rgb))  # Start dimmed
+    box_palette[1] = rgb_to_hex(off_color)  # Start in off state
 
     for bx in range(button_width):
         box_bitmap[bx, 0] = 1
@@ -267,7 +281,7 @@ for i in range(10):
     lbl = label.Label(
         BUTTON_FONT,
         text=btn_config.get("label", str(i + 1))[:6],
-        color=rgb_to_hex(dim_color(color_rgb)),
+        color=rgb_to_hex(off_color),
         anchor_point=(0.5, 0.5),
         anchored_position=(x + button_width // 2, y + button_height // 2),
     )
@@ -300,11 +314,12 @@ def set_button_state(switch_idx, on):
     button_states[idx] = on
     btn_config = buttons[idx] if idx < len(buttons) else {"color": "white"}
     color_rgb = get_color(btn_config.get("color", "white"))
+    off_mode = btn_config.get("off_mode", "dim")  # "dim" or "off"
 
     # Update LED
     led_idx = switch_to_led(switch_idx)
     if led_idx is not None:
-        rgb = color_rgb if on else dim_color(color_rgb)
+        rgb = color_rgb if on else get_off_color(color_rgb, off_mode)
         base = led_idx * 3
         for j in range(3):
             if base + j < LED_COUNT:
@@ -313,7 +328,7 @@ def set_button_state(switch_idx, on):
 
     # Update display
     if idx < len(button_labels):
-        color_hex = rgb_to_hex(color_rgb if on else dim_color(color_rgb))
+        color_hex = rgb_to_hex(color_rgb if on else get_off_color(color_rgb, off_mode))
         button_labels[idx].color = color_hex
         if idx < len(button_boxes):
             _, box_palette = button_boxes[idx]

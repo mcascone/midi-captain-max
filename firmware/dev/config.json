@@ -5,9 +5,9 @@
     {"label": "DELAY", "cc": 22, "color": "yellow"},
     {"label": "SHIM", "cc": 23, "color": "magenta"},
     {"label": "TREM", "cc": 24, "color": "white"},
-    {"label": "WOW", "cc": 25, "color": "orange"},
+    {"label": "WOW", "cc": 25, "color": "orange", "off_mode": "off"},
     {"label": "OCT", "cc": 26, "color": "cyan"},
-    {"label": "FREQ", "cc": 27, "color": "red"},
+    {"label": "FREQ", "cc": 27, "color": "red", "off_mode": "off"},
     {"label": "PLATE", "cc": 28, "color": "purple"},
     {"label": "ROOM", "cc": 29, "color": "white"}
   ]
