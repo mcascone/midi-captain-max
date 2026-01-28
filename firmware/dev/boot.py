@@ -2,15 +2,17 @@
 MIDI Captain boot.py
 
 Runs once at device power-on/reset, before code.py.
-Disables autoreload so file copies don't cause multiple resets.
 
-To reload after deploy, either:
-- Eject and reconnect the device
-- Send Ctrl+D over serial (deploy.sh does this automatically)
-- Press the reset button on the device
+CRITICAL: Autoreload is DISABLED for rock-solid live performance.
+The device must NEVER reset unexpectedly during a gig. File changes
+on the USB drive will not trigger reloads.
+
+To reload after config/code changes:
+- Send Ctrl+C then Ctrl+D over serial (deploy.sh does this)
+- Or power-cycle the device
 """
 
 import supervisor
 
-# Disable autoreload - device won't reset on every file change
+# DISABLED for live performance stability - no unexpected resets
 supervisor.runtime.autoreload = False

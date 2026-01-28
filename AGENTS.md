@@ -32,11 +32,21 @@ This repository creates **custom CircuitPython firmware** for Paint Audio MIDI C
 - **Multi-device support** — STD10 (10-switch) and Mini6 (6-switch) primary targets
 - **Hybrid state model** — local toggle for instant feedback, host-authoritative when it speaks
 - **Clean architecture** — device abstraction layer, separation of concerns, testable components
+- **Rock-solid reliability** — NO unexpected resets during live performance; stability is paramount
 
 ### Target Users
 - Musicians controlling DAWs, plugin hosts (MainStage, Gig Performer), or multi-effect units
 - Power users who want configurable button-to-CC/PC/Note mappings
 - Anyone needing visual feedback (LEDs, LCD) reflecting host state
+- **Live performers** who demand bulletproof reliability on stage
+
+### Reliability Philosophy
+
+This is a **live performance tool**. The device must:
+- **Never reset unexpectedly** — autoreload is disabled; changes require explicit reload
+- **Never crash** — defensive coding, graceful error handling, no unhandled exceptions
+- **Never lose state** — if host connection drops, device continues functioning locally
+- **Never surprise the performer** — predictable behavior in all scenarios
 
 ---
 
