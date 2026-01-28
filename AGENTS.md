@@ -60,7 +60,7 @@ These decisions were made during the 2026-01-23 brainstorming session:
 | **MIDI types** | CC + PC + SysEx + Notes | Full protocol support; Notes enable tuner display |
 | **Display MVP** | Button label slots | Each switch gets a labeled area; center status area later |
 | **Config format** | YAML | Standard, predictable, web-tool-friendly |
-| **Architecture** | Hybrid | Helmut's asyncio core + lightweight abstractions |
+| **Architecture** | Polling loop | Polling-based main loop (asyncio unavailable in CP 7.x) |
 | **Button modes** | All | Momentary, toggle, long-press, tap tempo (phased rollout) |
 
 ### Feature Priority (MVP)
@@ -70,7 +70,7 @@ These decisions were made during the 2026-01-23 brainstorming session:
 | 1 | Bidirectional CC (host → device LED sync) | ✅ Working |
 | 2 | Button label slots on screen | ✅ Working |
 | 3 | JSON config for button→MIDI mappings | ✅ Working |
-| 4 | Momentary + Toggle modes per button | Planned |
+| 4 | Momentary + Toggle modes per button | Planned (#1) |
 | 5 | Multi-device support (STD10 + Mini6) | Abstraction started |
 | 6 | SysEx for dynamic labels/colors | Post-MVP |
 | 7 | Long-press detection | Post-MVP |
@@ -212,7 +212,8 @@ Device-specific constants live in `firmware/dev/devices/`:
 ### Deployment
 ```bash
 # MIDI Captain mounts as CIRCUITPY
-cp firmware/dev/experiments/bidirectional_demo.py /Volumes/CIRCUITPY/code.py
+cp firmware/dev/code.py /Volumes/CIRCUITPY/code.py
+cp firmware/dev/config.json /Volumes/CIRCUITPY/
 cp -r firmware/dev/devices /Volumes/CIRCUITPY/
 ```
 
@@ -264,8 +265,7 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [x] Hardware reference doc (`docs/hardware-reference.md`)
 
 ### Phase 2: MVP Integration
-- [ ] Merge experiments into main `code.py`
-- [ ] Full asyncio task structure
+- [x] Merge experiments into main `code.py`
 - [ ] Mini6 device support
 - [ ] Complete YAML config schema
 
@@ -275,6 +275,8 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [ ] Custom display layouts
 - [ ] SysEx protocol documentation
 - [ ] Keytimes / multi-press cycling
+- [ ] Double-press detection (like double-click)
+- [ ] Long-press detection
 - [ ] Pages / banks
 
 ---
@@ -284,11 +286,10 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 | Path | Purpose |
 |------|---------|
 | `firmware/original_helmut/code.py` | Helmut's original firmware (reference only) |
-| `firmware/dev/code.py` | Active development firmware |
+| `firmware/dev/code.py` | **Active**: Unified firmware with config, display, bidirectional MIDI |
+| `firmware/dev/boot.py` | Disables autoreload for stage reliability |
+| `firmware/dev/config.json` | Button labels, CC numbers, colors |
 | `firmware/dev/devices/std10.py` | STD10 hardware constants |
-| `firmware/dev/experiments/config_demo.py` | **Current**: Config-driven MIDI + display demo |
-| `firmware/dev/experiments/config.json` | Button labels, CC numbers, colors |
-| `firmware/dev/experiments/bidirectional_demo.py` | Earlier bidirectional MIDI experiment |
 | `docs/hardware-reference.md` | Verified hardware specs (pins, display, LEDs) |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
 | `docs/midicaptain_reverse_engineering_handoff.txt` | Historical: reverse engineering notes |
