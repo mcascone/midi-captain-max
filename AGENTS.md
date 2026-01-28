@@ -70,8 +70,8 @@ These decisions were made during the 2026-01-23 brainstorming session:
 | 1 | Bidirectional CC (host → device LED sync) | ✅ Working |
 | 2 | Button label slots on screen | ✅ Working |
 | 3 | JSON config for button→MIDI mappings | ✅ Working |
-| 4 | Momentary + Toggle modes per button | Planned (#1) |
-| 5 | Multi-device support (STD10 + Mini6) | Abstraction started |
+| 4 | Momentary + Toggle modes per button | ✅ Working |
+| 5 | Multi-device support (STD10 + Mini6) | ✅ Working |
 | 6 | SysEx for dynamic labels/colors | Post-MVP |
 | 7 | Long-press detection | Post-MVP |
 | 8 | Center status area | Post-MVP |

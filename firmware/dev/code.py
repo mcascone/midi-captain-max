@@ -34,19 +34,47 @@ from adafruit_st7789 import ST7789
 import adafruit_midi
 from adafruit_midi.control_change import ControlChange
 
-# Import device constants
-from devices.std10 import (
-    LED_PIN, LED_COUNT, SWITCH_PINS, switch_to_led,
-    TFT_DC_PIN, TFT_CS_PIN, TFT_SCK_PIN, TFT_MOSI_PIN,
-    DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_ROWSTART, DISPLAY_ROTATION,
-    ENCODER_A_PIN, ENCODER_B_PIN, EXP1_PIN, EXP2_PIN, BATTERY_PIN
-)
+# =============================================================================
+# Device Detection
+# =============================================================================
+
+# Try to load device config, default to STD10
+try:
+    with open("/config.json", "r") as f:
+        _cfg = json.load(f)
+        DEVICE_TYPE = _cfg.get("device", "std10").lower()
+except:
+    DEVICE_TYPE = "std10"
+
+print(f"Device type: {DEVICE_TYPE}")
+
+if DEVICE_TYPE == "mini6":
+    from devices.mini6 import (
+        LED_PIN, LED_COUNT, SWITCH_PINS, switch_to_led,
+        TFT_DC_PIN, TFT_CS_PIN, TFT_SCK_PIN, TFT_MOSI_PIN,
+        DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_ROWSTART, DISPLAY_ROTATION,
+        ENCODER_A_PIN, ENCODER_B_PIN, EXP1_PIN, EXP2_PIN, BATTERY_PIN
+    )
+    BUTTON_COUNT = 6
+    HAS_ENCODER = False
+    HAS_EXPRESSION = False
+else:
+    # Default to STD10
+    from devices.std10 import (
+        LED_PIN, LED_COUNT, SWITCH_PINS, switch_to_led,
+        TFT_DC_PIN, TFT_CS_PIN, TFT_SCK_PIN, TFT_MOSI_PIN,
+        DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_ROWSTART, DISPLAY_ROTATION,
+        ENCODER_A_PIN, ENCODER_B_PIN, EXP1_PIN, EXP2_PIN, BATTERY_PIN
+    )
+    BUTTON_COUNT = 10
+    HAS_ENCODER = True
+    HAS_EXPRESSION = True
 
 # =============================================================================
 # Version
 # =============================================================================
 
-VERSION = "1.0.0-alpha.2"
+VERSION = "1.0.0-alpha.3"
 print(f"Version: {VERSION}")
 
 # =============================================================================
@@ -108,7 +136,7 @@ def load_config(path="/config.json"):
         return {
             "buttons": [
                 {"label": str(i + 1), "cc": 20 + i, "color": "white"}
-                for i in range(10)
+                for i in range(BUTTON_COUNT)
             ]
         }
 
@@ -175,24 +203,33 @@ class Switch:
         return changed, current
 
 
-# Initialize switches (index 0 = encoder push, 1-10 = footswitches)
+# Initialize switches
 switches = [Switch(pin) for pin in SWITCH_PINS]
 print(f"Initialized {len(switches)} switches")
 
-# Encoder
-encoder = rotaryio.IncrementalEncoder(ENCODER_A_PIN, ENCODER_B_PIN, divisor=2)
-encoder_last_pos = 0
-encoder_value = 64  # Start at middle
+# Encoder (STD10 only)
+if HAS_ENCODER:
+    encoder = rotaryio.IncrementalEncoder(ENCODER_A_PIN, ENCODER_B_PIN, divisor=2)
+    encoder_last_pos = 0
+    encoder_value = 64  # Start at middle
+else:
+    encoder = None
+    encoder_last_pos = 0
+    encoder_value = 0
 
-# Expression pedals
-exp1 = AnalogIn(EXP1_PIN)
-exp2 = AnalogIn(EXP2_PIN)
-battery = AnalogIn(BATTERY_PIN)
-
-# Expression pedal calibration (auto-calibrates during use)
-exp1_min, exp1_max = 2048, 63488
-exp2_min, exp2_max = 2048, 63488
-exp1_last, exp2_last = 0, 0
+# Expression pedals (STD10 only)
+if HAS_EXPRESSION:
+    exp1 = AnalogIn(EXP1_PIN)
+    exp2 = AnalogIn(EXP2_PIN)
+    battery = AnalogIn(BATTERY_PIN)
+    # Expression pedal calibration (auto-calibrates during use)
+    exp1_min, exp1_max = 2048, 63488
+    exp2_min, exp2_max = 2048, 63488
+    exp1_last, exp2_last = 0, 0
+else:
+    exp1 = exp2 = battery = None
+    exp1_min = exp1_max = exp1_last = 0
+    exp2_min = exp2_max = exp2_last = 0
 
 # Battery voltage low-pass filter
 vbat_filtered = 0.0
@@ -213,16 +250,22 @@ print("MIDI initialized")
 
 # CC assignments
 CC_ENCODER = 11
-CC_EXP1 = 12
-CC_EXP2 = 13
 CC_ENCODER_PUSH = 14
-# Switches 1-10 use CC numbers from config (default 20-29)
+# Switches use CC numbers from config (default 20-29)
+
+# Expression pedal config (from config.json or defaults)
+exp_config = config.get("expression", {})
+exp1_config = exp_config.get("exp1", {"enabled": True, "cc": 12, "label": "EXP1", "min": 0, "max": 127, "polarity": "normal", "threshold": 2})
+exp2_config = exp_config.get("exp2", {"enabled": True, "cc": 13, "label": "EXP2", "min": 0, "max": 127, "polarity": "normal", "threshold": 2})
+
+CC_EXP1 = exp1_config.get("cc", 12)
+CC_EXP2 = exp2_config.get("cc", 13)
 
 # =============================================================================
 # State
 # =============================================================================
 
-button_states = [False] * 10  # Toggle state for each button
+button_states = [False] * BUTTON_COUNT  # Toggle state for each button
 
 # =============================================================================
 # Display Setup
@@ -237,23 +280,33 @@ bg_palette[0] = 0x000000
 bg_sprite = displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette, x=0, y=0)
 main_group.append(bg_sprite)
 
-# Button labels - 2 rows matching physical layout
+# Button labels - layout depends on device
 button_labels = []
 button_boxes = []
-button_width = 46
-button_height = 30
-button_spacing = 48
 top_row_y = 5
 bottom_row_y = 205
 
-for i in range(10):
+if BUTTON_COUNT == 6:
+    # Mini6: 3 buttons per row, wider spacing
+    button_width = 70
+    button_height = 30
+    button_spacing = 80
+    row_size = 3
+else:
+    # STD10: 5 buttons per row
+    button_width = 46
+    button_height = 30
+    button_spacing = 48
+    row_size = 5
+
+for i in range(BUTTON_COUNT):
     btn_config = buttons[i] if i < len(buttons) else {"label": str(i + 1), "color": "white"}
 
-    if i < 5:
+    if i < row_size:
         x = 1 + i * button_spacing
         y = top_row_y
     else:
-        x = 1 + (i - 5) * button_spacing
+        x = 1 + (i - row_size) * button_spacing
         y = bottom_row_y
 
     color_rgb = get_color(btn_config.get("color", "white"))
@@ -308,7 +361,7 @@ display.show(main_group)
 def set_button_state(switch_idx, on):
     """Update LED and display for a button (1-indexed)."""
     idx = switch_idx - 1
-    if idx < 0 or idx >= 10:
+    if idx < 0 or idx >= BUTTON_COUNT:
         return
 
     button_states[idx] = on
@@ -336,8 +389,8 @@ def set_button_state(switch_idx, on):
 
 
 def init_leds():
-    """Initialize all LEDs to dim state."""
-    for i in range(1, 11):
+    """Initialize all LEDs to off/dim state."""
+    for i in range(1, BUTTON_COUNT + 1):
         set_button_state(i, False)
 
 
@@ -365,12 +418,17 @@ def handle_midi():
 
 def handle_switches():
     """Handle footswitch presses."""
-    for i in range(1, 11):  # Footswitches 1-10
+    # STD10: index 0 is encoder push, 1-10 are footswitches
+    # Mini6: indices 0-5 are footswitches (no encoder)
+    start_idx = 1 if HAS_ENCODER else 0
+    for i in range(start_idx, len(switches)):
         sw = switches[i]
         changed, pressed = sw.changed()
 
         if changed:
-            idx = i - 1
+            # Convert to 1-indexed button number
+            btn_num = i if HAS_ENCODER else i + 1
+            idx = btn_num - 1
             btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
             cc = btn_config.get("cc", 20 + idx)
             mode = btn_config.get("mode", "toggle")  # "toggle" or "momentary"
@@ -378,17 +436,17 @@ def handle_switches():
             if mode == "momentary":
                 # Momentary: 127 on press, 0 on release
                 val = 127 if pressed else 0
-                set_button_state(i, pressed)
+                set_button_state(btn_num, pressed)
                 midi.send(ControlChange(cc, val))
-                print(f"[MIDI TX] CC{cc}={val} (switch {i}, momentary)")
+                print(f"[MIDI TX] CC{cc}={val} (switch {btn_num}, momentary)")
                 status_label.text = f"TX CC{cc}={val}"
             elif pressed:
                 # Toggle: only act on press, flip state
                 new_state = not button_states[idx]
-                set_button_state(i, new_state)
+                set_button_state(btn_num, new_state)
                 val = 127 if new_state else 0
                 midi.send(ControlChange(cc, val))
-                print(f"[MIDI TX] CC{cc}={val} (switch {i}, toggle)")
+                print(f"[MIDI TX] CC{cc}={val} (switch {btn_num}, toggle)")
                 status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
 
 
@@ -420,25 +478,56 @@ def handle_expression():
     global exp1_min, exp1_max, exp1_last
     global exp2_min, exp2_max, exp2_last
 
-    # Expression 1 with auto-calibration
-    raw1 = exp1.value
-    exp1_max = max(raw1, exp1_max)
-    exp1_min = min(raw1, exp1_min)
-    if exp1_max > exp1_min:
-        val1 = int((raw1 - exp1_min) / (exp1_max - exp1_min) * 127)
-        if val1 != exp1_last and exp1_max > 63488:
-            exp1_last = val1
-            midi.send(ControlChange(CC_EXP1, val1))
+    if not HAS_EXPRESSION:
+        return
 
-    # Expression 2 with auto-calibration
-    raw2 = exp2.value
-    exp2_max = max(raw2, exp2_max)
-    exp2_min = min(raw2, exp2_min)
-    if exp2_max > exp2_min:
-        val2 = int((raw2 - exp2_min) / (exp2_max - exp2_min) * 127)
-        if val2 != exp2_last and exp2_max > 63488:
-            exp2_last = val2
-            midi.send(ControlChange(CC_EXP2, val2))
+    # Expression 1
+    if exp1_config.get("enabled", True) and exp1 is not None:
+        raw1 = exp1.value
+        exp1_max = max(raw1, exp1_max)
+        exp1_min = min(raw1, exp1_min)
+        
+        if exp1_max > exp1_min:
+            # Map to 0-127, then apply config range
+            normalized = (raw1 - exp1_min) / (exp1_max - exp1_min)
+            if exp1_config.get("polarity", "normal") == "reverse":
+                normalized = 1.0 - normalized
+            out_min = exp1_config.get("min", 0)
+            out_max = exp1_config.get("max", 127)
+            val1 = int(out_min + normalized * (out_max - out_min))
+            val1 = max(0, min(127, val1))  # Clamp to valid MIDI range
+            
+            # Hysteresis: only send if change exceeds threshold
+            threshold = exp1_config.get("threshold", 2)
+            if abs(val1 - exp1_last) >= threshold:
+                exp1_last = val1
+                midi.send(ControlChange(CC_EXP1, val1))
+                lbl = exp1_config.get("label", "EXP1")
+                print(f"[{lbl}] CC{CC_EXP1}={val1}")
+
+    # Expression 2
+    if exp2_config.get("enabled", True) and exp2 is not None:
+        raw2 = exp2.value
+        exp2_max = max(raw2, exp2_max)
+        exp2_min = min(raw2, exp2_min)
+        
+        if exp2_max > exp2_min:
+            # Map to 0-127, then apply config range
+            normalized = (raw2 - exp2_min) / (exp2_max - exp2_min)
+            if exp2_config.get("polarity", "normal") == "reverse":
+                normalized = 1.0 - normalized
+            out_min = exp2_config.get("min", 0)
+            out_max = exp2_config.get("max", 127)
+            val2 = int(out_min + normalized * (out_max - out_min))
+            val2 = max(0, min(127, val2))  # Clamp to valid MIDI range
+            
+            # Hysteresis: only send if change exceeds threshold
+            threshold = exp2_config.get("threshold", 2)
+            if abs(val2 - exp2_last) >= threshold:
+                exp2_last = val2
+                midi.send(ControlChange(CC_EXP2, val2))
+                lbl = exp2_config.get("label", "EXP2")
+                print(f"[{lbl}] CC{CC_EXP2}={val2}")
 
 
 # =============================================================================
@@ -455,9 +544,11 @@ time.sleep(0.5)
 init_leds()
 
 # Show CC mapping info
-print(f"Encoder: CC{CC_ENCODER}")
-print(f"Expression 1: CC{CC_EXP1}")
-print(f"Expression 2: CC{CC_EXP2}")
+if HAS_ENCODER:
+    print(f"Encoder: CC{CC_ENCODER}")
+if HAS_EXPRESSION:
+    print(f"Expression 1: CC{CC_EXP1}")
+    print(f"Expression 2: CC{CC_EXP2}")
 for i, btn in enumerate(buttons):
     print(f"Button {i+1}: CC{btn.get('cc', 20+i)} ({btn.get('label', '')})")
 
@@ -470,6 +561,8 @@ print("\nRunning...")
 while True:
     handle_midi()
     handle_switches()
-    handle_encoder_button()
-    handle_encoder()
-    handle_expression()
+    if HAS_ENCODER:
+        handle_encoder_button()
+        handle_encoder()
+    if HAS_EXPRESSION:
+        handle_expression()

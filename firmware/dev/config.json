@@ -10,5 +10,25 @@
     {"label": "FREQ", "cc": 27, "color": "red", "off_mode": "off"},
     {"label": "PLATE", "cc": 28, "color": "purple"},
     {"label": "ROOM", "cc": 29, "color": "white", "mode": "momentary"}
-  ]
+  ],
+  "expression": {
+    "exp1": {
+      "enabled": true,
+      "cc": 12,
+      "label": "EXP1",
+      "min": 0,
+      "max": 127,
+      "polarity": "normal",
+      "threshold": 2
+    },
+    "exp2": {
+      "enabled": true,
+      "cc": 13,
+      "label": "EXP2",
+      "min": 0,
+      "max": 127,
+      "polarity": "normal",
+      "threshold": 2
+    }
+  }
 }
