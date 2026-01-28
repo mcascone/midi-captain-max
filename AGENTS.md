@@ -175,6 +175,14 @@ git push origin v1.0.0-alpha.1
 - `boot.py` uses GP1 as a mode pin; readable at boot, usable as switch afterward
 - Autoreload typically disabled for performance; enable temporarily for rapid iteration
 
+### Version Compatibility Notes
+
+| Feature | CP 7.x | CP 8.x+ |
+|---------|--------|---------|
+| Disable autoreload | `supervisor.disable_autoreload()` | `supervisor.runtime.autoreload = False` |
+
+**TODO**: When upgrading to CircuitPython 8.x+, update `boot.py` to use `supervisor.runtime.autoreload = False` instead of `supervisor.disable_autoreload()`.
+
 ---
 
 ## Hardware Reference

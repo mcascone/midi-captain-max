@@ -352,6 +352,7 @@ def handle_midi():
     if msg and isinstance(msg, ControlChange):
         cc = msg.control
         val = msg.value
+        print(f"[MIDI RX] CC{cc}={val}")
 
         # Check if this CC matches any button
         for i, btn_config in enumerate(buttons):
@@ -368,17 +369,27 @@ def handle_switches():
         sw = switches[i]
         changed, pressed = sw.changed()
 
-        if changed and pressed:  # On press
+        if changed:
             idx = i - 1
-            # Toggle state
-            new_state = not button_states[idx]
-            set_button_state(i, new_state)
-
-            # Send CC
             btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
             cc = btn_config.get("cc", 20 + idx)
-            midi.send(ControlChange(cc, 127 if new_state else 0))
-            status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+            mode = btn_config.get("mode", "toggle")  # "toggle" or "momentary"
+
+            if mode == "momentary":
+                # Momentary: 127 on press, 0 on release
+                val = 127 if pressed else 0
+                set_button_state(i, pressed)
+                midi.send(ControlChange(cc, val))
+                print(f"[MIDI TX] CC{cc}={val} (switch {i}, momentary)")
+                status_label.text = f"TX CC{cc}={val}"
+            elif pressed:
+                # Toggle: only act on press, flip state
+                new_state = not button_states[idx]
+                set_button_state(i, new_state)
+                val = 127 if new_state else 0
+                midi.send(ControlChange(cc, val))
+                print(f"[MIDI TX] CC{cc}={val} (switch {i}, toggle)")
+                status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
 
 
 def handle_encoder_button():

@@ -151,36 +151,32 @@ echo "📁 Source: $DEV_DIR"
 echo "📱 Target: $MOUNT_POINT"
 echo ""
 
-# Create a staging area to batch all files
-STAGING=$(mktemp -d)
-trap "rm -rf $STAGING" EXIT
+echo "🚀 Deploying changed files..."
 
-echo "📦 Staging files..."
-
-# Stage all files
-cp "$DEV_DIR/boot.py" "$STAGING/" 2>/dev/null || true
-cp "$DEV_DIR/code.py" "$STAGING/"
-cp "$DEV_DIR/config.json" "$STAGING/"
-cp -r "$DEV_DIR/devices" "$STAGING/"
-cp -r "$DEV_DIR/fonts" "$STAGING/"
-
-# Remove __pycache__ from staging
-find "$STAGING" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-
-echo "🚀 Deploying to device..."
-
-# Use rsync for efficient atomic-ish copy
-# The --inplace flag minimizes file rewrites
-# NOTE: We don't use --delete globally to preserve lib/ folder
-rsync -av --inplace \
+# Use rsync directly from source for efficient incremental deploys
+# --checksum: compare by content, not just timestamp (more reliable for USB drives)
+# --inplace: minimize file rewrites
+# --itemize-changes: show what changed
+rsync -av --checksum --inplace --itemize-changes \
     --exclude='.DS_Store' \
     --exclude='*.pyc' \
     --exclude='__pycache__' \
-    --exclude='BOOTEX.LOG' \
-    --exclude='.fseventsd' \
-    --exclude='.Trashes' \
-    --exclude='lib' \
-    "$STAGING/" "$MOUNT_POINT/"
+    --exclude='experiments' \
+    "$DEV_DIR/boot.py" \
+    "$DEV_DIR/code.py" \
+    "$DEV_DIR/config.json" \
+    "$MOUNT_POINT/"
+
+# Sync directories separately (rsync handles incremental updates)
+rsync -av --checksum --inplace --itemize-changes \
+    --exclude='.DS_Store' \
+    --exclude='*.pyc' \
+    --exclude='__pycache__' \
+    "$DEV_DIR/devices/" "$MOUNT_POINT/devices/"
+
+rsync -av --checksum --inplace --itemize-changes \
+    --exclude='.DS_Store' \
+    "$DEV_DIR/fonts/" "$MOUNT_POINT/fonts/"
 
 # Sync filesystem
 sync
@@ -196,6 +192,13 @@ elif [ "$DO_RESET" = true ]; then
     # Find CircuitPython serial port and send Ctrl+C then Ctrl+D
     SERIAL_PORT=$(ls /dev/tty.usbmodem* 2>/dev/null | head -1)
     if [ -n "$SERIAL_PORT" ]; then
+        # Kill any screen sessions using this port (they block access)
+        SCREEN_PIDS=$(lsof -t "$SERIAL_PORT" 2>/dev/null)
+        if [ -n "$SCREEN_PIDS" ]; then
+            echo "   Closing existing serial connection..."
+            kill $SCREEN_PIDS 2>/dev/null || true
+            sleep 0.5
+        fi
         # Send Ctrl+C (interrupt running code) then Ctrl+D (soft reload)
         # Small delay between to ensure REPL is ready
         printf '\x03' > "$SERIAL_PORT"

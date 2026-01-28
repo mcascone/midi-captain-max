@@ -15,4 +15,5 @@ To reload after config/code changes:
 import supervisor
 
 # DISABLED for live performance stability - no unexpected resets
-supervisor.runtime.autoreload = False
+# CP 7.x uses supervisor.disable_autoreload(), not runtime.autoreload
+supervisor.disable_autoreload()
