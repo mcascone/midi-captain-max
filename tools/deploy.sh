@@ -4,11 +4,16 @@
 # Usage: ./tools/deploy.sh [options] [mount_point]
 #
 # Options:
+#   --install     Full install: check/install libraries first
+#   --libs-only   Only install libraries (no firmware copy)
 #   --eject       Eject device after deploy (for performance mode)
 #   --no-reset    Don't send soft reset after deploy
+#   --force       Overwrite files without prompting
 #
 # Examples:
-#   ./tools/deploy.sh                    # Deploy + soft reset (dev mode)
+#   ./tools/deploy.sh                    # Quick deploy (dev mode)
+#   ./tools/deploy.sh --install          # Full install with libraries
+#   ./tools/deploy.sh --libs-only        # Just install CircuitPython libs
 #   ./tools/deploy.sh --eject            # Deploy + eject (clean disconnect)
 #   ./tools/deploy.sh /Volumes/MIDICAPT  # Custom mount point
 #
@@ -22,10 +27,36 @@ DEV_DIR="$PROJECT_ROOT/firmware/dev"
 MOUNT_POINT="/Volumes/CIRCUITPY"
 DO_EJECT=false
 DO_RESET=true
+DO_INSTALL=false
+LIBS_ONLY=false
+FORCE=false
+
+# Required CircuitPython libraries
+REQUIRED_LIBS=(
+    "adafruit_midi"
+    "adafruit_display_text"
+    "adafruit_st7789"
+    "neopixel"
+    "adafruit_debouncer"
+)
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
+        --install)
+            DO_INSTALL=true
+            ;;
+        --libs-only)
+            LIBS_ONLY=true
+            DO_INSTALL=true
+            ;;
         --eject)
             DO_EJECT=true
             DO_RESET=false
@@ -33,22 +64,89 @@ for arg in "$@"; do
         --no-reset)
             DO_RESET=false
             ;;
+        --force)
+            FORCE=true
+            ;;
+        --help|-h)
+            echo "Usage: ./tools/deploy.sh [options] [mount_point]"
+            echo ""
+            echo "Options:"
+            echo "  --install     Full install: check/install libraries first"
+            echo "  --libs-only   Only install libraries (no firmware copy)"
+            echo "  --eject       Eject device after deploy"
+            echo "  --no-reset    Don't send soft reset after deploy"
+            echo "  --force       Overwrite without prompting"
+            exit 0
+            ;;
         /*)
             MOUNT_POINT="$arg"
             ;;
     esac
 done
 
-echo "=== MIDI Captain Firmware Deploy ==="
+echo -e "${BLUE}=== MIDI Captain Firmware Deploy ===${NC}"
 echo ""
 
 # Check if device is mounted
 if [ ! -d "$MOUNT_POINT" ]; then
-    echo "❌ Device not found at $MOUNT_POINT"
-    echo "   Make sure the MIDI Captain is connected and mounted."
+    echo -e "${RED}❌ Device not found at $MOUNT_POINT${NC}"
+    echo ""
+    echo "Make sure your MIDI Captain is:"
+    echo "  1. Connected via USB"
+    echo "  2. Running CircuitPython (not in bootloader mode)"
+    echo "  3. Mounted as CIRCUITPY"
+    echo ""
+    echo "If CircuitPython is not installed:"
+    echo "  1. Hold BOOTSEL while plugging in USB"
+    echo "  2. Copy CircuitPython .uf2 to RPI-RP2 drive"
+    echo "  3. Run this script again"
     exit 1
 fi
 
+echo -e "${GREEN}✓ Device found at $MOUNT_POINT${NC}"
+
+# Install libraries if requested
+if [ "$DO_INSTALL" = true ]; then
+    echo ""
+    echo -e "${YELLOW}📦 Installing CircuitPython libraries...${NC}"
+    
+    # Check for circup
+    if ! command -v circup &> /dev/null; then
+        echo "  circup not found. Installing..."
+        pip install circup --quiet
+        if ! command -v circup &> /dev/null; then
+            echo -e "${RED}✗ Failed to install circup${NC}"
+            echo "  Try: pip install circup"
+            exit 1
+        fi
+    fi
+    echo -e "${GREEN}✓ circup available${NC}"
+    
+    # Install each library
+    for lib in "${REQUIRED_LIBS[@]}"; do
+        echo -n "  Installing $lib... "
+        if circup install "$lib" --py 2>/dev/null; then
+            echo -e "${GREEN}✓${NC}"
+        else
+            # Try without --py flag for compiled libs
+            if circup install "$lib" 2>/dev/null; then
+                echo -e "${GREEN}✓${NC}"
+            else
+                echo -e "${YELLOW}(already installed)${NC}"
+            fi
+        fi
+    done
+    echo -e "${GREEN}✓ Libraries installed${NC}"
+    
+    # Exit early if libs-only mode
+    if [ "$LIBS_ONLY" = true ]; then
+        echo ""
+        echo -e "${GREEN}✅ Library installation complete!${NC}"
+        exit 0
+    fi
+fi
+
+echo ""
 echo "📁 Source: $DEV_DIR"
 echo "📱 Target: $MOUNT_POINT"
 echo ""
@@ -73,13 +171,15 @@ echo "🚀 Deploying to device..."
 
 # Use rsync for efficient atomic-ish copy
 # The --inplace flag minimizes file rewrites
-rsync -av --delete \
+# NOTE: We don't use --delete globally to preserve lib/ folder
+rsync -av --inplace \
     --exclude='.DS_Store' \
     --exclude='*.pyc' \
     --exclude='__pycache__' \
     --exclude='BOOTEX.LOG' \
     --exclude='.fseventsd' \
     --exclude='.Trashes' \
+    --exclude='lib' \
     "$STAGING/" "$MOUNT_POINT/"
 
 # Sync filesystem
