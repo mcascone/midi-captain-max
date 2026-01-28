@@ -4,6 +4,9 @@
 # Usage: ./tools/deploy.sh [mount_point]
 #   mount_point: Optional. Defaults to /Volumes/CIRCUITPY
 #
+# Options:
+#   --no-eject    Don't eject after deploy (device resets on each file)
+#
 # Example:
 #   ./tools/deploy.sh                    # Deploy to default mount
 #   ./tools/deploy.sh /Volumes/MIDICAPT  # Deploy to custom mount
@@ -13,7 +16,20 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DEV_DIR="$PROJECT_ROOT/firmware/dev"
-MOUNT_POINT="${1:-/Volumes/CIRCUITPY}"
+MOUNT_POINT="/Volumes/CIRCUITPY"
+DO_EJECT=true
+
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --no-eject)
+            DO_EJECT=false
+            ;;
+        /*)
+            MOUNT_POINT="$arg"
+            ;;
+    esac
+done
 
 echo "=== MIDI Captain Firmware Deploy ==="
 echo ""
@@ -29,24 +45,42 @@ echo "📁 Source: $DEV_DIR"
 echo "📱 Target: $MOUNT_POINT"
 echo ""
 
-# Deploy files
-echo "Copying code.py..."
-cp "$DEV_DIR/code.py" "$MOUNT_POINT/"
+# Create a staging area to batch all files
+STAGING=$(mktemp -d)
+trap "rm -rf $STAGING" EXIT
 
-echo "Copying config.json..."
-cp "$DEV_DIR/config.json" "$MOUNT_POINT/"
+echo "📦 Staging files..."
 
-echo "Copying devices/..."
-rm -rf "$MOUNT_POINT/devices"
-cp -r "$DEV_DIR/devices" "$MOUNT_POINT/"
+# Stage all files
+cp "$DEV_DIR/code.py" "$STAGING/"
+cp "$DEV_DIR/config.json" "$STAGING/"
+cp -r "$DEV_DIR/devices" "$STAGING/"
+cp -r "$DEV_DIR/fonts" "$STAGING/"
 
-echo "Copying fonts/..."
-rm -rf "$MOUNT_POINT/fonts"
-cp -r "$DEV_DIR/fonts" "$MOUNT_POINT/"
+# Remove __pycache__ from staging
+find "$STAGING" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
-# Sync to ensure writes complete
+echo "🚀 Deploying to device..."
+
+# Use rsync for efficient atomic-ish copy
+# The --inplace flag minimizes file rewrites
+rsync -av --delete \
+    --exclude='.DS_Store' \
+    --exclude='*.pyc' \
+    --exclude='__pycache__' \
+    "$STAGING/" "$MOUNT_POINT/"
+
+# Sync filesystem
 sync
 
 echo ""
-echo "✅ Deploy complete!"
-echo "   Device will auto-reload."
+
+if [ "$DO_EJECT" = true ]; then
+    echo "⏏️  Ejecting to trigger clean reset..."
+    diskutil eject "$MOUNT_POINT" 2>/dev/null || true
+    echo ""
+    echo "✅ Deploy complete! Reconnect device or wait for auto-remount."
+else
+    echo "✅ Deploy complete!"
+    echo "   Device will auto-reload on each file change."
+fi
