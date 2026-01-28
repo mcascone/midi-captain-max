@@ -351,6 +351,30 @@ status_label = label.Label(
 )
 main_group.append(status_label)
 
+# Expression pedal display (below status, only if device has expression)
+exp1_label = None
+exp2_label = None
+if HAS_EXPRESSION:
+    exp1_lbl_text = exp1_config.get("label", "EXP1")
+    exp1_label = label.Label(
+        BUTTON_FONT,
+        text=f"{exp1_lbl_text}: ---",
+        color=0x888888,
+        anchor_point=(0.5, 0.5),
+        anchored_position=(70, 150),
+    )
+    main_group.append(exp1_label)
+    
+    exp2_lbl_text = exp2_config.get("label", "EXP2")
+    exp2_label = label.Label(
+        BUTTON_FONT,
+        text=f"{exp2_lbl_text}: ---",
+        color=0x888888,
+        anchor_point=(0.5, 0.5),
+        anchored_position=(170, 150),
+    )
+    main_group.append(exp2_label)
+
 display.show(main_group)
 
 # =============================================================================
@@ -504,6 +528,9 @@ def handle_expression():
                 midi.send(ControlChange(CC_EXP1, val1))
                 lbl = exp1_config.get("label", "EXP1")
                 print(f"[{lbl}] CC{CC_EXP1}={val1}")
+                # Update display
+                if exp1_label:
+                    exp1_label.text = f"{lbl}: {val1:3d}"
 
     # Expression 2
     if exp2_config.get("enabled", True) and exp2 is not None:
@@ -528,6 +555,9 @@ def handle_expression():
                 midi.send(ControlChange(CC_EXP2, val2))
                 lbl = exp2_config.get("label", "EXP2")
                 print(f"[{lbl}] CC{CC_EXP2}={val2}")
+                # Update display
+                if exp2_label:
+                    exp2_label.text = f"{lbl}: {val2:3d}"
 
 
 # =============================================================================
