@@ -25,7 +25,6 @@ import digitalio
 import usb_midi
 import busio
 import rotaryio
-import asyncio
 import json
 from analogio import AnalogIn
 from adafruit_display_text import label
@@ -328,111 +327,82 @@ def init_leds():
 
 
 # =============================================================================
-# Async Tasks
+# Polling Functions
 # =============================================================================
 
 
-async def midi_task():
+def handle_midi():
     """Handle incoming MIDI messages."""
-    while True:
-        msg = midi.receive()
-        if msg and isinstance(msg, ControlChange):
-            cc = msg.control
-            val = msg.value
+    msg = midi.receive()
+    if msg and isinstance(msg, ControlChange):
+        cc = msg.control
+        val = msg.value
 
-            # Check if this CC matches any button
-            for i, btn_config in enumerate(buttons):
-                if btn_config.get("cc") == cc:
-                    on = val > 63
-                    set_button_state(i + 1, on)
-                    status_label.text = f"RX CC{cc}={val}"
-                    break
-
-        await asyncio.sleep(0)
+        # Check if this CC matches any button
+        for i, btn_config in enumerate(buttons):
+            if btn_config.get("cc") == cc:
+                on = val > 63
+                set_button_state(i + 1, on)
+                status_label.text = f"RX CC{cc}={val}"
+                break
 
 
-async def switch_task():
+def handle_switches():
     """Handle footswitch presses."""
-    while True:
-        for i in range(1, 11):  # Skip encoder push (index 0) for now
-            sw = switches[i]
-            changed, pressed = sw.changed()
+    for i in range(1, 11):  # Skip encoder push (index 0) for now
+        sw = switches[i]
+        changed, pressed = sw.changed()
 
-            if changed and pressed:  # On press
-                idx = i - 1
-                # Toggle state
-                new_state = not button_states[idx]
-                set_button_state(i, new_state)
+        if changed and pressed:  # On press
+            idx = i - 1
+            # Toggle state
+            new_state = not button_states[idx]
+            set_button_state(i, new_state)
 
-                # Send CC
-                btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
-                cc = btn_config.get("cc", 20 + idx)
-                midi.send(ControlChange(cc, 127 if new_state else 0))
-                status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
-
-        await asyncio.sleep(0)
+            # Send CC
+            btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
+            cc = btn_config.get("cc", 20 + idx)
+            midi.send(ControlChange(cc, 127 if new_state else 0))
+            status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
 
 
-async def encoder_task():
+def handle_encoder():
     """Handle rotary encoder."""
     global encoder_last_pos, encoder_value
 
-    while True:
-        pos = encoder.position
-        if pos != encoder_last_pos:
-            delta = pos - encoder_last_pos
-            encoder_last_pos = pos
-            encoder_value = max(0, min(127, encoder_value + delta))
-            midi.send(ControlChange(CC_ENCODER, encoder_value))
-            status_label.text = f"ENC={encoder_value}"
-
-        await asyncio.sleep(0.02)
+    pos = encoder.position
+    if pos != encoder_last_pos:
+        delta = pos - encoder_last_pos
+        encoder_last_pos = pos
+        encoder_value = max(0, min(127, encoder_value + delta))
+        midi.send(ControlChange(CC_ENCODER, encoder_value))
+        status_label.text = f"ENC={encoder_value}"
 
 
-async def expression_task():
-    """Handle expression pedals and battery voltage."""
+def handle_expression():
+    """Handle expression pedals."""
     global exp1_min, exp1_max, exp1_last
     global exp2_min, exp2_max, exp2_last
-    global vbat_filtered
 
-    while True:
-        # Expression 1 with auto-calibration
-        raw1 = exp1.value
-        exp1_max = max(raw1, exp1_max)
-        exp1_min = min(raw1, exp1_min)
-        if exp1_max > exp1_min:
-            val1 = int((raw1 - exp1_min) / (exp1_max - exp1_min) * 127)
-            if val1 != exp1_last and exp1_max > 63488:
-                exp1_last = val1
-                midi.send(ControlChange(CC_EXP1, val1))
+    # Expression 1 with auto-calibration
+    raw1 = exp1.value
+    exp1_max = max(raw1, exp1_max)
+    exp1_min = min(raw1, exp1_min)
+    if exp1_max > exp1_min:
+        val1 = int((raw1 - exp1_min) / (exp1_max - exp1_min) * 127)
+        if val1 != exp1_last and exp1_max > 63488:
+            exp1_last = val1
+            midi.send(ControlChange(CC_EXP1, val1))
 
-        # Expression 2 with auto-calibration
-        raw2 = exp2.value
-        exp2_max = max(raw2, exp2_max)
-        exp2_min = min(raw2, exp2_min)
-        if exp2_max > exp2_min:
-            val2 = int((raw2 - exp2_min) / (exp2_max - exp2_min) * 127)
-            if val2 != exp2_last and exp2_max > 63488:
-                exp2_last = val2
-                midi.send(ControlChange(CC_EXP2, val2))
-
-        # Battery voltage (low-pass filtered)
-        vbat_raw = battery.value / 65536 * 3.3 * 3
-        vbat_filtered = vbat_raw * vbat_alpha + vbat_filtered * (1 - vbat_alpha)
-
-        await asyncio.sleep(0.05)
-
-
-async def main():
-    """Main async event loop."""
-    print("Starting async tasks...")
-
-    await asyncio.gather(
-        midi_task(),
-        switch_task(),
-        encoder_task(),
-        expression_task(),
-    )
+    # Expression 2 with auto-calibration
+    raw2 = exp2.value
+    exp2_max = max(raw2, exp2_max)
+    exp2_min = min(raw2, exp2_min)
+    if exp2_max > exp2_min:
+        val2 = int((raw2 - exp2_min) / (exp2_max - exp2_min) * 127)
+        if val2 != exp2_last and exp2_max > 63488:
+            exp2_last = val2
+            midi.send(ControlChange(CC_EXP2, val2))
 
 
 # =============================================================================
@@ -456,4 +426,13 @@ for i, btn in enumerate(buttons):
     print(f"Button {i+1}: CC{btn.get('cc', 20+i)} ({btn.get('label', '')})")
 
 print("\nRunning...")
-asyncio.run(main())
+
+# =============================================================================
+# Main Loop
+# =============================================================================
+
+while True:
+    handle_midi()
+    handle_switches()
+    handle_encoder()
+    handle_expression()
