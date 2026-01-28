@@ -1,4 +1,22 @@
-print("\n=== MIDI CAPTAIN HK DEV BUILD ===\n")
+"""
+MIDI Captain Custom Firmware - MVP
+
+Config-driven, bidirectional MIDI firmware for Paint Audio MIDI Captain controllers.
+
+Features:
+- JSON configuration for button labels, CC numbers, and colors
+- Bidirectional MIDI: host controls LED/display state, device sends switch/encoder events
+- Toggle mode: local state for instant feedback, host override when it speaks
+- Asyncio-based concurrent handling of MIDI, switches, encoder, expression pedals
+
+Hardware: STD10 (10 switches, encoder, 2 expression inputs, ST7789 display, 30 NeoPixels)
+
+Author: Max Cascone (based on work by Helmut Keller)
+Date: 2026-01-27
+"""
+
+print("\n=== MIDI CAPTAIN CUSTOM FIRMWARE ===\n")
+
 import board
 import neopixel
 import time
@@ -8,836 +26,434 @@ import usb_midi
 import busio
 import rotaryio
 import asyncio
+import json
 from analogio import AnalogIn
 from adafruit_display_text import label
 from adafruit_bitmap_font import bitmap_font
-from adafruit_display_shapes.rect import Rect
+import terminalio
 from adafruit_st7789 import ST7789
 import adafruit_midi
 from adafruit_midi.control_change import ControlChange
-from adafruit_midi.system_exclusive import SystemExclusive
-from adafruit_midi.note_on import NoteOn
-from adafruit_midi.note_off import NoteOff
-from adafruit_midi.pitch_bend import PitchBend
 
-''' Firmware for MIDi Captain STD, Blue or Gold
-
-    by Helmut Keller Audio
-
-    The MIDI Control Change (CC) numbers 11 to 24 are implemented in both
-    directions (transmit and receive). The DAW should transmit CC comands whenever the
-    state of an mapped DAW control has changed.
-
-    The following mapping is fixed for the MIDI Captain controls:
-
-    CC 11         rotary encoder
-    CC 12 and 13  expresion pedal inputs "EXP1" and "EXP2"
-    CC 14         push button of the rotary encoder
-    CC 15 to 18   footswitches "1" to "4"
-    CC 19         footswitch "Up"
-    CC 20 to 23   footswitches "A" to "D"
-    CC 24         footswitch "Up"
-
-    CC 25  when revecved it sets the tuner mode of the MIDI Captain
-
-    In tuner mode the center part of the dispaly shows note command values
-    as note names and pitchwheel command values (8192 equals 200 cent pitch deviation)
-    as a pointer.
-
-    In normal mode the center part of the display shows a
-    name (e.g. Song name) which is set by a sytem exclusive command
-
-    For each CC number expept 19 und 24 there are small display elements
-    showing a descriptive name and the value as a bar.
-    The default colors and the names of the display elements are set by
-    the configurtatin file "HKAudioSetup.txt". The colors and names can be set
-    by system exclusive commands too.
-
-    The LEDs of the footswitches reflect the value the CC values too
-    They use the same color as the small display elements.
-
-    The battery voltage of the MIDI Captain is displayed on a small display
-    element too. '''
-
-''' Firmware version: '''
-
-VersionStr = "V 1.0.0"
-HelloStr = "HK Audio\n" + VersionStr
-
-''' Note Names '''
-
-NoteNames = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
-
-''' Colors: '''
-
-black = (0, 0, 0)
-
-dark_red = (128, 0, 0)
-dark_green = (0, 128, 0)
-dark_blue = (0, 0, 128)
-
-dark_yellow = (128, 128, 0)
-dark_cyan = (0, 128, 128)
-dark_magenta = (128, 0, 128)
-
-red = (255, 0, 0)
-green = (0, 255, 0)
-blue = (0, 0, 255)
-
-grey = (128, 128, 128)
-
-orange = (255, 128, 0)
-lime = (128, 255, 0)
-spring = (0, 255, 128)
-azure = (0, 128, 255)
-violet = (128, 0, 255)
-purple = (255, 0, 128)
-
-yellow = (255, 255, 0)
-cyan = (0, 255, 255)
-magenta = (255, 0, 255)
-
-pastel_red = (255, 128, 128)
-pastel_green = (128, 255, 128)
-pastel_blue = (128, 128, 255)
-
-pastel_yellow = (255, 255, 128)
-pastel_cyan = (128, 255, 255)
-pastel_magenta = (255, 128, 255)
-
-white = (255, 255, 255)
-
-''' Color palette: '''
-
-palette = displayio.Palette(27)
-
-palette[0] = black
-palette[1] = dark_red
-palette[2] = dark_yellow
-palette[3] = dark_green
-palette[4] = dark_cyan
-palette[5] = dark_blue
-palette[6] = dark_magenta
-palette[7] = grey
-palette[8] = red
-palette[9] = orange
-palette[10] = yellow
-palette[11] = lime
-palette[12] = green
-palette[13] = spring
-palette[14] = cyan
-palette[15] = azure
-palette[16] = blue
-palette[17] = violet
-palette[18] = magenta
-palette[19] = purple
-palette[20] = pastel_red
-palette[21] = pastel_yellow
-palette[22] = pastel_green
-palette[23] = pastel_cyan
-palette[24] = pastel_blue
-palette[25] = pastel_magenta
-palette[26] = white
-
-''' Dark color palette for display elements: '''
-
-dark_palette = displayio.Palette(27)
-dark_f = 3
-
-for i in range(27):
-    dc = palette[i]
-    dcr = dc // 65536
-    dc = dc % 65536
-    dcg = dc // 256
-    dcb = dc % 256
-    dc = dcr // dark_f * 65536 + dcg // dark_f * 256 + dcb // dark_f
-    dark_palette[i] = dc
-
-''' Dimmed color palette for LEDs: '''
-
-dim_palette = displayio.Palette(27)
-dim_f = 12
-
-for i in range(27):
-
-    dc = palette[i]
-    dcr = dc // 65536
-    dc = dc % 65536
-    dcg = dc // 256
-    dcb = dc % 256
-    dc = dcr // dim_f * 65536 + dcg // dim_f * 256 + dcb // dim_f
-    dim_palette[i] = dc
-
-''' Array of color palette indices of the 14 CCs and the main text display: '''
-
-color_index = [4, 2, 2, 4, 16, 16, 10, 12, 26, 8, 8, 8, 8, 26, 0]
-
-''' Array of dispaly element indices of the 14 CCs the main text display: '''
-
-display_index = [13, 0, 1, 12, 2, 3, 4, 5, -1, 7, 8, 9, 10, -1, 6]
-
-''' Array of the neopixel pins of the 10 Leds, 3 neopixel pins  per LED: '''
-
-pixelpin = [
-        [0, 1, 2],
-        [3, 4, 5],
-        [6, 7, 8],
-        [9, 10, 11],
-        [12, 13, 14],
-        [15, 16, 17],
-        [18, 19, 20],
-        [21, 22, 23],
-        [24, 25, 26],
-        [27, 28, 29],
-    ]
-
-''' Function to set a LED to full brightness: '''
-
-def LED_on(x):
-
-    for i in pixelpin[x]:
-        LED[i] = palette[color_index[x+4]]
-
-    return
-
-
-'''Function set a LED  to dimed brightness: '''
-
-def LED_dim(x):
-
-    for i in pixelpin[x]:
-        LED[i] = dim_palette[color_index[x+4]]
-
-    return
-
-''' Initialize the neopixel LEDs: '''
-
-neo_pin = board.GP7
-LED_count = 30
-LED_brightness = 0.3
-
-LED = neopixel.NeoPixel(neo_pin, LED_count, brightness=LED_brightness, auto_write=True)
-
-''' Switch class: '''
-
-class Switch:
-    def __init__(self, pin):
-        self.switch = digitalio.DigitalInOut(pin)          # hardware assingment
-        self.switch.direction = digitalio.Direction.INPUT
-        self.switch.pull = digitalio.Pull.UP
-
-    state = False
-
-''' Array of the 11 switch objects: '''
-
-switch = []
-
-switch.append(Switch(board.GP0))    # Switch Encoder    CC 14
-switch.append(Switch(board.GP1))    # Switch A          CC 15
-switch.append(Switch(board.GP25))   # Switch B          CC 16
-switch.append(Switch(board.GP24))   # Switch C          CC 17
-switch.append(Switch(board.GP23))   # Switch D          CC 18
-switch.append(Switch(board.GP20))   # Switch Up         CC 19
-switch.append(Switch(board.GP9))    # Switch 1          CC 20
-switch.append(Switch(board.GP10))   # Switch 2          CC 21
-switch.append(Switch(board.GP11))   # Switch 3          CC 22
-switch.append(Switch(board.GP18))   # Switch 3          CC 23
-switch.append(Switch(board.GP19))   # Switch Down       CC 24
-
-''' Initialize the rotary encoder: '''
-
-encoder = rotaryio.IncrementalEncoder(board.GP2, board.GP3, 2)
-last_position = 0
-encoder_value = 38
-
-''' Initialize the Analog Inputs: '''
-
-exp1 = AnalogIn(board.A1)
-exp2 = AnalogIn(board.A2)
-bat = AnalogIn(board.A3)
-
-exp1_min = 2048
-exp1_max = 63488
-exp2_min = 2048
-exp2_max = 63488
-exp1_old = 0
-exp2_old = 0
-
-vbat_state = 0
-vbat_a = 0.01
-vbat_b = 1-vbat_a
-vbat_old = 0
-
-''' Release any resources currently in use for displays: '''
-
-displayio.release_displays()
-
-''' Hardware assignment for the display: '''
-
-tft_pwm = board.GP8
-tft_cs = board.GP13
-tft_dc = board.GP12
-spi_mosi = board.GP15
-spi_clk = board.GP14
-
-spi = busio.SPI(spi_clk, spi_mosi)
-while not spi.try_lock():
-    spi.configure(baudrate=24000000)  # Configure SPI for 24MHz
-spi.unlock()
-
-display_bus = displayio.FourWire(
-    spi, command=tft_dc, chip_select=tft_cs, reset=None, baudrate=24000000)
-
-display = ST7789(display_bus,
-                 width=240, height=240,
-                 rowstart=80, rotation=180)
-
-''' Define the fonts: '''
-
-f_s = bitmap_font.load_font("/fonts/PTSans-Regular-20.pcf")
-f_l = bitmap_font.load_font("/fonts/PTSans-NarrowBold-54.pcf")
-f_xl = bitmap_font.load_font("/fonts/PTSans-Bold-60.pcf")
-
-''' Make splash screen assingments: '''
-
-splash = displayio.Group()
-display.rootgroup = splash
-
-''' Position and size the 14 display elements: '''
-
-x = [0, 120, 0, 60, 120, 180, 0, 0, 60, 120, 180, 0, 60, 120]
-y = [0, 0, 30, 30, 30, 30, 60, 180, 180, 180, 180, 210, 210, 210]
-w = [120, 120, 60, 60, 60, 60, 240, 60, 60, 60, 60, 60, 60, 120]
-h = [30, 30, 30, 30, 30, 30, 120, 30, 30, 30, 30, 30, 30, 30]
-
-''' Color, font, text and value of the 14 display elements: '''
-
-c = [2, 2, 16, 16, 10, 12, 0, 8, 8, 8, 8, 0, 4, 4]
-f = [f_s, f_s, f_s, f_s, f_s, f_s, f_l, f_s, f_s, f_s, f_s, f_s, f_s, f_s]
-t = ["Position", "Mode", "Play", "Loop", "Tap", "Tune", HelloStr,
-     "SP 1", "SP 2", "SP 3", "SP 4", "3.30 V", "Def.", "Master"]
-v = [38, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, encoder_value]
-
-''' Flags idicatin changes in  color, value and text of the 14 display elements: '''
-
-cc = [False, False, False, False, False, False, False, False,
-      False, False, False, False, False, False]
-vc = [False, False, False, False, False, False, False, False,
-      False, False, False, False, False, False]
-tc = [False, False, False, False, False, False, False, False,
-      False, False, False, False, False, False]
-
-''' Try to load user defined colors and texts from /setup/HKAudioSetup.txt: '''
+# Import device constants
+from devices.std10 import (
+    LED_PIN, LED_COUNT, SWITCH_PINS, switch_to_led,
+    TFT_DC_PIN, TFT_CS_PIN, TFT_SCK_PIN, TFT_MOSI_PIN,
+    DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_ROWSTART, DISPLAY_ROTATION,
+    ENCODER_A_PIN, ENCODER_B_PIN, EXP1_PIN, EXP2_PIN, BATTERY_PIN
+)
+
+# =============================================================================
+# Version
+# =============================================================================
+
+VERSION = "1.0.0-alpha.2"
+print(f"Version: {VERSION}")
+
+# =============================================================================
+# Color Palette
+# =============================================================================
+
+COLORS = {
+    "red": (255, 0, 0),
+    "green": (0, 255, 0),
+    "blue": (0, 0, 255),
+    "yellow": (255, 255, 0),
+    "cyan": (0, 255, 255),
+    "magenta": (255, 0, 255),
+    "orange": (255, 128, 0),
+    "purple": (128, 0, 255),
+    "white": (255, 255, 255),
+    "off": (0, 0, 0),
+}
+
+
+def get_color(name):
+    """Get RGB tuple from color name, with fallback to white."""
+    return COLORS.get(name.lower(), COLORS["white"])
+
+
+def dim_color(rgb, factor=0.15):
+    """Return a dimmed version of an RGB color."""
+    return tuple(int(c * factor) for c in rgb)
+
+
+def rgb_to_hex(rgb):
+    """Convert RGB tuple to hex integer for display."""
+    return (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]
+
+# =============================================================================
+# Configuration
+# =============================================================================
+
+
+def load_config(path="/config.json"):
+    """Load button configuration from JSON file."""
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Config load error: {e}, using defaults")
+        return {
+            "buttons": [
+                {"label": str(i + 1), "cc": 20 + i, "color": "white"}
+                for i in range(10)
+            ]
+        }
+
+
+config = load_config()
+buttons = config.get("buttons", [])
+print(f"Loaded {len(buttons)} button configs")
+
+# =============================================================================
+# Fonts
+# =============================================================================
 
 try:
-    with open('/setup/HKAudioSetup.txt', 'r') as setupfile:
-        file_content = setupfile.read()
-        for line in file_content.split('\n'):
-
-            CCstr = line[0:line.find('#')]
-            indexstr = line[line.find('#') + 1:line.find(':')]
-            indexstr = indexstr.replace(' ', '')
-            colorstr = line[line.find(':') + 1:line.find(',')]
-            colorstr = colorstr.replace(' ', '')
-            stext = line[line.find(', ') + 2:]
-            if CCstr == 'CC':
-                sindex = int(indexstr)
-                scolor = int(colorstr)
-                if sindex >= 11 and sindex <= 24 and scolor >= 0 and scolor <= 26:
-                    # print ("CC#", str(sindex), ": ", str(scolor), ", ", stext)
-                    color_index[sindex - 11] = scolor
-                    di = display_index[sindex - 11]
-
-                    if di > -1:
-
-                        c[di] = scolor
-                        t[di] = stext
-
-except OSError:
-    print('error: can''t open setup file')
-    pass
-
-''' Function for the outer rectangle of a display element: '''
-
-def outer_rect(i):
-
-    rect = Rect(x[i], y[i], w[i], h[i], fill=dark_palette[c[i]],
-                outline=palette[26], stroke=1)
-    return rect
-
-''' Function for the inner rectangle of a display element: '''
-
-def inner_rect(i):
-
-    rect = Rect(x[i] + 1, y[i] + 1, int(v[i] / 127 * (w[i] - 2) + 0.5), h[i] - 2,
-                fill=palette[c[i]], outline=palette[26], stroke=0)
-    return rect
-
-''' Function to redraw the outer rectangle of a display elment: '''
-
-def redraw_outer_rect(i):
-
-    splash[i].pop(0)
-    splash[i].insert(0, outer_rect(i))
-
-''' Function to redraw the inner rectangle of a display element: '''
-
-def redraw_inner_rect(i):
-
-    splash[i].pop(1)
-    splash[i].insert(1, inner_rect(i))
-
-''' Draw the 14 display elements in normal mode: '''
-
-text_area = []
-subgroup = []
-for i in range(14):
-    subgroup = displayio.Group()
-    splash.append(subgroup)
-    subgroup.append(outer_rect(i))
-    subgroup.append(inner_rect(i))
-    text_area.append(label.Label(f[i], text=" "*60, color=palette[26],
-                                 line_spacing=0.95, anchor_point=(0.5, 0.5),
-                                 anchored_position=(w[i]//2, h[i]//2)))
-    text_group = displayio.Group(scale=1, x=x[i], y=y[i])
-    text_group.append(text_area[i])
-    subgroup.append(text_group)
-    text_area[i].text = t[i]
-
-''' Draw the hidden displays elements for the tuner mode: '''
-
-TunerMode = False
-NoteName = "----"
-nc = False
-Pitch = 0.0
-pc = False
-
-pitch_rect = Rect(116, 72, 8, 32, fill=green, outline=white, stroke=0)
-splash[6].append(pitch_rect)
-splash[6][3].hidden = True
-
-text_area.append(label.Label(f_xl, text=""*8, color=white, line_spacing=1.00,
-                 anchor_point=(0.5, 0.5), anchored_position=(120, 40)))
-text_group = displayio.Group(scale=1, x=0, y=100)
-text_group.append(text_area[14])
-splash[6].append(text_group)
-text_area[14].text = NoteName
-splash[6][4].hidden = True
-
-''' Function to draw the pitch pointer value: '''
-
-def drawPitch():
-
-    x = Pitch * 4
-
-    if x > 3:
-
-        pitch_rect = Rect(116+x, 72,  8, 32, fill=red, outline=white, stroke=0)
-
-    elif x < -3:
-
-        pitch_rect = Rect(116+x, 72,  8, 32, fill=blue, outline=white, stroke=0)
-
-    else:
-
-        pitch_rect = Rect(116, 72, 8, 32, fill=green, outline=white, stroke=0)
-
-    splash[6].pop(3)
-    splash[6].insert(3, pitch_rect)
-
-''' Show the splash screen: '''
-
-display.show(splash)
-
-''' Create USB MIDI: '''
-
-midi_usb = adafruit_midi.MIDI(midi_out=usb_midi.ports[1],
-                              out_channel=0,
-                              midi_in=usb_midi.ports[0],
-                              in_buf_size=512, debug=False)
-
-
-'''Create serial MIDI: '''
-
-uart = busio.UART(tx=board.GP16, rx=board.GP17, baudrate=31250, timeout=0.003,
-                  receiver_buffer_size=512)
-
-midi_ser = adafruit_midi.MIDI(midi_in=uart, midi_out=uart, out_channel=0,
-                              in_buf_size=512, debug=False)
-
-
-''' Function to parse MIDI messages: '''
-
-def MIDI_parse(midimsg):
-
-    di = 0
-    global NoteName
-    global nc
-    global Pitch
-    global pc
-    global TunerMode
-    global encoder_value
-
-    if midimsg is not None:
-
-        if isinstance(midimsg, ControlChange):
-
-            cc_number = midimsg.control
-            cc_val = midimsg.value
-
-            if cc_number >= 11 and cc_number <= 24:
-
-                # print("CC: ", str(cc_number), ", ", str(cc_val))
-
-                if cc_number >= 15:
-
-                    if cc_val > 63:
-
-                        LED_on(cc_number - 15)
-                    else:
-
-                        LED_dim(cc_number - 15)
-
-                di = display_index[cc_number-11]
-
-                if di > -1:
-
-                    if v[di] != cc_val:
-
-                        v[di] = cc_val
-                        vc[di] = True
-
-                        if di == 13:
-                            encoder_value = cc_val
-
-            elif cc_number == 25:
-
-                if cc_val > 63:
-
-                    TunerMode = True
-                    splash[6][2].hidden = True
-                    splash[6][3].hidden = False
-                    splash[6][4].hidden = False
-
-                else:
-
-                    TunerMode = False
-                    splash[6][2].hidden = False
-                    splash[6][3].hidden = True
-                    splash[6][4].hidden = True
-
-        elif isinstance(midimsg, SystemExclusive):
-
-            SysExId = list(midimsg.manufacturer_id)
-            SysExData = list(midimsg.data)
-
-            if SysExId == [0x59] and len(SysExData) > 1:
-
-                k_cc = SysExData[0]
-                c_cc = SysExData[1]
-
-                if k_cc >= 11 and k_cc <= 25 and c_cc < 27:
-
-                    lable = ''.join(chr(int(cx)) for cx in SysExData[2:])
-
-                    # print("SY: ", str(k_cc), ", ", str(c_cc), ", ", lable)
-
-                    if len(lable) > 9:
-
-                        words = lable.split()
-                        words = lable.split()
-                        words_length = len(words)
-                        lable1 = words[0]
-
-                        if len(lable1) > 10:
-
-                            lable1 = lable1[:10]
-
-                        lable2 = ""
-                        unsplit = True
-
-                        for i in range(1, words_length, 1):
-
-                            if unsplit is True:
-
-                                nextLable = lable1 + " " + words[i]
-
-                                if len(nextLable) <= 9:
-
-                                    lable1 = nextLable
-
-                                else:
-
-                                    lable1 = lable1 + "\n"
-                                    unsplit = False
-                                    lable2 = words[i]
-
-                                    if len(lable2) > 10:
-
-                                        lable2 = lable2[:10]
-
-                            else:
-
-                                nextLable = lable2 + " " + words[i]
-
-                                if len(nextLable) <= 9:
-
-                                    lable2 = nextLable
-
-                                else:
-
-                                    break
-
-                        lable = lable1 + lable2
-
-                    color_index[k_cc - 11] = c_cc
-                    di = display_index[k_cc - 11]
-
-                    if di > -1 and di != 6:
-
-                        if c[di] != c_cc:
-
-                            c[di] = c_cc
-                            cc[di] = True
-                            vc[di] = True
-
-                    if di > -1 and t[di] != lable:
-
-                        t[di] = lable
-                        tc[di] = True
-
-        elif isinstance(midimsg, NoteOn):
-
-            if TunerMode:
-
-                NoteNumber = midimsg.note
-                Octave = int(NoteNumber / 12)
-                NoteNumber = NoteNumber % 12
-                newNoteName = NoteNames[NoteNumber] + str(Octave-1)
-
-                # print("NN: ", newNoteName)
-
-                if NoteName != newNoteName:
-                    NoteName = newNoteName
-                    nc = True
-
-        elif isinstance(midimsg, NoteOff):
-
-            if TunerMode:
-
-                newNoteName = "----"
-
-                # print("NO: ", newNoteName)
-
-                if NoteName != newNoteName:
-                    NoteName = newNoteName
-                    nc = True
-                    Pitch = 0
-                    pc = True
-
-        elif isinstance(midimsg, PitchBend):
-
-            if TunerMode:
-
-                newPitch = midimsg.pitch_bend
-                newPitch = (newPitch - 8192) / 8192 * 200
-                newPitch = int(newPitch)
-                newPitch = min(29, newPitch)
-                newPitch = max(-29, newPitch)
-
-                # print("PW: ", str(newPitch))
-
-                if Pitch != newPitch:
-                    Pitch = newPitch
-                    pc = True
-
-''' Async function to detect and handle MIDI events: '''
-
-async def MidiEvent():
-
-    while True:
-
-        midimsg = midi_usb.receive()
-        MIDI_parse(midimsg)
-
-        midimsg = midi_ser.receive()
-        MIDI_parse(midimsg)
-
-        await asyncio.sleep(0)
-
-''' Async function to detect and handle switch events: '''
-
-async def SwitchEvent():
-
-    while True:
-
-        for i in range(11):
-
-            ''' Ignore "Up" and "Down" switches in tuner mode  '''
-            if (i != 5 and i != 10) or (not TunerMode):
-
-                if not switch[i].switch.value:
-                    if not switch[i].state:
-                        switch[i].state = True
-                        midi_usb.send(ControlChange(14 + i, 127))
-                        midi_ser.send(ControlChange(14 + i, 127))
-                else:
-                    if switch[i].state:
-                        switch[i].state = False
-                        midi_usb.send(ControlChange(14 + i, 0))
-                        midi_ser.send(ControlChange(14 + i, 0))
-
-        await asyncio.sleep(0)
-
-''' Async function to detect and handle encoder events: '''
-
-async def EncoderEvent():
-
-    global last_position
-    global encoder_value
-    while True:
-
-        position = encoder.position
-
-        if position != last_position:
-
-            delta_position = position - last_position
-            last_position = position
-            encoder_value = encoder_value + delta_position
-            encoder_value = max(0, encoder_value)
-            encoder_value = min(127, encoder_value)
-            midi_usb.send(ControlChange(11, encoder_value))
-            midi_ser.send(ControlChange(11, encoder_value))
-
-        await asyncio.sleep(0.050)
-
-''' Async function to detect and handle analog input events: '''
-
-async def AnalogInEvent():
-
-    global exp1_max
-    global exp1_min
-    global exp1_old
-    global exp2_max
-    global exp2_min
-    global exp2_old
-    global vbat_state
-    global vbat_old
-
-    while True:
-
-        ''' Automatic calibration of expression pedal 1: '''
-
-        exp1_value = exp1.value
-        exp1_max = max(exp1_value, exp1_max)
-        exp1_min = min(exp1_value, exp1_min)
-        exp1_value = int((exp1_value - exp1_min) / (exp1_max - exp1_min) * 127)
-
-        ''' Send CC#12  if value has changed and has been maxed.
-            This avoids sending with open input '''
-
-        if exp1_value != exp1_old and exp1_max > 63488:
-            exp1_old = exp1_value
-            midi_usb.send(ControlChange(12, exp1_value))
-            midi_ser.send(ControlChange(12, exp1_value))
-
-        ''' Automatic calibration of expression pedal 2: '''
-
-        exp2_value = exp2.value
-        exp2_max = max(exp2_value, exp2_max)
-        exp2_min = min(exp2_value, exp2_min)
-        exp2_value = int((exp2_value - exp2_min) / (exp2_max - exp2_min) * 127)
-
-        ''' Send CC#13  if value has changed and has been maxed.
-            This avoids sending with open input '''
-
-        if exp2_value != exp2_old and exp2_max > 63488:
-            exp2_old = exp2_value
-            midi_usb.send(ControlChange(13, exp2_value))
-            midi_ser.send(ControlChange(13, exp2_value))
-
-        ''' Calculate low pass filtered battery voltage: '''
-
-        vbat = bat.value / 65536 * 3.3 * 3
-        vbat_state = vbat * vbat_a + vbat_state * vbat_b
-        vbat = vbat_state
-        vbat = int(vbat * 100 + 0.5) * 0.01
-
-        ''' Display battery voltage if value has changed: '''
-
-        if vbat != vbat_old:
-            t[11] = str(vbat) + " V"
-            tc[11] = True
-            vbat_old = vbat
-
-        await asyncio.sleep(0.000)
-
-''' Async function to detect and handle redraw events for display elements: '''
-
-async def ReDraw():
-
-    global nc
-    global pc
-
-    while True:
-
-        for i in range(14):
-
-            if cc[i]:
-
-                redraw_outer_rect(i)
-                cc[i] = False
-                await asyncio.sleep(0.050)
-
-            if vc[i]:
-
-                redraw_inner_rect(i)
-                vc[i] = False
-                await asyncio.sleep(0.050)
-
-            if tc[i]:
-
-                text_area[i].text = t[i]
-                tc[i] = False
-                await asyncio.sleep(0.050)
-
-        if nc and TunerMode:
-
-            text_area[14].text = NoteName
-            nc = False
-            await asyncio.sleep(0.050)
-
-        if pc and TunerMode:
-
-            drawPitch()
-            pc = False
-            await asyncio.sleep(0.050)
-
-        await asyncio.sleep(0.00)
-
-''' Async function for the main event loop: '''
-
-async def main():
-
-    MidiEventTask = asyncio.create_task(MidiEvent())
-    SwitchEventTask = asyncio.create_task(SwitchEvent())
-    EncoderEventTask = asyncio.create_task(EncoderEvent())
-    AnalogInEventTask = asyncio.create_task(AnalogInEvent())
-    ReDrawTask = asyncio.create_task(ReDraw())
-    await asyncio.gather(MidiEventTask, SwitchEventTask, EncoderEventTask,
-                         AnalogInEventTask, ReDrawTask)
-
-
-''' Say "Hello": '''
-
-print(HelloStr)
-
-LED.fill(green)
-time.sleep(1)
+    STATUS_FONT = bitmap_font.load_font("/fonts/PTSans-Regular-20.pcf")
+    print("Loaded PCF status font")
+except Exception as e:
+    print(f"Font load failed: {e}")
+    STATUS_FONT = terminalio.FONT
+
+BUTTON_FONT = terminalio.FONT  # Built-in works well for narrow button boxes
+
+# =============================================================================
+# Hardware Init
+# =============================================================================
+
+# NeoPixels
+pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness=0.3, auto_write=False)
+
+# Display
+displayio.release_displays()
+spi = busio.SPI(clock=TFT_SCK_PIN, MOSI=TFT_MOSI_PIN)
+display_bus = displayio.FourWire(spi, command=TFT_DC_PIN, chip_select=TFT_CS_PIN)
+display = ST7789(
+    display_bus,
+    width=DISPLAY_WIDTH,
+    height=DISPLAY_HEIGHT,
+    rowstart=DISPLAY_ROWSTART,
+    rotation=DISPLAY_ROTATION,
+)
+
+# =============================================================================
+# Switch Class
+# =============================================================================
+
+
+class Switch:
+    """Footswitch with state tracking."""
+
+    def __init__(self, pin):
+        self.io = digitalio.DigitalInOut(pin)
+        self.io.direction = digitalio.Direction.INPUT
+        self.io.pull = digitalio.Pull.UP
+        self.last_state = True  # Pull-up: True = not pressed
+
+    @property
+    def pressed(self):
+        return not self.io.value
+
+    def changed(self):
+        """Returns (changed, pressed) tuple."""
+        current = self.pressed
+        changed = current != self.last_state
+        self.last_state = current
+        return changed, current
+
+
+# Initialize switches (index 0 = encoder push, 1-10 = footswitches)
+switches = [Switch(pin) for pin in SWITCH_PINS]
+print(f"Initialized {len(switches)} switches")
+
+# Encoder
+encoder = rotaryio.IncrementalEncoder(ENCODER_A_PIN, ENCODER_B_PIN, divisor=2)
+encoder_last_pos = 0
+encoder_value = 64  # Start at middle
+
+# Expression pedals
+exp1 = AnalogIn(EXP1_PIN)
+exp2 = AnalogIn(EXP2_PIN)
+battery = AnalogIn(BATTERY_PIN)
+
+# Expression pedal calibration (auto-calibrates during use)
+exp1_min, exp1_max = 2048, 63488
+exp2_min, exp2_max = 2048, 63488
+exp1_last, exp2_last = 0, 0
+
+# Battery voltage low-pass filter
+vbat_filtered = 0.0
+vbat_alpha = 0.01
+
+# =============================================================================
+# MIDI Setup
+# =============================================================================
+
+midi = adafruit_midi.MIDI(
+    midi_in=usb_midi.ports[0],
+    midi_out=usb_midi.ports[1],
+    in_channel=0,
+    out_channel=0,
+    in_buf_size=64,
+)
+print("MIDI initialized")
+
+# CC assignments
+CC_ENCODER = 11
+CC_EXP1 = 12
+CC_EXP2 = 13
+CC_ENCODER_PUSH = 14
+# Switches 1-10 use CC numbers from config (default 20-29)
+
+# =============================================================================
+# State
+# =============================================================================
+
+button_states = [False] * 10  # Toggle state for each button
+
+# =============================================================================
+# Display Setup
+# =============================================================================
+
+main_group = displayio.Group()
+
+# Background
+bg_bitmap = displayio.Bitmap(240, 240, 1)
+bg_palette = displayio.Palette(1)
+bg_palette[0] = 0x000000
+bg_sprite = displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette, x=0, y=0)
+main_group.append(bg_sprite)
+
+# Button labels - 2 rows matching physical layout
+button_labels = []
+button_boxes = []
+button_width = 46
+button_height = 30
+button_spacing = 48
+top_row_y = 5
+bottom_row_y = 205
 
 for i in range(10):
-    LED_dim(i)
+    btn_config = buttons[i] if i < len(buttons) else {"label": str(i + 1), "color": "white"}
 
-''' Run the main event loop: '''
+    if i < 5:
+        x = 1 + i * button_spacing
+        y = top_row_y
+    else:
+        x = 1 + (i - 5) * button_spacing
+        y = bottom_row_y
 
+    color_rgb = get_color(btn_config.get("color", "white"))
+
+    # Create box background with border
+    box_bitmap = displayio.Bitmap(button_width, button_height, 2)
+    box_palette = displayio.Palette(2)
+    box_palette[0] = 0x000000
+    box_palette[1] = rgb_to_hex(dim_color(color_rgb))  # Start dimmed
+
+    for bx in range(button_width):
+        box_bitmap[bx, 0] = 1
+        box_bitmap[bx, button_height - 1] = 1
+    for by in range(button_height):
+        box_bitmap[0, by] = 1
+        box_bitmap[button_width - 1, by] = 1
+
+    box_sprite = displayio.TileGrid(box_bitmap, pixel_shader=box_palette, x=x, y=y)
+    button_boxes.append((box_sprite, box_palette))
+    main_group.append(box_sprite)
+
+    # Label
+    lbl = label.Label(
+        BUTTON_FONT,
+        text=btn_config.get("label", str(i + 1))[:6],
+        color=rgb_to_hex(dim_color(color_rgb)),
+        anchor_point=(0.5, 0.5),
+        anchored_position=(x + button_width // 2, y + button_height // 2),
+    )
+    button_labels.append(lbl)
+    main_group.append(lbl)
+
+# Status area (center)
+status_label = label.Label(
+    STATUS_FONT,
+    text="Ready",
+    color=0xFFFFFF,
+    anchor_point=(0.5, 0.5),
+    anchored_position=(120, 120),
+)
+main_group.append(status_label)
+
+display.show(main_group)
+
+# =============================================================================
+# LED & Display Helpers
+# =============================================================================
+
+
+def set_button_state(switch_idx, on):
+    """Update LED and display for a button (1-indexed)."""
+    idx = switch_idx - 1
+    if idx < 0 or idx >= 10:
+        return
+
+    button_states[idx] = on
+    btn_config = buttons[idx] if idx < len(buttons) else {"color": "white"}
+    color_rgb = get_color(btn_config.get("color", "white"))
+
+    # Update LED
+    led_idx = switch_to_led(switch_idx)
+    if led_idx is not None:
+        rgb = color_rgb if on else dim_color(color_rgb)
+        base = led_idx * 3
+        for j in range(3):
+            if base + j < LED_COUNT:
+                pixels[base + j] = rgb
+        pixels.show()
+
+    # Update display
+    if idx < len(button_labels):
+        color_hex = rgb_to_hex(color_rgb if on else dim_color(color_rgb))
+        button_labels[idx].color = color_hex
+        if idx < len(button_boxes):
+            _, box_palette = button_boxes[idx]
+            box_palette[1] = color_hex
+
+
+def init_leds():
+    """Initialize all LEDs to dim state."""
+    for i in range(1, 11):
+        set_button_state(i, False)
+
+
+# =============================================================================
+# Async Tasks
+# =============================================================================
+
+
+async def midi_task():
+    """Handle incoming MIDI messages."""
+    while True:
+        msg = midi.receive()
+        if msg and isinstance(msg, ControlChange):
+            cc = msg.control
+            val = msg.value
+
+            # Check if this CC matches any button
+            for i, btn_config in enumerate(buttons):
+                if btn_config.get("cc") == cc:
+                    on = val > 63
+                    set_button_state(i + 1, on)
+                    status_label.text = f"RX CC{cc}={val}"
+                    break
+
+        await asyncio.sleep(0)
+
+
+async def switch_task():
+    """Handle footswitch presses."""
+    while True:
+        for i in range(1, 11):  # Skip encoder push (index 0) for now
+            sw = switches[i]
+            changed, pressed = sw.changed()
+
+            if changed and pressed:  # On press
+                idx = i - 1
+                # Toggle state
+                new_state = not button_states[idx]
+                set_button_state(i, new_state)
+
+                # Send CC
+                btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
+                cc = btn_config.get("cc", 20 + idx)
+                midi.send(ControlChange(cc, 127 if new_state else 0))
+                status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+
+        await asyncio.sleep(0)
+
+
+async def encoder_task():
+    """Handle rotary encoder."""
+    global encoder_last_pos, encoder_value
+
+    while True:
+        pos = encoder.position
+        if pos != encoder_last_pos:
+            delta = pos - encoder_last_pos
+            encoder_last_pos = pos
+            encoder_value = max(0, min(127, encoder_value + delta))
+            midi.send(ControlChange(CC_ENCODER, encoder_value))
+            status_label.text = f"ENC={encoder_value}"
+
+        await asyncio.sleep(0.02)
+
+
+async def expression_task():
+    """Handle expression pedals and battery voltage."""
+    global exp1_min, exp1_max, exp1_last
+    global exp2_min, exp2_max, exp2_last
+    global vbat_filtered
+
+    while True:
+        # Expression 1 with auto-calibration
+        raw1 = exp1.value
+        exp1_max = max(raw1, exp1_max)
+        exp1_min = min(raw1, exp1_min)
+        if exp1_max > exp1_min:
+            val1 = int((raw1 - exp1_min) / (exp1_max - exp1_min) * 127)
+            if val1 != exp1_last and exp1_max > 63488:
+                exp1_last = val1
+                midi.send(ControlChange(CC_EXP1, val1))
+
+        # Expression 2 with auto-calibration
+        raw2 = exp2.value
+        exp2_max = max(raw2, exp2_max)
+        exp2_min = min(raw2, exp2_min)
+        if exp2_max > exp2_min:
+            val2 = int((raw2 - exp2_min) / (exp2_max - exp2_min) * 127)
+            if val2 != exp2_last and exp2_max > 63488:
+                exp2_last = val2
+                midi.send(ControlChange(CC_EXP2, val2))
+
+        # Battery voltage (low-pass filtered)
+        vbat_raw = battery.value / 65536 * 3.3 * 3
+        vbat_filtered = vbat_raw * vbat_alpha + vbat_filtered * (1 - vbat_alpha)
+
+        await asyncio.sleep(0.05)
+
+
+async def main():
+    """Main async event loop."""
+    print("Starting async tasks...")
+
+    await asyncio.gather(
+        midi_task(),
+        switch_task(),
+        encoder_task(),
+        expression_task(),
+    )
+
+
+# =============================================================================
+# Startup
+# =============================================================================
+
+print("Initializing...")
+init_leds()
+
+# Startup animation
+pixels.fill((0, 255, 0))
+pixels.show()
+time.sleep(0.5)
+init_leds()
+
+# Show CC mapping info
+print(f"Encoder: CC{CC_ENCODER}")
+print(f"Expression 1: CC{CC_EXP1}")
+print(f"Expression 2: CC{CC_EXP2}")
+for i, btn in enumerate(buttons):
+    print(f"Button {i+1}: CC{btn.get('cc', 20+i)} ({btn.get('label', '')})")
+
+print("\nRunning...")
 asyncio.run(main())

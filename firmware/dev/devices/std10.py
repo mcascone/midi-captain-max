@@ -54,10 +54,10 @@ def switch_to_led(switch_idx):
 ENCODER_A_PIN = board.GP2
 ENCODER_B_PIN = board.GP3
 
-# Analog inputs
+# Analog inputs (expression pedals + battery)
 EXP1_PIN = board.A1
 EXP2_PIN = board.A2
-BATTERY_PIN = board.A3
+BATTERY_PIN = board.A0  # Battery voltage divider
 
 # Display (ST7789 over SPI)
 TFT_DC_PIN = board.GP12
