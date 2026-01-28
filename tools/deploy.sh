@@ -93,15 +93,18 @@ if [ "$DO_EJECT" = true ]; then
     echo "✅ Deploy complete! Reconnect device to start firmware."
 elif [ "$DO_RESET" = true ]; then
     echo "🔄 Sending soft reset..."
-    # Find CircuitPython serial port and send Ctrl+D
+    # Find CircuitPython serial port and send Ctrl+C then Ctrl+D
     SERIAL_PORT=$(ls /dev/tty.usbmodem* 2>/dev/null | head -1)
     if [ -n "$SERIAL_PORT" ]; then
-        # Send Ctrl+D (EOF) to trigger soft reload
+        # Send Ctrl+C (interrupt running code) then Ctrl+D (soft reload)
+        # Small delay between to ensure REPL is ready
+        printf '\x03' > "$SERIAL_PORT"
+        sleep 0.2
         printf '\x04' > "$SERIAL_PORT"
         echo "✅ Deploy complete! Device is reloading."
     else
         echo "⚠️  No serial port found. Device may need manual reset."
-        echo "   Press Ctrl+D in serial console, or eject device."
+        echo "   Press Ctrl+C then Ctrl+D in serial console, or eject device."
     fi
 else
     echo "✅ Deploy complete!"
