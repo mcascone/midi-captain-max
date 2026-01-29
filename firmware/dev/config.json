@@ -11,6 +11,21 @@
     {"label": "PLATE", "cc": 28, "color": "purple"},
     {"label": "ROOM", "cc": 29, "color": "white", "mode": "momentary"}
   ],
+  "encoder": {
+    "enabled": true,
+    "cc": 11,
+    "label": "ENC",
+    "min": 0,
+    "max": 127,
+    "initial": 64,
+    "steps": null,
+    "push": {
+      "enabled": true,
+      "cc": 14,
+      "label": "PUSH",
+      "mode": "momentary"
+    }
+  },
   "expression": {
     "exp1": {
       "enabled": true,

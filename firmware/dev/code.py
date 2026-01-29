@@ -211,11 +211,13 @@ print(f"Initialized {len(switches)} switches")
 if HAS_ENCODER:
     encoder = rotaryio.IncrementalEncoder(ENCODER_A_PIN, ENCODER_B_PIN, divisor=2)
     encoder_last_pos = 0
-    encoder_value = 64  # Start at middle
 else:
     encoder = None
     encoder_last_pos = 0
-    encoder_value = 0
+
+# Will be set after config is loaded
+encoder_value = 0
+encoder_push_state = False  # For toggle mode
 
 # Expression pedals (STD10 only)
 if HAS_EXPRESSION:
@@ -248,10 +250,23 @@ midi = adafruit_midi.MIDI(
 )
 print("MIDI initialized")
 
-# CC assignments
-CC_ENCODER = 11
-CC_ENCODER_PUSH = 14
-# Switches use CC numbers from config (default 20-29)
+# Encoder config (from config.json or defaults)
+enc_config = config.get("encoder", {"enabled": True, "cc": 11, "label": "ENC", "min": 0, "max": 127, "initial": 64})
+enc_push_config = enc_config.get("push", {"enabled": True, "cc": 14, "label": "PUSH", "mode": "momentary"})
+
+CC_ENCODER = enc_config.get("cc", 11)
+CC_ENCODER_PUSH = enc_push_config.get("cc", 14)
+ENC_MIN = enc_config.get("min", 0)
+ENC_MAX = enc_config.get("max", 127)
+ENC_INITIAL = enc_config.get("initial", 64)
+ENC_ENABLED = enc_config.get("enabled", True) and HAS_ENCODER
+ENC_PUSH_ENABLED = enc_push_config.get("enabled", True) and HAS_ENCODER
+ENC_PUSH_MODE = enc_push_config.get("mode", "momentary")
+
+# Stepped mode: steps = number of discrete output values (slots)
+# e.g., steps=5 means output CC values 0,1,2,3,4
+# Internal encoder tracks 0-127, output only changes at slot boundaries
+ENC_STEPS = enc_config.get("steps", None)
 
 # Expression pedal config (from config.json or defaults)
 exp_config = config.get("expression", {})
@@ -266,6 +281,8 @@ CC_EXP2 = exp2_config.get("cc", 13)
 # =============================================================================
 
 button_states = [False] * BUTTON_COUNT  # Toggle state for each button
+encoder_value = ENC_INITIAL  # Internal value 0-127
+encoder_slot = -1  # Current slot (set on first change)
 
 # =============================================================================
 # Display Setup
@@ -476,25 +493,58 @@ def handle_switches():
 
 def handle_encoder_button():
     """Handle encoder push button."""
+    global encoder_push_state
+    
+    if not ENC_PUSH_ENABLED:
+        return
+    
     sw = switches[0]  # Encoder push is switch index 0
     changed, pressed = sw.changed()
     if changed:
-        cc_val = 127 if pressed else 0
-        midi.send(ControlChange(CC_ENCODER_PUSH, cc_val))
-        status_label.text = f"TX CC{CC_ENCODER_PUSH}={cc_val}"
+        if ENC_PUSH_MODE == "toggle":
+            # Toggle mode: flip state on press only
+            if pressed:
+                encoder_push_state = not encoder_push_state
+                cc_val = 127 if encoder_push_state else 0
+                midi.send(ControlChange(CC_ENCODER_PUSH, cc_val))
+                status_label.text = f"TX CC{CC_ENCODER_PUSH}={'ON' if encoder_push_state else 'OFF'}"
+        else:
+            # Momentary mode: send on press and release
+            cc_val = 127 if pressed else 0
+            midi.send(ControlChange(CC_ENCODER_PUSH, cc_val))
+            status_label.text = f"TX CC{CC_ENCODER_PUSH}={cc_val}"
 
 
 def handle_encoder():
     """Handle rotary encoder."""
-    global encoder_last_pos, encoder_value
+    global encoder_last_pos, encoder_value, encoder_slot
+    
+    if not ENC_ENABLED:
+        return
 
     pos = encoder.position
     if pos != encoder_last_pos:
         delta = pos - encoder_last_pos
         encoder_last_pos = pos
+        
+        # Update internal value (always 0-127)
         encoder_value = max(0, min(127, encoder_value + delta))
-        midi.send(ControlChange(CC_ENCODER, encoder_value))
-        status_label.text = f"ENC={encoder_value}"
+        
+        if ENC_STEPS and ENC_STEPS > 1:
+            # Stepped mode: calculate which slot we're in
+            # Slot boundaries: 0-25=slot0, 26-50=slot1, etc. for 5 slots
+            slot_size = 128 // ENC_STEPS
+            new_slot = min(encoder_value // slot_size, ENC_STEPS - 1)
+            
+            if new_slot != encoder_slot:
+                encoder_slot = new_slot
+                # Output CC is the slot number (0 to steps-1)
+                midi.send(ControlChange(CC_ENCODER, encoder_slot))
+                status_label.text = f"ENC slot {encoder_slot}"
+        else:
+            # Normal mode: send every change
+            midi.send(ControlChange(CC_ENCODER, encoder_value))
+            status_label.text = f"ENC={encoder_value}"
 
 
 def handle_expression():
@@ -575,7 +625,11 @@ init_leds()
 
 # Show CC mapping info
 if HAS_ENCODER:
-    print(f"Encoder: CC{CC_ENCODER}")
+    if ENC_STEPS and ENC_STEPS > 1:
+        print(f"Encoder: CC{CC_ENCODER} ({ENC_STEPS} slots, outputs 0-{ENC_STEPS-1})")
+    else:
+        print(f"Encoder: CC{CC_ENCODER} (range {ENC_MIN}-{ENC_MAX}, init={ENC_INITIAL})")
+    print(f"Encoder Push: CC{CC_ENCODER_PUSH} ({ENC_PUSH_MODE})")
 if HAS_EXPRESSION:
     print(f"Expression 1: CC{CC_EXP1}")
     print(f"Expression 2: CC{CC_EXP2}")
