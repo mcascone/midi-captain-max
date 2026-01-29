@@ -236,22 +236,31 @@ elif [ "$DO_RESET" = true ]; then
     SERIAL_PORT=$(ls /dev/tty.usbmodem* 2>/dev/null | head -1)
     if [ -n "$SERIAL_PORT" ]; then
         # Kill any screen sessions using this port (they block access)
-        SCREEN_PIDS=$(lsof -t "$SERIAL_PORT" 2>/dev/null)
+        SCREEN_PIDS=$(lsof -t "$SERIAL_PORT" 2>/dev/null || true)
         if [ -n "$SCREEN_PIDS" ]; then
             echo "   Closing existing serial connection..."
             kill $SCREEN_PIDS 2>/dev/null || true
             sleep 0.5
         fi
-        # Send Ctrl+C (interrupt) then Ctrl+D (soft reload) via stty
-        # Open port briefly, send bytes, close
-        (
-            exec 3<>"$SERIAL_PORT"
-            stty -f "$SERIAL_PORT" 115200 raw -echo 2>/dev/null || true
-            printf '\x03' >&3
-            sleep 0.2
-            printf '\x04' >&3
-            exec 3>&-
-        ) 2>/dev/null
+        # Send Ctrl+C (interrupt) then Ctrl+D (soft reload)
+        # Use timeout to prevent hanging if port is unresponsive
+        if command -v gtimeout &>/dev/null; then
+            TIMEOUT_CMD="gtimeout"
+        elif command -v timeout &>/dev/null; then
+            TIMEOUT_CMD="timeout"
+        else
+            TIMEOUT_CMD=""
+        fi
+        
+        if [ -n "$TIMEOUT_CMD" ]; then
+            $TIMEOUT_CMD 3 bash -c "printf '\x03\x04' > '$SERIAL_PORT'" 2>/dev/null || true
+        else
+            # No timeout available, try with backgrounding
+            ( printf '\x03\x04' > "$SERIAL_PORT" 2>/dev/null ) &
+            RESET_PID=$!
+            sleep 1
+            kill $RESET_PID 2>/dev/null || true
+        fi
         echo "✅ Deploy complete! Device is reloading."
     else
         echo "⚠️  No serial port found. Power-cycle device to reload."
