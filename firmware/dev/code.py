@@ -43,7 +43,7 @@ try:
     with open("/config.json", "r") as f:
         _cfg = json.load(f)
         DEVICE_TYPE = _cfg.get("device", "std10").lower()
-except:
+except Exception:
     DEVICE_TYPE = "std10"
 
 print(f"Device type: {DEVICE_TYPE}")
