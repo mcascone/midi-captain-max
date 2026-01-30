@@ -216,13 +216,78 @@ sed "s/{{VERSION}}/${VERSION}/g" "$RESOURCES_DIR/conclusion.html" > "$OUTPUT_DIR
 
 # Build the product package
 echo "Building product installer..."
+PKG_NAME="MIDICaptain-Firmware-${VERSION}"
 productbuild --distribution "$OUTPUT_DIR/distribution.xml" \
              --package-path "$COMPONENT_PKGS" \
              --resources "$OUTPUT_DIR" \
-             "$OUTPUT_DIR/MIDICaptain-Firmware-${VERSION}.pkg"
+             "$OUTPUT_DIR/${PKG_NAME}.pkg"
+
+# Sign the package if certificate is available
+if security find-identity -v -p basic | grep -q "Developer ID Installer"; then
+    
+    # First, sign the app inside the payload if we have an Application certificate
+    if security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
+        echo "Signing embedded app with hardened runtime..."
+        codesign --force --options runtime --timestamp \
+            --sign "Developer ID Application: Maximilian Cascone (9WNXKEF4SM)" \
+            "$OUTPUT_DIR/MIDI Captain Installer.app"
+        echo "  ✓ App signed with hardened runtime"
+        
+        # Re-copy the signed app to payload
+        rm -rf "$PAYLOAD_ROOT/Applications/MIDI Captain Installer.app"
+        cp -R "$OUTPUT_DIR/MIDI Captain Installer.app" "$PAYLOAD_ROOT/Applications/"
+        
+        # Rebuild component package with signed app
+        echo "Rebuilding component package with signed app..."
+        pkgbuild --root "$PAYLOAD_ROOT" \
+                 --identifier "${IDENTIFIER}" \
+                 --version "$VERSION" \
+                 --scripts "$SCRIPTS_DIR" \
+                 --install-location "/" \
+                 "$COMPONENT_PKGS/firmware.pkg"
+        
+        # Rebuild product package
+        productbuild --distribution "$OUTPUT_DIR/distribution.xml" \
+                     --package-path "$COMPONENT_PKGS" \
+                     --resources "$OUTPUT_DIR" \
+                     "$OUTPUT_DIR/${PKG_NAME}.pkg"
+    fi
+    
+    echo "Signing package..."
+    productsign --sign "Developer ID Installer: Maximilian Cascone (9WNXKEF4SM)" \
+        "$OUTPUT_DIR/${PKG_NAME}.pkg" \
+        "$OUTPUT_DIR/${PKG_NAME}-signed.pkg"
+    mv "$OUTPUT_DIR/${PKG_NAME}-signed.pkg" "$OUTPUT_DIR/${PKG_NAME}.pkg"
+    echo "  ✓ Package signed"
+    
+    # Notarize if credentials are available AND app was signed
+    if [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+        if security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
+            echo "Notarizing package (this may take a few minutes)..."
+            if xcrun notarytool submit "$OUTPUT_DIR/${PKG_NAME}.pkg" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_APP_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" \
+                --wait; then
+                
+                echo "Stapling notarization ticket..."
+                xcrun stapler staple "$OUTPUT_DIR/${PKG_NAME}.pkg"
+                echo "  ✓ Package notarized and stapled"
+            else
+                echo "  ⚠ Notarization failed - check 'xcrun notarytool log <id>' for details"
+            fi
+        else
+            echo "  ⚠ Notarization skipped (requires Developer ID Application certificate to sign embedded app)"
+        fi
+    else
+        echo "  ⚠ Notarization skipped (set APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID to enable)"
+    fi
+else
+    echo "  ⚠ No signing certificate found, package will be unsigned"
+fi
 
 echo ""
-echo "✓ Installer created: $OUTPUT_DIR/MIDICaptain-Firmware-${VERSION}.pkg"
+echo "✓ Installer created: $OUTPUT_DIR/${PKG_NAME}.pkg"
 echo ""
 echo "The installer will:"
 echo "  1. Install 'MIDI Captain Installer.app' to /Applications/"

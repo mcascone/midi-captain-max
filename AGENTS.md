@@ -245,6 +245,20 @@ Recommended approach: Use `blinka` + `pytest` for unit testing core logic, on-de
 
 ---
 
+## Code Signing
+
+Apple Developer certificate for signing macOS installer packages.
+
+| Field | Value |
+|-------|-------|
+| Identity | `Developer ID Installer: Maximilian Cascone (9WNXKEF4SM)` |
+| Team ID | `9WNXKEF4SM` |
+| SHA-1 | `09343E41A538CB1790C9B606B4F9EEFAC3C4526F` |
+
+See [docs/macos-code-signing.md](docs/macos-code-signing.md) for full setup guide.
+
+---
+
 ## Licensing
 
 **Copyright (c) 2026 Maximilian Cascone** — All rights reserved.

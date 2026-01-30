@@ -72,12 +72,14 @@ Modify `tools/build-installer.sh` to sign the package:
 ```bash
 # After productbuild, sign the package
 productsign --sign "Developer ID Installer: Your Name (TEAMID)" \
-    "${INSTALLER_DIR}/${PKG_NAME}.pkg" \
-    "${INSTALLER_DIR}/${PKG_NAME}-signed.pkg"
+    "$OUTPUT_DIR/${PKG_NAME}.pkg" \
+    "$OUTPUT_DIR/${PKG_NAME}-signed.pkg"
 
 # Replace unsigned with signed
-mv "${INSTALLER_DIR}/${PKG_NAME}-signed.pkg" "${INSTALLER_DIR}/${PKG_NAME}.pkg"
+mv "$OUTPUT_DIR/${PKG_NAME}-signed.pkg" "$OUTPUT_DIR/${PKG_NAME}.pkg"
 ```
+
+**Note:** The build script already includes conditional signing that checks for certificate availability.
 
 ---
 
