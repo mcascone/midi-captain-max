@@ -213,12 +213,11 @@ cat > "$OUTPUT_DIR/welcome.html" << EOF
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="color-scheme" content="light">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; color: #333; background: #fff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; }
         h1 { font-size: 24px; margin-bottom: 10px; }
         p { font-size: 14px; line-height: 1.5; }
-        code { background: #e8e8e8; color: #333; padding: 2px 6px; border-radius: 3px; font-family: ui-monospace, monospace; }
-        .info { color: #004085; background: #cce5ff; padding: 10px; border-radius: 4px; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -228,15 +227,12 @@ cat > "$OUTPUT_DIR/welcome.html" << EOF
     
     <p><strong>What gets installed:</strong></p>
     <ul>
-        <li><strong>MIDI Captain Installer.app</strong> in /Applications/ — Interactive GUI for installing to your device</li>
-        <li>Firmware files in <code>/usr/local/share/midicaptain-firmware/</code></li>
-        <li>CLI tool <code>midicaptain-install</code> in <code>/usr/local/bin/</code></li>
+        <li><strong>MIDI Captain Installer.app</strong> in /Applications/</li>
+        <li>Firmware files in /usr/local/share/midicaptain-firmware/</li>
+        <li>CLI tool "midicaptain-install" in /usr/local/bin/</li>
     </ul>
     
-    <div class="info">
-        <strong>After installation:</strong> The MIDI Captain Installer app will open automatically.
-        Connect your device and click Install!
-    </div>
+    <p><strong>After installation:</strong> The MIDI Captain Installer app will open automatically. Connect your device and click Install!</p>
 </body>
 </html>
 EOF
@@ -246,35 +242,26 @@ cat > "$OUTPUT_DIR/conclusion.html" << EOF
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="color-scheme" content="light">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; color: #333; background: #fff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; }
         h1 { font-size: 24px; margin-bottom: 10px; }
         p { font-size: 14px; line-height: 1.5; }
-        code { background: #e8e8e8; color: #333; padding: 2px 6px; border-radius: 3px; font-family: ui-monospace, monospace; }
-        .success { color: #155724; background: #d4edda; padding: 10px; border-radius: 4px; margin: 10px 0; }
-        .next-steps { background: #f8f9fa; color: #333; padding: 15px; border-radius: 6px; margin-top: 15px; }
+        a { color: #0066cc; }
     </style>
 </head>
 <body>
     <h1>Installation Complete!</h1>
     
-    <div class="success">
-        ✓ MIDI Captain Firmware ${VERSION} has been installed.
-    </div>
+    <p>✓ MIDI Captain Firmware ${VERSION} has been installed.</p>
     
-    <div class="next-steps">
-        <p><strong>The MIDI Captain Installer app should open automatically.</strong></p>
-        <p>If it doesn't, you can find it in:</p>
-        <ul>
-            <li><strong>/Applications/MIDI Captain Installer.app</strong></li>
-        </ul>
-        <p>Or use the command line:</p>
-        <ul>
-            <li><code>midicaptain-install</code></li>
-        </ul>
-    </div>
+    <p><strong>The MIDI Captain Installer app should open automatically.</strong></p>
     
-    <p style="margin-top: 20px;"><strong>Need help?</strong> Visit 
+    <p>If it doesn't, you can find it in /Applications/MIDI Captain Installer.app</p>
+    
+    <p>Or use the command line: midicaptain-install</p>
+    
+    <p><strong>Need help?</strong> Visit 
     <a href="https://github.com/mcascone/midi-captain-max">github.com/mcascone/midi-captain-max</a></p>
 </body>
 </html>
