@@ -38,6 +38,8 @@ Looking for volumes named:
 			showInstallerWindow()
 		else if button returned of userChoice is "Browse..." then
 			browseForVolume()
+		else
+			tell me to quit
 		end if
 	else if (count of volumeList) = 1 then
 		-- One device found - confirm and install
@@ -51,6 +53,9 @@ Select the device to install firmware:" with title "MIDI Captain Installer" defa
 		
 		if chosenVolume is not false then
 			confirmAndInstall(item 1 of chosenVolume)
+		else
+			-- User cancelled the list selection
+			tell me to quit
 		end if
 	end if
 end showInstallerWindow
@@ -207,12 +212,17 @@ Your existing config.json was preserved."
 		
 		if button returned of result is "Install Another" then
 			showInstallerWindow()
+		else
+			-- Quit the app when Done is clicked
+			tell me to quit
 		end if
 		
 	on error errMsg
 		display alert "Installation Failed" message "Error: " & errMsg as critical buttons {"Quit", "Try Again"} default button "Try Again"
 		if button returned of result is "Try Again" then
 			showInstallerWindow()
+		else
+			tell me to quit
 		end if
 	end try
 end performInstallation
