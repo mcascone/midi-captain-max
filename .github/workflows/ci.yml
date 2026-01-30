@@ -80,9 +80,45 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Build macOS installer
+      - name: Import signing certificates
+        if: ${{ env.MACOS_INSTALLER_CERT != '' }}
+        env:
+          MACOS_INSTALLER_CERT: ${{ secrets.MACOS_INSTALLER_CERT }}
+          MACOS_INSTALLER_CERT_PWD: ${{ secrets.MACOS_INSTALLER_CERT_PWD }}
+          MACOS_APPLICATION_CERT: ${{ secrets.MACOS_APPLICATION_CERT }}
+          MACOS_APPLICATION_CERT_PWD: ${{ secrets.MACOS_APPLICATION_CERT_PWD }}
         run: |
-          export MIDICAPTAIN_VERSION="${{ needs.lint.outputs.version }}"
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          KEYCHAIN_PWD=$(openssl rand -base64 32)
+          
+          security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          
+          # Import Developer ID Installer certificate
+          echo "$MACOS_INSTALLER_CERT" | base64 --decode > $RUNNER_TEMP/installer_cert.p12
+          security import $RUNNER_TEMP/installer_cert.p12 -k "$KEYCHAIN_PATH" \
+            -P "$MACOS_INSTALLER_CERT_PWD" -T /usr/bin/productsign -T /usr/bin/pkgbuild -T /usr/bin/productbuild
+          
+          # Import Developer ID Application certificate
+          echo "$MACOS_APPLICATION_CERT" | base64 --decode > $RUNNER_TEMP/app_cert.p12
+          security import $RUNNER_TEMP/app_cert.p12 -k "$KEYCHAIN_PATH" \
+            -P "$MACOS_APPLICATION_CERT_PWD" -T /usr/bin/codesign
+          
+          # Set keychain for signing
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          
+          echo "✓ Certificates imported"
+
+      - name: Build macOS installer
+        env:
+          MIDICAPTAIN_VERSION: ${{ needs.lint.outputs.version }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
           chmod +x tools/build-installer.sh
           ./tools/build-installer.sh
 

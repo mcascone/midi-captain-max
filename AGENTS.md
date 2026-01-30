@@ -247,13 +247,14 @@ Recommended approach: Use `blinka` + `pytest` for unit testing core logic, on-de
 
 ## Code Signing
 
-Apple Developer certificate for signing macOS installer packages.
+Apple Developer certificates for signing macOS installer packages.
 
-| Field | Value |
-|-------|-------|
-| Identity | `Developer ID Installer: Maximilian Cascone (9WNXKEF4SM)` |
-| Team ID | `9WNXKEF4SM` |
-| SHA-1 | `09343E41A538CB1790C9B606B4F9EEFAC3C4526F` |
+| Certificate | Identity | SHA-1 |
+|-------------|----------|-------|
+| Developer ID Installer | `Developer ID Installer: Maximilian Cascone (9WNXKEF4SM)` | `09343E41A538CB1790C9B606B4F9EEFAC3C4526F` |
+| Developer ID Application | `Developer ID Application: Maximilian Cascone (9WNXKEF4SM)` | `7F2FE45B164AC203FF080FB228C96E3DB212A5A6` |
+
+**Team ID:** `9WNXKEF4SM`
 
 See [docs/macos-code-signing.md](docs/macos-code-signing.md) for full setup guide.
 
@@ -299,11 +300,11 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [x] macOS installer package (`.pkg`) with interactive GUI
 - [x] Multi-device installer (install to STD10 + Mini6 simultaneously)
 - [x] CI/CD: Build artifacts on every push, release on tag
+- [x] Apple Developer code signing + notarization for installer ✅
 - [ ] Complete YAML config schema
 
 ### Future
 - [ ] Web-based configuration tool
-- [ ] Apple Developer code signing for installer (Issue #3)
 - [ ] Support for 1/2/4-switch variants
 - [ ] Custom display layouts
 - [ ] SysEx protocol documentation
