@@ -97,6 +97,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
+        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
@@ -123,3 +124,9 @@ jobs:
             ## What's Changed
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print Release
+        run: |
+          echo "Release ${{ steps.version.outputs.VERSION }} created successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "Release URL: ${{ steps.create_release.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+
