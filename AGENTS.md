@@ -201,12 +201,18 @@ For historical context on reverse engineering, see [docs/midicaptain_reverse_eng
 - 18 NeoPixels (6 switches × 3 LEDs) on GP7
 - 6 switch inputs including unusual pins (`board.LED`, `board.VBUS_SENSE`)
 - ST7789 240×240 display (same params as STD10)
-- No encoder or expression inputs (TBD — may need probing)
+- No encoder or expression inputs
+
+### Device Auto-Detection
+Firmware automatically detects device type by probing hardware pins at startup:
+- Checks for Mini6-specific pins (`board.LED`, `board.VBUS_SENSE` as switch inputs)
+- Falls back to STD10 if detection fails
+- Same `code.py` works on all device variants
 
 ### Device Abstraction
 Device-specific constants live in `firmware/dev/devices/`:
 - `std10.py` — STD10 pin definitions and counts ✅
-- `mini6.py` — Mini6 pin definitions (planned)
+- `mini6.py` — Mini6 pin definitions ✅
 
 ---
 
@@ -274,11 +280,16 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 
 ### Phase 2: MVP Integration
 - [x] Merge experiments into main `code.py`
-- [ ] Mini6 device support
+- [x] Mini6 device module (`devices/mini6.py`)
+- [x] Auto-detect device type at runtime
+- [x] macOS installer package (`.pkg`) with interactive GUI
+- [x] Multi-device installer (install to STD10 + Mini6 simultaneously)
+- [x] CI/CD: Build artifacts on every push, release on tag
 - [ ] Complete YAML config schema
 
 ### Future
 - [ ] Web-based configuration tool
+- [ ] Apple Developer code signing for installer (Issue #3)
 - [ ] Support for 1/2/4-switch variants
 - [ ] Custom display layouts
 - [ ] SysEx protocol documentation
@@ -296,11 +307,17 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 | `firmware/original_helmut/code.py` | Helmut's original firmware (reference only) |
 | `firmware/dev/code.py` | **Active**: Unified firmware with config, display, bidirectional MIDI |
 | `firmware/dev/boot.py` | Disables autoreload for stage reliability |
-| `firmware/dev/config.json` | Button labels, CC numbers, colors |
+| `firmware/dev/config.json` | STD10 default config (button labels, CC numbers, colors) |
+| `firmware/dev/config-mini6.json` | Mini6 template config (copy to device as config.json) |
 | `firmware/dev/devices/std10.py` | STD10 hardware constants |
-| `docs/hardware-reference.md` | Verified hardware specs (pins, display, LEDs) |
+| `firmware/dev/devices/mini6.py` | Mini6 hardware constants |
+| `tools/build-installer.sh` | Build macOS .pkg installer |
+| `tools/MIDICaptainInstaller.applescript` | Interactive installer GUI app |
+| `docs/hardware-reference.md` | Verified hardware specs, auto-detection docs |
+| `docs/screen-cheatsheet.md` | Serial console (screen) usage guide |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
-| `docs/midicaptain_reverse_engineering_handoff.txt` | Historical: reverse engineering notes |
+| `.github/workflows/ci.yml` | CI: lint, build zip + macOS installer |
+| `.github/workflows/release.yml` | Create GitHub Release on version tag |
 
 ---
 
