@@ -20,7 +20,7 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 | Device | Status |
 |--------|--------|
 | MIDI Captain STD10 (10-switch) | ✅ Fully working |
-| MIDI Captain Mini6 (6-switch) | 🚧 Planned |
+| MIDI Captain Mini6 (6-switch) | ✅ Fully working |
 
 ## Quick Start
 
@@ -30,6 +30,9 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 - Required libraries in `lib/` folder (see [Installation](#installation))
 
 ### Installation
+
+***Standard Installer Package to reduce all these steps in the works***
+
 
 1. **Install CircuitPython** (if not already):
    - Download [CircuitPython for Raspberry Pi Pico](https://circuitpython.org/board/raspberry_pi_pico/)
