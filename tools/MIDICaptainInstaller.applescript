@@ -44,15 +44,16 @@ Looking for volumes named:
 	else if (count of volumeList) = 1 then
 		-- One device found - confirm and install
 		set targetVolume to item 1 of volumeList
-		confirmAndInstall(targetVolume)
+		confirmAndInstall({targetVolume})
 	else
-		-- Multiple devices found - let user choose
-		set chosenVolume to choose from list volumeList with prompt "Multiple CircuitPython devices detected.
+		-- Multiple devices found - let user choose one or more
+		set chosenVolumes to choose from list volumeList with prompt "Multiple CircuitPython devices detected.
 
-Select the device to install firmware:" with title "MIDI Captain Installer" default items {item 1 of volumeList}
+Select device(s) to install firmware:
+(Hold Cmd to select multiple)" with title "MIDI Captain Installer" default items volumeList with multiple selections allowed
 		
-		if chosenVolume is not false then
-			confirmAndInstall(item 1 of chosenVolume)
+		if chosenVolumes is not false then
+			confirmAndInstall(chosenVolumes)
 		else
 			-- User cancelled the list selection
 			tell me to quit
@@ -100,7 +101,7 @@ on browseForVolume()
 			if volName contains "/" then
 				set volName to text 1 thru ((offset of "/" in volName) - 1) of volName
 			end if
-			confirmAndInstall(volName)
+			confirmAndInstall({volName})
 		else
 			display alert "Invalid Selection" message "Please select a volume under /Volumes/" as warning
 			showInstallerWindow()
@@ -110,18 +111,26 @@ on browseForVolume()
 	end try
 end browseForVolume
 
--- Confirm installation and proceed
-on confirmAndInstall(volumeName)
-	set targetPath to "/Volumes/" & volumeName
+-- Confirm installation and proceed (supports multiple volumes)
+on confirmAndInstall(volumeNames)
+	set deviceCount to count of volumeNames
 	
-	-- Verify the volume still exists
-	try
-		do shell script "test -d " & quoted form of targetPath
-	on error
-		display alert "Device Disconnected" message "The volume '" & volumeName & "' is no longer available." as warning
+	-- Verify all volumes still exist
+	set validVolumes to {}
+	
+	repeat with volName in volumeNames
+		set targetPath to "/Volumes/" & volName
+		try
+			do shell script "test -d " & quoted form of targetPath
+			set end of validVolumes to volName as string
+		end try
+	end repeat
+	
+	if (count of validVolumes) = 0 then
+		display alert "Devices Disconnected" message "None of the selected volumes are available." as warning
 		showInstallerWindow()
 		return
-	end try
+	end if
 	
 	-- Check if firmware source exists
 	try
@@ -134,78 +143,98 @@ Please reinstall the MIDI Captain Firmware package." as critical
 		return
 	end try
 	
-	-- Check for existing config.json
-	set hasExistingConfig to false
-	try
-		do shell script "test -f " & quoted form of (targetPath & "/config.json")
-		set hasExistingConfig to true
-	end try
+	-- Build confirmation message
+	if deviceCount = 1 then
+		set targetPath to "/Volumes/" & (item 1 of validVolumes)
+		set confirmMessage to "Install MIDI Captain firmware to:
+" & targetPath
+	else
+		set confirmMessage to "Install MIDI Captain firmware to " & (count of validVolumes) & " devices:
+"
+		repeat with volName in validVolumes
+			set confirmMessage to confirmMessage & "• /Volumes/" & volName & "
+"
+		end repeat
+	end if
 	
-	set confirmMessage to "Install MIDI Captain firmware to:
-" & targetPath & "
-
+	set confirmMessage to confirmMessage & "
 Files to install:
 • code.py (main firmware)
 • boot.py (startup config)
+• config.json (if not already present)
 • devices/ (hardware definitions)
-• fonts/ (display fonts)"
-	
-	if hasExistingConfig then
-		set confirmMessage to confirmMessage & "
+• fonts/ (display fonts)
 
-⚠️ Existing config.json will be preserved."
-	else
-		set confirmMessage to confirmMessage & "
-• config.json (default configuration)"
-	end if
+The firmware auto-detects your device type."
 	
 	set userChoice to display dialog confirmMessage buttons {"Cancel", "Install"} default button "Install" with title "Confirm Installation" with icon note
 	
 	if button returned of userChoice is "Install" then
-		performInstallation(volumeName, hasExistingConfig)
+		performInstallation(validVolumes)
 	else
 		showInstallerWindow()
 	end if
 end confirmAndInstall
 
--- Perform the actual installation
-on performInstallation(volumeName, preserveConfig)
-	set targetPath to "/Volumes/" & volumeName
+-- Perform the actual installation (supports multiple devices)
+on performInstallation(volumeList)
+	set successCount to 0
+	set failedVolumes to {}
+	set deviceCount to count of volumeList
 	
 	-- Show progress
-	display notification "Installing firmware..." with title "MIDI Captain Installer"
+	if deviceCount = 1 then
+		display notification "Installing firmware..." with title "MIDI Captain Installer"
+	else
+		display notification "Installing firmware to " & deviceCount & " devices..." with title "MIDI Captain Installer"
+	end if
 	
-	try
-		-- Copy code.py
-		do shell script "cp " & quoted form of (firmwareSourcePath & "/code.py") & " " & quoted form of (targetPath & "/code.py")
+	repeat with volumeName in volumeList
+		set targetPath to "/Volumes/" & volumeName
 		
-		-- Copy boot.py
-		do shell script "cp " & quoted form of (firmwareSourcePath & "/boot.py") & " " & quoted form of (targetPath & "/boot.py")
-		
-		-- Copy config.json only if no existing config
-		if not preserveConfig then
-			do shell script "cp " & quoted form of (firmwareSourcePath & "/config.json") & " " & quoted form of (targetPath & "/config.json")
-		end if
-		
-		-- Copy devices/ directory
-		do shell script "rm -rf " & quoted form of (targetPath & "/devices") & " && cp -R " & quoted form of (firmwareSourcePath & "/devices") & " " & quoted form of (targetPath & "/devices")
-		
-		-- Copy fonts/ directory
-		do shell script "rm -rf " & quoted form of (targetPath & "/fonts") & " && cp -R " & quoted form of (firmwareSourcePath & "/fonts") & " " & quoted form of (targetPath & "/fonts")
-		
-		-- Sync to ensure files are written
-		do shell script "sync"
-		
-		-- Success!
-		set successMessage to "✓ Firmware installed successfully!
+		try
+			-- Copy code.py
+			do shell script "cp " & quoted form of (firmwareSourcePath & "/code.py") & " " & quoted form of (targetPath & "/code.py")
+			
+			-- Copy boot.py
+			do shell script "cp " & quoted form of (firmwareSourcePath & "/boot.py") & " " & quoted form of (targetPath & "/boot.py")
+			
+			-- Copy config.json only if not already present
+			try
+				do shell script "test -f " & quoted form of (targetPath & "/config.json")
+			on error
+				do shell script "cp " & quoted form of (firmwareSourcePath & "/config.json") & " " & quoted form of (targetPath & "/config.json")
+			end try
+			
+			-- Copy devices/ directory
+			do shell script "rm -rf " & quoted form of (targetPath & "/devices") & " && cp -R " & quoted form of (firmwareSourcePath & "/devices") & " " & quoted form of (targetPath & "/devices")
+			
+			-- Copy fonts/ directory
+			do shell script "rm -rf " & quoted form of (targetPath & "/fonts") & " && cp -R " & quoted form of (firmwareSourcePath & "/fonts") & " " & quoted form of (targetPath & "/fonts")
+			
+			set successCount to successCount + 1
+			
+		on error errMsg
+			set end of failedVolumes to volumeName
+		end try
+	end repeat
+	
+	-- Sync to ensure files are written
+	do shell script "sync"
+	
+	-- Build result message
+	if successCount = deviceCount then
+		-- All succeeded
+		if deviceCount = 1 then
+			set successMessage to "✓ Firmware installed successfully!
 
 The device will restart automatically.
 If it doesn't, disconnect and reconnect USB."
-		
-		if preserveConfig then
-			set successMessage to successMessage & "
+		else
+			set successMessage to "✓ Firmware installed to " & successCount & " devices!
 
-Your existing config.json was preserved."
+Devices will restart automatically.
+If they don't, disconnect and reconnect USB."
 		end if
 		
 		display dialog successMessage buttons {"Done", "Install Another"} default button "Done" with title "Installation Complete" with icon note
@@ -213,16 +242,31 @@ Your existing config.json was preserved."
 		if button returned of result is "Install Another" then
 			showInstallerWindow()
 		else
-			-- Quit the app when Done is clicked
 			tell me to quit
 		end if
+	else if successCount > 0 then
+		-- Partial success
+		set partialMessage to "⚠️ Installed to " & successCount & " of " & deviceCount & " devices.
+
+Failed:"
+		repeat with failedVol in failedVolumes
+			set partialMessage to partialMessage & "
+• " & failedVol
+		end repeat
 		
-	on error errMsg
-		display alert "Installation Failed" message "Error: " & errMsg as critical buttons {"Quit", "Try Again"} default button "Try Again"
+		display alert "Partial Installation" message partialMessage as warning buttons {"Done", "Retry"} default button "Retry"
+		if button returned of result is "Retry" then
+			showInstallerWindow()
+		else
+			tell me to quit
+		end if
+	else
+		-- All failed
+		display alert "Installation Failed" message "Could not install to any selected device." as critical buttons {"Quit", "Try Again"} default button "Try Again"
 		if button returned of result is "Try Again" then
 			showInstallerWindow()
 		else
 			tell me to quit
 		end if
-	end try
+	end if
 end performInstallation

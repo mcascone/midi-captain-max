@@ -7,9 +7,11 @@ Features:
 - JSON configuration for button labels, CC numbers, and colors
 - Bidirectional MIDI: host controls LED/display state, device sends switch/encoder events
 - Toggle mode: local state for instant feedback, host override when it speaks
-- Asyncio-based concurrent handling of MIDI, switches, encoder, expression pedals
+- Automatic device detection (STD10 vs Mini6 based on hardware probing)
 
-Hardware: STD10 (10 switches, encoder, 2 expression inputs, ST7789 display, 30 NeoPixels)
+Hardware Variants:
+- STD10: 10 switches, encoder, 2 expression inputs, ST7789 display, 30 NeoPixels
+- Mini6: 6 switches, ST7789 display, 18 NeoPixels
 
 Author: Max Cascone (based on work by Helmut Keller)
 Date: 2026-01-27
@@ -37,18 +39,64 @@ from adafruit_midi.control_change import ControlChange
 # =============================================================================
 # Device Detection
 # =============================================================================
+# 
+# Device is auto-detected by probing hardware pins. The STD10 has pins that
+# don't exist on Mini6 (like GP2/GP3 for encoder). We try to detect these
+# to determine which device we're running on.
+#
+# Config loading priority:
+#   1. /config.json if present (user customization - always wins)
+#   2. /config-mini6.json or /config-std10.json (device-specific defaults)
+#   3. Built-in fallback defaults
+#
+# =============================================================================
 
-# Try to load device config, default to STD10
-try:
-    with open("/config.json", "r") as f:
-        _cfg = json.load(f)
-        DEVICE_TYPE = _cfg.get("device", "std10").lower()
-except Exception:
-    DEVICE_TYPE = "std10"
 
-print(f"Device type: {DEVICE_TYPE}")
+def detect_device_type():
+    """Auto-detect device type by probing hardware.
+    
+    Returns "mini6" or "std10" based on hardware detection.
+    
+    Detection strategy:
+    - STD10 has encoder on GP2/GP3 and 11 switches total
+    - Mini6 has 6 switches and uses unusual pins (board.LED, board.VBUS_SENSE)
+    
+    We probe by checking if Mini6-specific pins are configured as switches.
+    """
+    # Try to detect Mini6 by checking for its unusual switch pins
+    try:
+        # Mini6 uses board.LED (GP25) as a switch input
+        test_pin = digitalio.DigitalInOut(board.LED)
+        test_pin.direction = digitalio.Direction.INPUT
+        test_pin.pull = digitalio.Pull.UP
+        # If we can read it as input with pull-up, likely Mini6
+        _ = test_pin.value
+        test_pin.deinit()
+        
+        # Also check VBUS_SENSE (another Mini6 indicator)
+        try:
+            test_pin2 = digitalio.DigitalInOut(board.VBUS_SENSE)
+            test_pin2.direction = digitalio.Direction.INPUT
+            test_pin2.pull = digitalio.Pull.UP
+            _ = test_pin2.value
+            test_pin2.deinit()
+            # Both pins work as inputs - likely Mini6
+            return "mini6"
+        except Exception:
+            pass
+    except Exception:
+        pass
+    
+    # Default to STD10 (the more common variant)
+    return "std10"
 
-if DEVICE_TYPE == "mini6":
+
+# Detect device first, before loading any config
+DETECTED_DEVICE = detect_device_type()
+print(f"Hardware detected: {DETECTED_DEVICE}")
+
+# Now load appropriate device module
+if DETECTED_DEVICE == "mini6":
     from devices.mini6 import (
         LED_PIN, LED_COUNT, SWITCH_PINS, switch_to_led,
         TFT_DC_PIN, TFT_CS_PIN, TFT_SCK_PIN, TFT_MOSI_PIN,
@@ -69,6 +117,8 @@ else:
     BUTTON_COUNT = 10
     HAS_ENCODER = True
     HAS_EXPRESSION = True
+
+DEVICE_TYPE = DETECTED_DEVICE  # For compatibility
 
 # =============================================================================
 # Version
@@ -126,19 +176,28 @@ def get_off_color(color_rgb, off_mode="dim"):
 # =============================================================================
 
 
-def load_config(path="/config.json"):
-    """Load button configuration from JSON file."""
+def load_config():
+    """Load button configuration from JSON file.
+    
+    Loads /config.json if present, otherwise uses built-in defaults
+    based on detected device type.
+    """
     try:
-        with open(path, "r") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Config load error: {e}, using defaults")
-        return {
-            "buttons": [
-                {"label": str(i + 1), "cc": 20 + i, "color": "white"}
-                for i in range(BUTTON_COUNT)
-            ]
-        }
+        with open("/config.json", "r") as f:
+            cfg = json.load(f)
+            print("Loaded config.json")
+            return cfg
+    except Exception:
+        pass
+    
+    # Built-in fallback based on detected device
+    print("No config.json, using built-in defaults")
+    return {
+        "buttons": [
+            {"label": str(i + 1), "cc": 20 + i, "color": "white"}
+            for i in range(BUTTON_COUNT)
+        ]
+    }
 
 
 config = load_config()

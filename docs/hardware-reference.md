@@ -1,10 +1,28 @@
 # MIDI Captain Hardware Reference
 
-> **Last Updated:** January 26, 2026  
+> **Last Updated:** January 29, 2026  
 > **Verified On:** STD10 hardware with CircuitPython 7.3.1
 
 This document contains verified hardware specifications for Paint Audio MIDI Captain devices.
 For historical context on how these were discovered, see [midicaptain_reverse_engineering_handoff.txt](midicaptain_reverse_engineering_handoff.txt).
+
+---
+
+## Device Auto-Detection
+
+The firmware automatically detects which device it's running on by probing hardware pins at startup:
+
+- **STD10**: Has encoder on GP2/GP3, 11 total switch inputs
+- **Mini6**: Uses unusual pins (board.LED, board.VBUS_SENSE) for switches
+
+Detection happens before config loading, so the same `code.py` works on all devices.
+
+### Configuration
+
+- **`config.json`** — User configuration (optional). If present, always used.
+- **Built-in defaults** — If no config.json, firmware uses basic numbered buttons matching detected device's button count.
+
+The `config-mini6.json` file in the repo is a template/example for Mini6 users to copy to their device as `config.json`.
 
 ---
 
