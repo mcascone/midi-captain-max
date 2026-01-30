@@ -28,6 +28,7 @@ fi
 IDENTIFIER="com.mcmusicworkshop.midicaptain"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TOOLS_DIR="$PROJECT_ROOT/tools"
+RESOURCES_DIR="$TOOLS_DIR/installer-resources"
 DEV_DIR="$PROJECT_ROOT/firmware/dev"
 OUTPUT_DIR="$PROJECT_ROOT/build/installer"
 COMPONENT_PKGS="$OUTPUT_DIR/components"
@@ -208,64 +209,10 @@ cat > "$OUTPUT_DIR/distribution.xml" << EOF
 </installer-gui-script>
 EOF
 
-# Create welcome HTML
-cat > "$OUTPUT_DIR/welcome.html" << EOF
-<!DOCTYPE html>
-<html>
-<head>
-    <meta name="color-scheme" content="light">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; }
-        h1 { font-size: 24px; margin-bottom: 10px; }
-        p { font-size: 14px; line-height: 1.5; }
-    </style>
-</head>
-<body>
-    <h1>MIDI Captain Firmware</h1>
-    <p>Version ${VERSION}</p>
-    <p>This installer will install the MIDI Captain custom firmware and an interactive installer app.</p>
-    
-    <p><strong>What gets installed:</strong></p>
-    <ul>
-        <li><strong>MIDI Captain Installer.app</strong> in /Applications/</li>
-        <li>Firmware files in /usr/local/share/midicaptain-firmware/</li>
-        <li>CLI tool "midicaptain-install" in /usr/local/bin/</li>
-    </ul>
-    
-    <p><strong>After installation:</strong> The MIDI Captain Installer app will open automatically. Connect your device and click Install!</p>
-</body>
-</html>
-EOF
-
-# Create conclusion HTML
-cat > "$OUTPUT_DIR/conclusion.html" << EOF
-<!DOCTYPE html>
-<html>
-<head>
-    <meta name="color-scheme" content="light">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; }
-        h1 { font-size: 24px; margin-bottom: 10px; }
-        p { font-size: 14px; line-height: 1.5; }
-        a { color: #0066cc; }
-    </style>
-</head>
-<body>
-    <h1>Installation Complete!</h1>
-    
-    <p>✓ MIDI Captain Firmware ${VERSION} has been installed.</p>
-    
-    <p><strong>The MIDI Captain Installer app should open automatically.</strong></p>
-    
-    <p>If it doesn't, you can find it in /Applications/MIDI Captain Installer.app</p>
-    
-    <p>Or use the command line: midicaptain-install</p>
-    
-    <p><strong>Need help?</strong> Visit 
-    <a href="https://github.com/mcascone/midi-captain-max">github.com/mcascone/midi-captain-max</a></p>
-</body>
-</html>
-EOF
+# Create welcome and conclusion HTML from templates
+echo "Preparing installer resources..."
+sed "s/{{VERSION}}/${VERSION}/g" "$RESOURCES_DIR/welcome.html" > "$OUTPUT_DIR/welcome.html"
+sed "s/{{VERSION}}/${VERSION}/g" "$RESOURCES_DIR/conclusion.html" > "$OUTPUT_DIR/conclusion.html"
 
 # Build the product package
 echo "Building product installer..."
