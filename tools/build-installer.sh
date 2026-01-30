@@ -214,10 +214,10 @@ cat > "$OUTPUT_DIR/welcome.html" << EOF
 <html>
 <head>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; color: #333; background: #fff; }
         h1 { font-size: 24px; margin-bottom: 10px; }
         p { font-size: 14px; line-height: 1.5; }
-        code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; }
+        code { background: #e8e8e8; color: #333; padding: 2px 6px; border-radius: 3px; font-family: ui-monospace, monospace; }
         .info { color: #004085; background: #cce5ff; padding: 10px; border-radius: 4px; margin: 10px 0; }
     </style>
 </head>
@@ -247,12 +247,12 @@ cat > "$OUTPUT_DIR/conclusion.html" << EOF
 <html>
 <head>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; color: #333; background: #fff; }
         h1 { font-size: 24px; margin-bottom: 10px; }
         p { font-size: 14px; line-height: 1.5; }
-        code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        code { background: #e8e8e8; color: #333; padding: 2px 6px; border-radius: 3px; font-family: ui-monospace, monospace; }
         .success { color: #155724; background: #d4edda; padding: 10px; border-radius: 4px; margin: 10px 0; }
-        .next-steps { background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 15px; }
+        .next-steps { background: #f8f9fa; color: #333; padding: 15px; border-radius: 6px; margin-top: 15px; }
     </style>
 </head>
 <body>
