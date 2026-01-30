@@ -9,8 +9,9 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build & Release
+  # Build zip on Linux (fast)
+  build-zip:
+    name: Build Firmware Zip
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -19,23 +20,70 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Create firmware package
+      - name: Create firmware zip
         run: |
           mkdir -p dist
-          # Package dev firmware (excludes original_helmut and experiments)
           cd firmware/dev
           zip -r ../../dist/midicaptain-firmware-${{ steps.version.outputs.VERSION }}.zip \
             code.py \
+            boot.py \
+            config.json \
+            config-mini6.json \
             devices/ \
-            *.txt \
-            *.pcf \
-            -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__"
+            fonts/ \
+            -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"
           cd ../..
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-zip
+          path: dist/*.zip
+
+  # Build macOS installer (requires macOS for pkgbuild/productbuild)
+  build-macos-installer:
+    name: Build macOS Installer
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build macOS installer
+        run: |
+          export MIDICAPTAIN_VERSION="${{ steps.version.outputs.VERSION }}"
+          chmod +x tools/build-installer.sh
+          ./tools/build-installer.sh
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: build/installer/*.pkg
+
+  # Create GitHub Release with all artifacts
+  release:
+    name: Create Release
+    needs: [build-zip, build-macos-installer]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Generate release notes
         id: notes
         run: |
-          # Extract version type for release notes header
           VERSION="${{ steps.version.outputs.VERSION }}"
           if [[ "$VERSION" == *"alpha"* ]]; then
             echo "PRERELEASE=true" >> $GITHUB_OUTPUT
@@ -58,7 +106,17 @@ jobs:
             ${{ steps.notes.outputs.NOTES }}
 
             ## Installation
-            1. Download the firmware zip below
+
+            ### macOS (Recommended)
+            1. Download `MIDICaptain-Firmware-${{ steps.version.outputs.VERSION }}.pkg`
+            2. Double-click to run the installer
+               - ⚠️ **Unsigned app**: macOS will block it. Go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**
+            3. The **MIDI Captain Installer** app opens automatically after installation
+            4. Connect your MIDI Captain via USB
+            5. Click **Install** when your device appears!
+
+            ### All Platforms (Manual)
+            1. Download `midicaptain-firmware-${{ steps.version.outputs.VERSION }}.zip`
             2. Extract to your CIRCUITPY drive
             3. See README for configuration options
 
