@@ -129,6 +129,10 @@ jobs:
           path: build/installer/*.pkg
           retention-days: 90
 
+      - name: report installer build
+        run: |
+          echo "Created macOS installer ${MIDICAPTAIN_VERSION}" >> $GITHUB_STEP_SUMMARY
+
   # Future: Add unit tests when blinka mocks are set up
   # test:
   #   name: Unit Tests
