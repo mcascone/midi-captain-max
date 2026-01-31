@@ -5,69 +5,14 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-
 jobs:
-  # Build zip on Linux (fast)
-  build-zip:
-    name: Build Firmware Zip
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Create firmware zip
-        run: |
-          mkdir -p dist
-          cd firmware/dev
-          zip -r ../../dist/midicaptain-firmware-${{ steps.version.outputs.VERSION }}.zip \
-            code.py \
-            boot.py \
-            config.json \
-            config-mini6.json \
-            devices/ \
-            fonts/ \
-            -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"
-          cd ../..
-
-      - name: Upload zip artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: firmware-zip
-          path: dist/*.zip
-
-  # Build macOS installer (requires macOS for pkgbuild/productbuild)
-  build-macos-installer:
-    name: Build macOS Installer
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Build macOS installer
-        run: |
-          export MIDICAPTAIN_VERSION="${{ steps.version.outputs.VERSION }}"
-          chmod +x tools/build-installer.sh
-          ./tools/build-installer.sh
-
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: macos-installer
-          path: build/installer/*.pkg
-
-  # Create GitHub Release with all artifacts
   release:
     name: Create Release
-    needs: [build-zip, build-macos-installer]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v6
 
@@ -75,11 +20,61 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Download all artifacts
+      - name: Get CI workflow run ID
+        id: get-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Find the successful CI workflow run for this commit
+          RUN_ID=$(gh api \
+            "/repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=${{ github.sha }}&status=success&per_page=1" \
+            --jq '.workflow_runs[0].id')
+          
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "::error::No successful CI run found for commit ${{ github.sha }}"
+            exit 1
+          fi
+          
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "Found CI run: $RUN_ID" >> $GITHUB_STEP_SUMMARY
+
+      - name: Download all artifacts from CI
         uses: actions/download-artifact@v6
         with:
-          path: dist
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.get-run.outputs.RUN_ID }}
+          path: ci-artifacts
           merge-multiple: true
+          
+      - name: Prepare release assets
+        run: |
+          mkdir -p dist
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          
+          echo "Downloaded artifacts:"
+          ls -la ci-artifacts/
+          
+          # Find and rename firmware zip
+          ZIP_FILE=$(find ci-artifacts -name "midicaptain-firmware-*.zip" | head -1)
+          if [ -n "$ZIP_FILE" ]; then
+            cp "$ZIP_FILE" "dist/midicaptain-firmware-${VERSION}.zip"
+            echo "✓ Firmware zip: midicaptain-firmware-${VERSION}.zip" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::Firmware zip not found in CI artifacts"
+            exit 1
+          fi
+          
+          # Find and rename macOS installer
+          PKG_FILE=$(find ci-artifacts -name "*.pkg" | head -1)
+          if [ -n "$PKG_FILE" ]; then
+            cp "$PKG_FILE" "dist/MIDICaptain-Firmware-${VERSION}.pkg"
+            echo "✓ macOS installer: MIDICaptain-Firmware-${VERSION}.pkg" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::macOS installer not found in CI artifacts"
+            exit 1
+          fi
+          
+          ls -la dist/
 
       - name: Generate release notes
         id: notes
@@ -126,6 +121,9 @@ jobs:
 
       - name: Print Release
         run: |
-          echo "Release ${{ steps.version.outputs.VERSION }} created successfully!" >> $GITHUB_STEP_SUMMARY
-          echo "Release URL: ${{ steps.create_release.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          { 
+            echo "Release \`${{ steps.version.outputs.VERSION }}\` created successfully!"
+            echo ""
+            echo "Release URL: ${{ steps.create_release.outputs.url }}"
+          } >> $GITHUB_STEP_SUMMARY
 
