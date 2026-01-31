@@ -13,12 +13,13 @@ jobs:
     permissions:
       contents: write
       actions: read
+    env:
+      VERSION: ""  # satisfies linter, is set dynamically from tag in first step
     steps:
       - uses: actions/checkout@v6
 
       - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: Get CI workflow run ID
         id: get-run
@@ -31,7 +32,7 @@ jobs:
             --jq '.workflow_runs[0].id')
           
           if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
-            echo "::error::No successful CI run found for commit ${{ github.sha }}"
+            echo "::error::No successful CI run found for commit ${{ github.sha }}. Ensure CI passes before tagging."
             exit 1
           fi
           
@@ -49,7 +50,6 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p dist
-          VERSION="${{ steps.version.outputs.VERSION }}"
           
           echo "Downloaded artifacts:"
           ls -la ci-artifacts/
@@ -79,7 +79,6 @@ jobs:
       - name: Generate release notes
         id: notes
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
           if [[ "$VERSION" == *"alpha"* ]]; then
             echo "PRERELEASE=true" >> $GITHUB_OUTPUT
             echo "NOTES=⚠️ **Alpha Release** - For testing only. Not recommended for production use." >> $GITHUB_OUTPUT
@@ -104,14 +103,14 @@ jobs:
             ## Installation
 
             ### macOS (Recommended)
-            1. Download `MIDICaptain-Firmware-${{ steps.version.outputs.VERSION }}.pkg`
+            1. Download `MIDICaptain-Firmware-${{ env.VERSION }}.pkg`
             2. Double-click to run the installer
             3. The **MIDI Captain Installer** app opens automatically after installation
             4. Connect your MIDI Captain via USB
             5. Click **Install** when your device appears!
 
             ### All Platforms (Manual)
-            1. Download `midicaptain-firmware-${{ steps.version.outputs.VERSION }}.zip`
+            1. Download `midicaptain-firmware-${{ env.VERSION }}.zip`
             2. Extract to your CIRCUITPY drive
             3. See README for configuration options
 
@@ -122,7 +121,7 @@ jobs:
       - name: Print Release
         run: |
           { 
-            echo "Release \`${{ steps.version.outputs.VERSION }}\` created successfully!"
+            echo "Release \`$VERSION\` created successfully!"
             echo ""
             echo "Release URL: ${{ steps.create_release.outputs.url }}"
           } >> $GITHUB_STEP_SUMMARY
