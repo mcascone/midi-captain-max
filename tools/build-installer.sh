@@ -33,7 +33,7 @@ DEV_DIR="$PROJECT_ROOT/firmware/dev"
 OUTPUT_DIR="$PROJECT_ROOT/build/installer"
 COMPONENT_PKGS="$OUTPUT_DIR/components"
 
-echo "Building MIDI Captain Firmware Installer v${VERSION}"
+echo "Building MIDI Captain Firmware Installer ${VERSION}"
 echo "====================================================="
 
 # Clean and create directories
@@ -272,34 +272,36 @@ if security find-identity -v -p basic | grep -q "Developer ID Installer"; then
                 
                 echo "Stapling notarization ticket..."
                 xcrun stapler staple "$OUTPUT_DIR/${PKG_NAME}.pkg"
-                echo "  ✓ Package notarized and stapled"
+                echo "  ✓ Package notarized and stapled" >> $GITHUB_STEP_SUMMARY
             else
-                echo "  ⚠ Notarization failed - check 'xcrun notarytool log <id>' for details"
+                echo "  ⚠ Notarization failed - check 'xcrun notarytool log <id>' for details" >> $GITHUB_STEP_SUMMARY
             fi
         else
-            echo "  ⚠ Notarization skipped (requires Developer ID Application certificate to sign embedded app)"
+            echo "  ⚠ Notarization skipped (requires Developer ID Application certificate to sign embedded app)" >> $GITHUB_STEP_SUMMARY
         fi
     else
-        echo "  ⚠ Notarization skipped (set APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID to enable)"
+        echo "  ⚠ Notarization skipped (set APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID to enable)" >> $GITHUB_STEP_SUMMARY
+
     fi
 else
-    echo "  ⚠ No signing certificate found, package will be unsigned"
+    echo "  ⚠ No signing certificate found, package will be unsigned" >> $GITHUB_STEP_SUMMARY
 fi
-
-echo ""
-echo "✓ Installer created: $OUTPUT_DIR/${PKG_NAME}.pkg"
-echo ""
-echo "The installer will:"
-echo "  1. Install 'MIDI Captain Installer.app' to /Applications/"
-echo "  2. Install firmware files to /usr/local/share/midicaptain-firmware/"
-echo "  3. Install 'midicaptain-install' CLI to /usr/local/bin/"
-echo "  4. Auto-launch the GUI installer app after installation"
-echo ""
-echo "The GUI app features:"
-echo "  • Scans all mounted volumes for CircuitPython devices"
-echo "  • Detects CIRCUITPY, MIDICAPTAIN, or any volume with boot_out.txt"
-echo "  • Browse button to manually select any volume"
-echo "  • One-click install with config preservation"
-echo ""
-echo "File size:"
-du -h "$OUTPUT_DIR/MIDICaptain-Firmware-${VERSION}.pkg"
+{
+  echo ""
+  echo "✓ Installer created: $OUTPUT_DIR/${PKG_NAME}.pkg"
+  echo ""
+  echo "The installer will:"
+  echo "  1. Install 'MIDI Captain Installer.app' to /Applications/"
+  echo "  2. Install firmware files to /usr/local/share/midicaptain-firmware/"
+  echo "  3. Install 'midicaptain-install' CLI to /usr/local/bin/"
+  echo "  4. Auto-launch the GUI installer app after installation"
+  echo ""
+  echo "The GUI app features:"
+  echo "  • Scans all mounted volumes for CircuitPython devices"
+  echo "  • Detects CIRCUITPY, MIDICAPTAIN, or any volume with boot_out.txt"
+  echo "  • Browse button to manually select any volume"
+  echo "  • One-click install with config preservation"
+  echo ""
+  echo "File size:"
+  du -h "$OUTPUT_DIR/MIDICaptain-Firmware-${VERSION}.pkg"
+} >> $GITHUB_STEP_SUMMARY
