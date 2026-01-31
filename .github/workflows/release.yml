@@ -35,7 +35,7 @@ jobs:
           cd ../..
 
       - name: Upload zip artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: firmware-zip
           path: dist/*.zip
@@ -58,7 +58,7 @@ jobs:
           ./tools/build-installer.sh
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: macos-installer
           path: build/installer/*.pkg
@@ -76,7 +76,7 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: dist
           merge-multiple: true
@@ -111,7 +111,6 @@ jobs:
             ### macOS (Recommended)
             1. Download `MIDICaptain-Firmware-${{ steps.version.outputs.VERSION }}.pkg`
             2. Double-click to run the installer
-               - ⚠️ **Unsigned app**: macOS will block it. Go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**
             3. The **MIDI Captain Installer** app opens automatically after installation
             4. Connect your MIDI Captain via USB
             5. Click **Install** when your device appears!
