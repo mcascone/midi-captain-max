@@ -22,7 +22,7 @@ jobs:
         run: |
           VERSION=$(git describe --tags --always 2>/dev/null || git rev-parse --short HEAD)
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "Building version: \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -64,7 +64,7 @@ jobs:
             fonts/ \
             -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"
           cd ../..
-          echo "Created: dist/midicaptain-firmware-${VERSION}.zip" >> $GITHUB_STEP_SUMMARY
+          echo "Created: \`dist/midicaptain-firmware-${VERSION}.zip\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload zip artifact
         uses: actions/upload-artifact@v6
@@ -131,7 +131,7 @@ jobs:
 
       - name: report installer build
         run: |
-          echo "Created macOS installer ${MIDICAPTAIN_VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "Created macOS installer \`${MIDICAPTAIN_VERSION}\`" >> $GITHUB_STEP_SUMMARY
 
   # Future: Add unit tests when blinka mocks are set up
   # test:
