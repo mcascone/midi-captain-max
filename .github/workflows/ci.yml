@@ -6,11 +6,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      skip_build:
-        description: 'Skip lint/zip, only build installer (for signing iteration)'
-        type: boolean
-        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,7 +16,6 @@ jobs:
     name: Lint & Validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ !inputs.skip_build }}
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
     steps:
@@ -60,7 +54,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: lint
-    if: ${{ !inputs.skip_build }}
     steps:
       - uses: actions/checkout@v6
 
@@ -92,17 +85,10 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 15
     needs: lint
-    if: ${{ always() && (needs.lint.result == 'success' || inputs.skip_build) }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Get version
-        id: version
-        run: |
-          VERSION=$(git describe --tags --always 2>/dev/null || git rev-parse --short HEAD)
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Import signing certificates
         id: import-certs
@@ -154,7 +140,7 @@ jobs:
 
       - name: Build macOS installer
         env:
-          MIDICAPTAIN_VERSION: ${{ steps.version.outputs.VERSION }}
+          MIDICAPTAIN_VERSION: ${{ needs.lint.outputs.version }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -171,7 +157,7 @@ jobs:
 
       - name: Report installer build
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          VERSION="${{ needs.lint.outputs.version }}"
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### macOS Installer" >> $GITHUB_STEP_SUMMARY
           echo "Created installer for \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
