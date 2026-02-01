@@ -92,6 +92,10 @@ jobs:
             exit 1
           fi
           
+          # Create "latest" zip for stable download URL (used by Gumroad)
+          cp "dist/midicaptain-firmware-${VERSION}.zip" "dist/midi-captain-max-latest.zip"
+          echo "✓ Latest zip: midi-captain-max-latest.zip" >> $GITHUB_STEP_SUMMARY
+          
           ls -la dist/
 
       # === Gumroad release path (mcm-ea-* tags) ===
