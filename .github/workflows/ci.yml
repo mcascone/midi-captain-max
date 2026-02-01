@@ -154,7 +154,27 @@ jobs:
 
       - name: Report installer build
         run: |
-          echo "Created macOS installer \`${{ needs.lint.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          VERSION="${{ needs.lint.outputs.version }}"
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### macOS Installer" >> $GITHUB_STEP_SUMMARY
+          echo "Created installer for \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          PKG_FILE=$(ls build/installer/*.pkg 2>/dev/null | head -1)
+          if [ -n "$PKG_FILE" ]; then
+            if pkgutil --check-signature "$PKG_FILE" 2>/dev/null | grep -q "Developer ID Installer"; then
+              echo "✅ Package is **signed** with Developer ID" >> $GITHUB_STEP_SUMMARY
+              if xcrun stapler validate "$PKG_FILE" 2>/dev/null; then
+                echo "✅ Package is **notarized** and stapled" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "⚠️ Package is signed but **not notarized** — Gatekeeper may require internet verification" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "⚠️ **Warning:** Package is **unsigned** — Gatekeeper will block installation. Not suitable for release." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "⚠️ **Warning:** No .pkg installer was created" >> $GITHUB_STEP_SUMMARY
+          fi
 
   # Future: Add unit tests when blinka mocks are set up
   # test:
