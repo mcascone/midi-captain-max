@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Lint & Validate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
     steps:
@@ -46,6 +51,7 @@ jobs:
   build-zip:
     name: Build Firmware Zip
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: lint
     steps:
       - uses: actions/checkout@v6
@@ -76,6 +82,7 @@ jobs:
   build-macos-installer:
     name: Build macOS Installer
     runs-on: macos-latest
+    timeout-minutes: 15
     needs: lint
     steps:
       - uses: actions/checkout@v6
