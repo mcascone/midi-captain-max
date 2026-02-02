@@ -11,9 +11,6 @@ from pathlib import Path
 TESTS_DIR = Path(__file__).parent
 MOCKS_DIR = TESTS_DIR / "mocks"
 
-# Add firmware/dev to path for importing firmware modules
-FIRMWARE_DIR = TESTS_DIR.parent / "firmware" / "dev"
-
 
 def install_mocks():
     """Install mock modules into sys.modules before importing firmware code."""

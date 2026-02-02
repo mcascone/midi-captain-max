@@ -36,6 +36,11 @@ from adafruit_st7789 import ST7789
 import adafruit_midi
 from adafruit_midi.control_change import ControlChange
 
+# Import core modules (testable logic)
+from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color
+from core.config import load_config as _load_config_from_file
+from core.button import Switch
+
 # =============================================================================
 # Device Detection
 # =============================================================================
@@ -128,48 +133,9 @@ VERSION = "1.0.0-alpha.3"
 print(f"Version: {VERSION}")
 
 # =============================================================================
-# Color Palette
+# Color Palette - imported from core/colors.py
 # =============================================================================
-
-COLORS = {
-    "red": (255, 0, 0),
-    "green": (0, 255, 0),
-    "blue": (0, 0, 255),
-    "yellow": (255, 255, 0),
-    "cyan": (0, 255, 255),
-    "magenta": (255, 0, 255),
-    "orange": (255, 128, 0),
-    "purple": (128, 0, 255),
-    "white": (255, 255, 255),
-    "off": (0, 0, 0),
-}
-
-
-def get_color(name):
-    """Get RGB tuple from color name, with fallback to white."""
-    return COLORS.get(name.lower(), COLORS["white"])
-
-
-def dim_color(rgb, factor=0.15):
-    """Return a dimmed version of an RGB color."""
-    return tuple(int(c * factor) for c in rgb)
-
-
-def rgb_to_hex(rgb):
-    """Convert RGB tuple to hex integer for display."""
-    return (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]
-
-
-def get_off_color(color_rgb, off_mode="dim"):
-    """Get the color to use when button is off.
-    
-    Args:
-        color_rgb: The button's on-state RGB color
-        off_mode: "dim" for dimmed color, "off" for completely off
-    """
-    if off_mode == "off":
-        return (0, 0, 0)
-    return dim_color(color_rgb)
+# COLORS, get_color, dim_color, rgb_to_hex, get_off_color imported at top
 
 # =============================================================================
 # Configuration
@@ -182,22 +148,12 @@ def load_config():
     Loads /config.json if present, otherwise uses built-in defaults
     based on detected device type.
     """
-    try:
-        with open("/config.json", "r") as f:
-            cfg = json.load(f)
-            print("Loaded config.json")
-            return cfg
-    except Exception:
-        pass
-    
-    # Built-in fallback based on detected device
-    print("No config.json, using built-in defaults")
-    return {
-        "buttons": [
-            {"label": str(i + 1), "cc": 20 + i, "color": "white"}
-            for i in range(BUTTON_COUNT)
-        ]
-    }
+    cfg = _load_config_from_file("/config.json", button_count=BUTTON_COUNT)
+    if "buttons" in cfg and len(cfg["buttons"]) > 0:
+        print("Loaded config.json")
+    else:
+        print("No config.json, using built-in defaults")
+    return cfg
 
 
 config = load_config()
@@ -237,30 +193,9 @@ display = ST7789(
 )
 
 # =============================================================================
-# Switch Class
+# Switch Class - imported from core.button
 # =============================================================================
-
-
-class Switch:
-    """Footswitch with state tracking."""
-
-    def __init__(self, pin):
-        self.io = digitalio.DigitalInOut(pin)
-        self.io.direction = digitalio.Direction.INPUT
-        self.io.pull = digitalio.Pull.UP
-        self.last_state = True  # Pull-up: True = not pressed
-
-    @property
-    def pressed(self):
-        return not self.io.value
-
-    def changed(self):
-        """Returns (changed, pressed) tuple."""
-        current = self.pressed
-        changed = current != self.last_state
-        self.last_state = current
-        return changed, current
-
+# Switch class imported at top from core.button
 
 # Initialize switches
 switches = [Switch(pin) for pin in SWITCH_PINS]
