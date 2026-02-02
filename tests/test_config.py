@@ -1,9 +1,25 @@
 """
 Tests for configuration loading and validation.
+
+Tests the actual core/config.py module.
 """
 
 import pytest
 import json
+import sys
+from pathlib import Path
+
+# Add firmware/dev to path
+FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "dev"
+sys.path.insert(0, str(FIRMWARE_DIR))
+
+from core.config import (
+    load_config,
+    validate_button,
+    validate_config,
+    get_encoder_config,
+    get_expression_config,
+)
 
 
 class TestConfigValidation:
@@ -98,3 +114,86 @@ class TestButtonModes:
         """Can explicitly specify toggle mode."""
         button = {"label": "Test", "cc": 50, "color": "red", "mode": "toggle"}
         assert button["mode"] == "toggle"
+
+
+class TestValidateButton:
+    """Test validate_button function from core/config.py."""
+    
+    def test_fills_missing_fields(self):
+        """Fills in defaults for missing fields."""
+        btn = validate_button({}, index=0)
+        
+        assert btn["label"] == "1"
+        assert btn["cc"] == 20
+        assert btn["color"] == "white"
+        assert btn["mode"] == "toggle"
+        assert btn["off_mode"] == "dim"
+    
+    def test_preserves_existing_fields(self):
+        """Keeps existing values."""
+        btn = validate_button({"label": "MUTE", "cc": 99, "color": "red"}, index=5)
+        
+        assert btn["label"] == "MUTE"
+        assert btn["cc"] == 99
+        assert btn["color"] == "red"
+    
+    def test_index_affects_defaults(self):
+        """Index is used for default label and CC."""
+        btn = validate_button({}, index=7)
+        
+        assert btn["label"] == "8"  # 1-indexed
+        assert btn["cc"] == 27  # 20 + 7
+
+
+class TestValidateConfig:
+    """Test validate_config function from core/config.py."""
+    
+    def test_extends_short_button_array(self):
+        """Fills in missing buttons if fewer than button_count."""
+        cfg = validate_config({"buttons": [{"label": "A"}]}, button_count=3)
+        
+        assert len(cfg["buttons"]) == 3
+        assert cfg["buttons"][0]["label"] == "A"
+        assert cfg["buttons"][1]["label"] == "2"
+        assert cfg["buttons"][2]["label"] == "3"
+    
+    def test_preserves_extra_config_keys(self):
+        """Keeps encoder, expression, etc."""
+        cfg = validate_config({
+            "buttons": [],
+            "encoder": {"cc": 11},
+            "custom": "value"
+        }, button_count=2)
+        
+        assert cfg["encoder"] == {"cc": 11}
+        assert cfg["custom"] == "value"
+
+
+class TestEncoderConfig:
+    """Test get_encoder_config from core/config.py."""
+    
+    def test_defaults_when_missing(self):
+        """Returns sensible defaults when encoder not in config."""
+        enc = get_encoder_config({})
+        
+        assert enc["enabled"] == True
+        assert enc["cc"] == 11
+        assert enc["min"] == 0
+        assert enc["max"] == 127
+        assert enc["initial"] == 64
+        assert enc["push"]["cc"] == 14
+    
+    def test_overrides_defaults(self):
+        """Config values override defaults."""
+        enc = get_encoder_config({
+            "encoder": {
+                "cc": 55,
+                "steps": 5,
+                "push": {"cc": 77, "mode": "toggle"}
+            }
+        })
+        
+        assert enc["cc"] == 55
+        assert enc["steps"] == 5
+        assert enc["push"]["cc"] == 77
+        assert enc["push"]["mode"] == "toggle"

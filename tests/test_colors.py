@@ -1,40 +1,18 @@
 """
 Tests for color utility functions.
 
-These are pure logic tests that don't require any hardware.
+Tests the actual core/colors.py module.
 """
 
 import pytest
+import sys
+from pathlib import Path
 
+# Add firmware/dev to path so we can import core modules
+FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "dev"
+sys.path.insert(0, str(FIRMWARE_DIR))
 
-# Color functions extracted for testing (these would eventually live in a separate module)
-COLORS = {
-    "red": (255, 0, 0),
-    "green": (0, 255, 0),
-    "blue": (0, 0, 255),
-    "yellow": (255, 255, 0),
-    "cyan": (0, 255, 255),
-    "magenta": (255, 0, 255),
-    "orange": (255, 128, 0),
-    "purple": (128, 0, 255),
-    "white": (255, 255, 255),
-    "off": (0, 0, 0),
-}
-
-
-def get_color(name):
-    """Get RGB tuple from color name, with fallback to white."""
-    return COLORS.get(name.lower(), COLORS["white"])
-
-
-def dim_color(rgb, factor=0.15):
-    """Return a dimmed version of an RGB color."""
-    return tuple(int(c * factor) for c in rgb)
-
-
-def rgb_to_hex(rgb):
-    """Convert RGB tuple to hex integer for display."""
-    return (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]
+from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color
 
 
 class TestGetColor:
