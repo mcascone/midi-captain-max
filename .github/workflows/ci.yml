@@ -53,6 +53,10 @@ jobs:
           python -m py_compile firmware/dev/code.py
           find firmware/dev/devices -name "*.py" -exec python -m py_compile {} \;
 
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -v --tb=short
+
   build-zip:
     name: Build Firmware Zip
     runs-on: ubuntu-latest

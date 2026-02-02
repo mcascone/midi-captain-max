@@ -4,6 +4,8 @@
 # Linting
 ruff>=0.14.0
 
-# Future: Testing with hardware mocks
-# pytest>=8.0.0
+# Testing with hardware mocks
+pytest>=8.0.0
+
+# Optional: Adafruit Blinka for more realistic hardware simulation
 # adafruit-blinka>=8.0.0
