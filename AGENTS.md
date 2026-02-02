@@ -312,8 +312,6 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [ ] Double-press detection (like double-click)
 - [ ] Long-press detection
 - [ ] Pages / banks
-- [ ] Limit Gumroad "latest" zip to stable releases only (no alpha/beta/rc)
-- [ ] Limit GitHub Release `make_latest` to stable releases only (no alpha/beta/rc)
 
 ---
 
