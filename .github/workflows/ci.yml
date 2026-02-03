@@ -187,18 +187,3 @@ jobs:
             echo "⚠️ **Warning:** No .pkg installer was created" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # Future: Add unit tests when blinka mocks are set up
-  # test:
-  #   name: Unit Tests
-  #   runs-on: ubuntu-latest
-  #   needs: lint
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v6
-  #       with:
-  #         python-version: "3.11"
-  #     - name: Install test dependencies
-  #       run: pip install pytest adafruit-blinka
-  #     - name: Run tests
-  #       run: pytest tests/

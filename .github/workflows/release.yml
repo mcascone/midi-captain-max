@@ -104,7 +104,8 @@ jobs:
         with:
           make_latest: true
           files: dist/*
-          prerelease: ${{ steps.notes.outputs.PRERELEASE }}
+          # prerelease: ${{ steps.notes.outputs.PRERELEASE }}
+          prerelease: false
           generate_release_notes: true
           body: |
             ${{ steps.notes.outputs.NOTES }}
