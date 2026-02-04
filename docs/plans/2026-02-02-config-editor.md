@@ -790,10 +790,22 @@ pub fn scan_devices() -> Vec<DetectedDevice> {
     devices
 }
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+// Global flag to prevent multiple watchers
+static WATCHER_STARTED: AtomicBool = AtomicBool::new(false);
+
 /// Start watching for device connections
 /// Emits "device-connected" and "device-disconnected" events
+/// Note: Only one watcher can run at a time to prevent thread leaks
 #[command]
 pub fn start_device_watcher(app: AppHandle) -> Result<(), String> {
+    // Prevent multiple watchers
+    if WATCHER_STARTED.swap(true, Ordering::SeqCst) {
+        return Ok(()); // Already running
+    }
+    
     let (tx, rx) = mpsc::channel();
     
     let mut watcher = RecommendedWatcher::new(
@@ -1463,7 +1475,7 @@ git commit -m "feat: add main app layout with device selector and JSON editor"
 
 ```bash
 cd config-editor
-npm install @codemirror/state @codemirror/view @codemirror/lang-json @codemirror/theme-one-dark
+npm install @codemirror/state @codemirror/view @codemirror/lang-json @codemirror/theme-one-dark @codemirror/commands
 ```
 
 **Step 2: Create JsonEditor component**
@@ -1786,14 +1798,25 @@ git commit -m "feat: add CodeMirror JSON editor with syntax highlighting"
 
 **Step 2: Integrate ProfileManager into App.svelte**
 
-Add to header section:
+Add to header section. Note: We parse `editorContent` to pass a config object to ProfileManager, with error handling for invalid JSON:
 
 ```svelte
+<script lang="ts">
+  // Add helper function to safely parse current editor content
+  function getCurrentConfigObject(): MidiCaptainConfig | null {
+    try {
+      return editorContent ? JSON.parse(editorContent) : null;
+    } catch {
+      return null; // Invalid JSON, can't save as profile
+    }
+  }
+</script>
+
 <header>
   <h1>MIDI Captain MAX Config Editor</h1>
   
   <ProfileManager 
-    currentConfig={$currentConfig}
+    currentConfig={getCurrentConfigObject()}
     on:load={(e) => {
       editorContent = JSON.stringify(e.detail, null, 2);
       $currentConfigRaw = editorContent;
@@ -2208,7 +2231,7 @@ build-config-editor:
         node-version: '20'
     
     - name: Setup Rust
-      uses: dtolnay/rust-action@stable
+      uses: dtolnay/rust-toolchain@stable
     
     - name: Install dependencies
       run: |
