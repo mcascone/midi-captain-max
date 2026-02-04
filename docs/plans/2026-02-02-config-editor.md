@@ -103,16 +103,22 @@ config-editor/
 └── vite.config.ts
 ```
 
-**Step 3: Test the scaffold**
+**Step 3: Install dependencies and test**
 
 Run:
 ```bash
 cd config-editor
 npm install
+
+# Install all project dependencies upfront
+# CodeMirror for JSON editor with syntax highlighting
+npm install @codemirror/state @codemirror/view @codemirror/lang-json @codemirror/theme-one-dark @codemirror/commands
+
+# Test the scaffold
 npm run tauri dev
 ```
 
-Expected: Empty Tauri window opens
+Expected: Empty Tauri window opens. `package.json` now includes CodeMirror dependencies.
 
 **Step 4: Commit**
 
@@ -1468,17 +1474,12 @@ git commit -m "feat: add main app layout with device selector and JSON editor"
 
 **Files:**
 - Create: `config-editor/src/lib/components/JsonEditor.svelte`
-- Modify: `config-editor/package.json`
 - Modify: `config-editor/src/App.svelte`
 
-**Step 1: Install CodeMirror**
+> **Note:** CodeMirror dependencies were installed in Task 1.2. If starting fresh, run:
+> `npm install @codemirror/state @codemirror/view @codemirror/lang-json @codemirror/theme-one-dark @codemirror/commands`
 
-```bash
-cd config-editor
-npm install @codemirror/state @codemirror/view @codemirror/lang-json @codemirror/theme-one-dark @codemirror/commands
-```
-
-**Step 2: Create JsonEditor component**
+**Step 1: Create JsonEditor component**
 
 ```svelte
 <!-- config-editor/src/lib/components/JsonEditor.svelte -->
@@ -1560,7 +1561,7 @@ npm install @codemirror/state @codemirror/view @codemirror/lang-json @codemirror
 </style>
 ```
 
-**Step 3: Update App.svelte to use JsonEditor**
+**Step 2: Update App.svelte to use JsonEditor**
 
 Replace the `<textarea>` with the JsonEditor component:
 
@@ -1594,7 +1595,7 @@ Replace the `<textarea>` with the JsonEditor component:
 </div>
 ```
 
-**Step 4: Test**
+**Step 3: Test**
 
 ```bash
 cd config-editor
@@ -1603,12 +1604,11 @@ npm run tauri dev
 
 Expected: JSON editor with syntax highlighting, line numbers
 
-**Step 5: Commit**
+**Step 4: Commit**
 
 ```bash
 git add config-editor/src/lib/components/JsonEditor.svelte
 git add config-editor/src/App.svelte
-git add config-editor/package.json config-editor/package-lock.json
 git commit -m "feat: add CodeMirror JSON editor with syntax highlighting"
 ```
 
