@@ -2,7 +2,11 @@
 
 use crate::config::MidiCaptainConfig;
 use std::fs;
+use std::path::Path;
 use tauri::command;
+
+/// Known device volume prefixes (for path validation)
+const VALID_VOLUME_PREFIXES: &[&str] = &["/Volumes/CIRCUITPY", "/Volumes/MIDICAPTAIN"];
 
 /// Error type for config operations
 #[derive(Debug, serde::Serialize)]
@@ -29,9 +33,34 @@ impl From<serde_json::Error> for ConfigError {
     }
 }
 
+/// Validate that a path is on a recognized MIDI Captain device volume.
+/// Prevents path traversal attacks by ensuring paths are within expected directories.
+fn validate_device_path(path: &str) -> Result<(), ConfigError> {
+    let path = Path::new(path);
+    
+    // Canonicalize to resolve any .. or symlinks
+    let canonical = path.canonicalize().map_err(|_| ConfigError {
+        message: "Invalid path: could not resolve".to_string(),
+        details: None,
+    })?;
+    
+    let path_str = canonical.to_string_lossy();
+    
+    // Check if path starts with a valid volume prefix
+    if !VALID_VOLUME_PREFIXES.iter().any(|prefix| path_str.starts_with(prefix)) {
+        return Err(ConfigError {
+            message: "Path must be on a MIDI Captain device (CIRCUITPY or MIDICAPTAIN volume)".to_string(),
+            details: None,
+        });
+    }
+    
+    Ok(())
+}
+
 /// Read config from a file path
 #[command]
 pub fn read_config(path: String) -> Result<MidiCaptainConfig, ConfigError> {
+    validate_device_path(&path)?;
     let contents = fs::read_to_string(&path)?;
     let config: MidiCaptainConfig = serde_json::from_str(&contents)?;
     Ok(config)
@@ -40,6 +69,7 @@ pub fn read_config(path: String) -> Result<MidiCaptainConfig, ConfigError> {
 /// Read raw JSON from a file (for text editor)
 #[command]
 pub fn read_config_raw(path: String) -> Result<String, ConfigError> {
+    validate_device_path(&path)?;
     let contents = fs::read_to_string(&path)?;
     // Pretty-print the JSON
     let value: serde_json::Value = serde_json::from_str(&contents)?;
@@ -50,6 +80,8 @@ pub fn read_config_raw(path: String) -> Result<String, ConfigError> {
 /// Write config to a file path
 #[command]
 pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), ConfigError> {
+    validate_device_path(&path)?;
+    
     // Validate before writing
     if let Err(errors) = config.validate() {
         return Err(ConfigError {
@@ -66,6 +98,8 @@ pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), Confi
 /// Write raw JSON to a file (from text editor)
 #[command]
 pub fn write_config_raw(path: String, json: String) -> Result<(), ConfigError> {
+    validate_device_path(&path)?;
+    
     // Validate JSON is parseable
     let config: MidiCaptainConfig = serde_json::from_str(&json)?;
 

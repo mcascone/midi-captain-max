@@ -179,23 +179,55 @@ impl MidiCaptainConfig {
 
         // Validate encoder if present
         if let Some(ref enc) = self.encoder {
+            // Mini6 does not support encoder
+            if self.device == DeviceType::Mini6 {
+                errors.push("Mini6 does not support encoder".to_string());
+            }
             if enc.cc > 127 {
                 errors.push(format!("Encoder CC {} exceeds 127", enc.cc));
+            }
+            if enc.label.len() > 8 {
+                errors.push(format!("Encoder label '{}' exceeds 8 chars", enc.label));
+            }
+            if enc.max < enc.min {
+                errors.push(format!("Encoder max ({}) must be >= min ({})", enc.max, enc.min));
+            }
+            if enc.initial < enc.min || enc.initial > enc.max {
+                errors.push(format!("Encoder initial ({}) must be between min ({}) and max ({})", enc.initial, enc.min, enc.max));
             }
             if let Some(ref push) = enc.push {
                 if push.cc > 127 {
                     errors.push(format!("Encoder push CC {} exceeds 127", push.cc));
+                }
+                if push.label.len() > 8 {
+                    errors.push(format!("Encoder push label '{}' exceeds 8 chars", push.label));
                 }
             }
         }
 
         // Validate expression pedals if present
         if let Some(ref exp) = self.expression {
+            // Mini6 does not support expression pedals
+            if self.device == DeviceType::Mini6 {
+                errors.push("Mini6 does not support expression pedals".to_string());
+            }
             if exp.exp1.cc > 127 {
                 errors.push(format!("EXP1 CC {} exceeds 127", exp.exp1.cc));
             }
+            if exp.exp1.label.len() > 8 {
+                errors.push(format!("EXP1 label '{}' exceeds 8 chars", exp.exp1.label));
+            }
+            if exp.exp1.max < exp.exp1.min {
+                errors.push(format!("EXP1 max ({}) must be >= min ({})", exp.exp1.max, exp.exp1.min));
+            }
             if exp.exp2.cc > 127 {
                 errors.push(format!("EXP2 CC {} exceeds 127", exp.exp2.cc));
+            }
+            if exp.exp2.label.len() > 8 {
+                errors.push(format!("EXP2 label '{}' exceeds 8 chars", exp.exp2.label));
+            }
+            if exp.exp2.max < exp.exp2.min {
+                errors.push(format!("EXP2 max ({}) must be >= min ({})", exp.exp2.max, exp.exp2.min));
             }
         }
 

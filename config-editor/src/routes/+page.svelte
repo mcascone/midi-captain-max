@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { 
     devices, selectedDevice, currentConfigRaw, 
     hasUnsavedChanges, validationErrors, statusMessage, isLoading 
@@ -13,32 +13,46 @@
 
   let editorContent = $state('');
   
+  // Event listener cleanup functions
+  let unlistenConnect: (() => void) | undefined;
+  let unlistenDisconnect: (() => void) | undefined;
+  
   onMount(async () => {
-    // Initial device scan
-    $devices = await scanDevices();
-    
-    // Start watching for device changes
-    await startDeviceWatcher();
-    
-    // Listen for device events
-    onDeviceConnected((device) => {
-      $devices = [...$devices, device];
-      $statusMessage = `Device connected: ${device.name}`;
-    });
-    
-    onDeviceDisconnected((name) => {
-      $devices = $devices.filter(d => d.name !== name);
-      if ($selectedDevice?.name === name) {
-        $selectedDevice = null;
-        $currentConfigRaw = '';
+    try {
+      // Initial device scan
+      $devices = await scanDevices();
+      
+      // Start watching for device changes
+      await startDeviceWatcher();
+      
+      // Listen for device events (store cleanup functions)
+      unlistenConnect = await onDeviceConnected((device) => {
+        $devices = [...$devices, device];
+        $statusMessage = `Device connected: ${device.name}`;
+      });
+      
+      unlistenDisconnect = await onDeviceDisconnected((name) => {
+        $devices = $devices.filter(d => d.name !== name);
+        if ($selectedDevice?.name === name) {
+          $selectedDevice = null;
+          $currentConfigRaw = '';
+        }
+        $statusMessage = `Device disconnected: ${name}`;
+      });
+      
+      // Auto-select if only one device
+      if ($devices.length === 1) {
+        await selectDevice($devices[0]);
       }
-      $statusMessage = `Device disconnected: ${name}`;
-    });
-    
-    // Auto-select if only one device
-    if ($devices.length === 1) {
-      await selectDevice($devices[0]);
+    } catch (e: any) {
+      $statusMessage = `Error initializing: ${e.message || e}`;
     }
+  });
+  
+  onDestroy(() => {
+    // Clean up event listeners to prevent memory leaks
+    unlistenConnect?.();
+    unlistenDisconnect?.();
   });
   
   async function selectDevice(device: DetectedDevice) {
