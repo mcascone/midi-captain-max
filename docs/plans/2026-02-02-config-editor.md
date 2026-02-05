@@ -2,6 +2,21 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+---
+
+## Current Status (2026-02-05)
+
+| Phase | Status |
+|-------|--------|
+| Phase 1-5 | ✅ Complete |
+| Code review fixes | ✅ Complete (6 issues fixed) |
+| macOS architecture review | ✅ Complete (8 issues identified) |
+| **Next up** | **Phase 8: Tasks 8.1-8.3 (critical macOS fixes)** |
+
+**Recommendation:** Do Phase 8 critical tasks (8.1-8.3) before Phases 6-7 to fix foundation issues first.
+
+---
+
 **Goal:** Build a cross-platform desktop app (Tauri + Svelte) that edits MIDI Captain config files, replaces the current AppleScript installer, and supports future expansion to Windows and mobile.
 
 **Architecture:** Rust backend handles filesystem operations (device detection, config read/write, profile storage). Svelte frontend provides the UI with JSON text editor, validation, and device-specific field handling. The app combines firmware installation and config editing into a unified experience.
