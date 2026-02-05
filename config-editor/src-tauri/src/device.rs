@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri::{command, AppHandle, Emitter};
 
 /// Known device volume names
@@ -86,7 +87,8 @@ pub fn start_device_watcher(app: AppHandle) -> Result<(), String> {
                 let _ = tx.send(event);
             }
         },
-        Config::default(),
+        // Configure for lower latency on macOS FSEvents
+        Config::default().with_poll_interval(Duration::from_millis(500)),
     ).map_err(|e| e.to_string())?;
     
     watcher.watch(
