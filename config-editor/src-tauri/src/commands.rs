@@ -1,9 +1,12 @@
 //! Tauri commands for config file operations
 
 use crate::config::MidiCaptainConfig;
-use std::fs;
+use std::fs::{self, File};
 use std::path::Path;
 use tauri::command;
+
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 
 /// Known device volume prefixes (for path validation)
 const VALID_VOLUME_PREFIXES: &[&str] = &["/Volumes/CIRCUITPY", "/Volumes/MIDICAPTAIN"];
@@ -57,6 +60,53 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
     Ok(())
 }
 
+/// Check if a volume is still mounted (not being ejected)
+/// Compares device ID of volume vs root - if same, volume is not a separate filesystem
+#[cfg(unix)]
+fn is_volume_mounted(volume_path: &Path) -> bool {
+    if let (Ok(vol_meta), Ok(root_meta)) = (
+        volume_path.metadata(),
+        Path::new("/").metadata()
+    ) {
+        vol_meta.dev() != root_meta.dev()
+    } else {
+        false
+    }
+}
+
+#[cfg(not(unix))]
+fn is_volume_mounted(volume_path: &Path) -> bool {
+    // On non-Unix systems, just check if path exists
+    volume_path.exists()
+}
+
+/// Get the volume path from a file path (e.g., /Volumes/CIRCUITPY from /Volumes/CIRCUITPY/config.json)
+fn get_volume_path(path: &Path) -> Option<std::path::PathBuf> {
+    path.ancestors()
+        .find(|p| p.parent() == Some(Path::new("/Volumes")))
+        .map(|p| p.to_path_buf())
+}
+
+/// Verify the device is still mounted before writing
+fn verify_device_connected(path: &Path) -> Result<(), ConfigError> {
+    if let Some(volume_path) = get_volume_path(path) {
+        if !is_volume_mounted(&volume_path) {
+            return Err(ConfigError {
+                message: "Device was disconnected".to_string(),
+                details: None,
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Sync file to ensure data reaches device before user ejects
+fn sync_file(path: &Path) {
+    if let Ok(file) = File::open(path) {
+        let _ = file.sync_all();
+    }
+}
+
 /// Read config from a file path
 #[command]
 pub fn read_config(path: String) -> Result<MidiCaptainConfig, ConfigError> {
@@ -82,6 +132,11 @@ pub fn read_config_raw(path: String) -> Result<String, ConfigError> {
 pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), ConfigError> {
     validate_device_path(&path)?;
     
+    let path_obj = Path::new(&path);
+    
+    // Verify volume is still mounted
+    verify_device_connected(path_obj)?;
+    
     // Validate before writing
     if let Err(errors) = config.validate() {
         return Err(ConfigError {
@@ -91,7 +146,11 @@ pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), Confi
     }
 
     let json = serde_json::to_string_pretty(&config)?;
-    fs::write(&path, json)?;
+    fs::write(&path, &json)?;
+    
+    // Sync to ensure data reaches device before user ejects
+    sync_file(path_obj);
+    
     Ok(())
 }
 
@@ -99,6 +158,11 @@ pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), Confi
 #[command]
 pub fn write_config_raw(path: String, json: String) -> Result<(), ConfigError> {
     validate_device_path(&path)?;
+    
+    let path_obj = Path::new(&path);
+    
+    // Verify volume is still mounted
+    verify_device_connected(path_obj)?;
     
     // Validate JSON is parseable
     let config: MidiCaptainConfig = serde_json::from_str(&json)?;
@@ -113,7 +177,11 @@ pub fn write_config_raw(path: String, json: String) -> Result<(), ConfigError> {
 
     // Pretty-print and write
     let pretty = serde_json::to_string_pretty(&config)?;
-    fs::write(&path, pretty)?;
+    fs::write(&path, &pretty)?;
+    
+    // Sync to ensure data reaches device before user ejects
+    sync_file(path_obj);
+    
     Ok(())
 }
 
