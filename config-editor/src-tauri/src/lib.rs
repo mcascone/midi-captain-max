@@ -1,7 +1,9 @@
 mod commands;
 mod config;
+mod device;
 
 use commands::{read_config, read_config_raw, validate_config, write_config, write_config_raw};
+use device::{scan_devices, start_device_watcher};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,7 +16,9 @@ pub fn run() {
             read_config_raw,
             write_config,
             write_config_raw,
-            validate_config
+            validate_config,
+            scan_devices,
+            start_device_watcher
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
