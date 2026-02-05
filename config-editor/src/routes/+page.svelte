@@ -1,156 +1,298 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
+  import { onMount } from 'svelte';
+  import { 
+    devices, selectedDevice, currentConfigRaw, 
+    hasUnsavedChanges, validationErrors, statusMessage, isLoading 
+  } from '$lib/stores';
+  import { 
+    scanDevices, startDeviceWatcher, readConfigRaw, writeConfigRaw,
+    onDeviceConnected, onDeviceDisconnected 
+  } from '$lib/api';
+  import type { DetectedDevice } from '$lib/types';
 
-  let name = $state("");
-  let greetMsg = $state("");
-
-  async function greet(event: Event) {
-    event.preventDefault();
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    greetMsg = await invoke("greet", { name });
+  let editorContent = $state('');
+  
+  onMount(async () => {
+    // Initial device scan
+    $devices = await scanDevices();
+    
+    // Start watching for device changes
+    await startDeviceWatcher();
+    
+    // Listen for device events
+    onDeviceConnected((device) => {
+      $devices = [...$devices, device];
+      $statusMessage = `Device connected: ${device.name}`;
+    });
+    
+    onDeviceDisconnected((name) => {
+      $devices = $devices.filter(d => d.name !== name);
+      if ($selectedDevice?.name === name) {
+        $selectedDevice = null;
+        $currentConfigRaw = '';
+      }
+      $statusMessage = `Device disconnected: ${name}`;
+    });
+    
+    // Auto-select if only one device
+    if ($devices.length === 1) {
+      await selectDevice($devices[0]);
+    }
+  });
+  
+  async function selectDevice(device: DetectedDevice) {
+    if ($hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Discard them?')) {
+        return;
+      }
+    }
+    
+    $selectedDevice = device;
+    $isLoading = true;
+    
+    try {
+      if (device.has_config) {
+        $currentConfigRaw = await readConfigRaw(device.config_path);
+        editorContent = $currentConfigRaw;
+      } else {
+        $currentConfigRaw = '';
+        editorContent = '';
+        $statusMessage = 'No config.json found on device';
+      }
+      $hasUnsavedChanges = false;
+      $validationErrors = [];
+    } catch (e: any) {
+      $statusMessage = `Error reading config: ${e.message || e}`;
+    } finally {
+      $isLoading = false;
+    }
+  }
+  
+  async function saveToDevice() {
+    if (!$selectedDevice) return;
+    
+    $isLoading = true;
+    try {
+      await writeConfigRaw($selectedDevice.config_path, editorContent);
+      $currentConfigRaw = editorContent;
+      $hasUnsavedChanges = false;
+      $validationErrors = [];
+      $statusMessage = 'Config saved to device!';
+    } catch (e: any) {
+      if (e.details) {
+        $validationErrors = e.details;
+      }
+      $statusMessage = `Error: ${e.message || e}`;
+    } finally {
+      $isLoading = false;
+    }
+  }
+  
+  function handleEditorChange(event: Event) {
+    const target = event.target as HTMLTextAreaElement;
+    editorContent = target.value;
+    $hasUnsavedChanges = editorContent !== $currentConfigRaw;
   }
 </script>
 
-<main class="container">
-  <h1>Welcome to Tauri + Svelte</h1>
-
-  <div class="row">
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo vite" alt="Vite Logo" />
-    </a>
-    <a href="https://tauri.app" target="_blank">
-      <img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank">
-      <img src="/svelte.svg" class="logo svelte-kit" alt="SvelteKit Logo" />
-    </a>
+<main>
+  <header>
+    <h1>MIDI Captain MAX Config Editor</h1>
+    <div class="device-selector">
+      {#if $devices.length === 0}
+        <span class="no-device">No device connected</span>
+      {:else}
+        <select 
+          value={$selectedDevice?.name ?? ''} 
+          onchange={(e) => {
+            const device = $devices.find(d => d.name === e.currentTarget.value);
+            if (device) selectDevice(device);
+          }}
+        >
+          <option value="" disabled>Select device...</option>
+          {#each $devices as device}
+            <option value={device.name}>{device.name}</option>
+          {/each}
+        </select>
+      {/if}
+    </div>
+  </header>
+  
+  <div class="editor-container">
+    {#if $selectedDevice}
+      <textarea
+        class="json-editor"
+        value={editorContent}
+        oninput={handleEditorChange}
+        spellcheck="false"
+        placeholder="No config loaded"
+      ></textarea>
+    {:else}
+      <div class="placeholder">
+        <p>Connect a MIDI Captain device or select one from the dropdown.</p>
+        <p>Watching for devices: CIRCUITPY, MIDICAPTAIN</p>
+      </div>
+    {/if}
   </div>
-  <p>Click on the Tauri, Vite, and SvelteKit logos to learn more.</p>
-
-  <form class="row" onsubmit={greet}>
-    <input id="greet-input" placeholder="Enter a name..." bind:value={name} />
-    <button type="submit">Greet</button>
-  </form>
-  <p>{greetMsg}</p>
+  
+  {#if $validationErrors.length > 0}
+    <div class="errors">
+      <strong>Validation Errors:</strong>
+      <ul>
+        {#each $validationErrors as error}
+          <li>{error}</li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
+  
+  <footer>
+    <div class="status">{$statusMessage}</div>
+    <div class="actions">
+      {#if $hasUnsavedChanges}
+        <span class="unsaved">● Unsaved changes</span>
+      {/if}
+      <button 
+        onclick={saveToDevice} 
+        disabled={!$selectedDevice || !$hasUnsavedChanges || $isLoading}
+      >
+        Save to Device
+      </button>
+    </div>
+  </footer>
 </main>
 
 <style>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.svelte-kit:hover {
-  filter: drop-shadow(0 0 2em #ff3e00);
-}
-
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
-  margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
-  cursor: pointer;
-}
-
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-input,
-button {
-  outline: none;
-}
-
-#greet-input {
-  margin-right: 5px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
+  :global(body) {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #1e1e1e;
+    color: #d4d4d4;
   }
-
-  a:hover {
-    color: #24c8db;
+  
+  main {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
   }
-
-  input,
+  
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #2d2d2d;
+    border-bottom: 1px solid #404040;
+  }
+  
+  h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+  }
+  
+  .device-selector select {
+    padding: 6px 12px;
+    font-size: 14px;
+    background: #3c3c3c;
+    color: #d4d4d4;
+    border: 1px solid #555;
+    border-radius: 4px;
+  }
+  
+  .no-device {
+    color: #888;
+    font-style: italic;
+  }
+  
+  .editor-container {
+    flex: 1;
+    padding: 20px;
+    overflow: hidden;
+  }
+  
+  .json-editor {
+    width: 100%;
+    height: 100%;
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border: 1px solid #404040;
+    border-radius: 4px;
+    padding: 16px;
+    resize: none;
+    box-sizing: border-box;
+  }
+  
+  .json-editor:focus {
+    outline: none;
+    border-color: #0078d4;
+  }
+  
+  .placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #888;
+  }
+  
+  .errors {
+    padding: 12px 20px;
+    background: #3c1f1f;
+    border-top: 1px solid #5c2f2f;
+    color: #f48771;
+  }
+  
+  .errors ul {
+    margin: 8px 0 0 0;
+    padding-left: 20px;
+  }
+  
+  footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #2d2d2d;
+    border-top: 1px solid #404040;
+  }
+  
+  .status {
+    color: #888;
+    font-size: 13px;
+  }
+  
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .unsaved {
+    color: #dcdcaa;
+    font-size: 13px;
+  }
+  
   button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
+    padding: 8px 16px;
+    font-size: 14px;
+    background: #0078d4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
   }
-  button:active {
-    background-color: #0f0f0f69;
+  
+  button:hover:not(:disabled) {
+    background: #1084d8;
   }
-}
-
+  
+  button:disabled {
+    background: #555;
+    cursor: not-allowed;
+  }
 </style>
