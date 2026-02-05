@@ -9,6 +9,7 @@
     onDeviceConnected, onDeviceDisconnected 
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
+  import JsonEditor from '$lib/components/JsonEditor.svelte';
 
   let editorContent = $state('');
   
@@ -88,9 +89,8 @@
     }
   }
   
-  function handleEditorChange(event: Event) {
-    const target = event.target as HTMLTextAreaElement;
-    editorContent = target.value;
+  function handleEditorChange(newValue: string) {
+    editorContent = newValue;
     $hasUnsavedChanges = editorContent !== $currentConfigRaw;
   }
 </script>
@@ -120,13 +120,10 @@
   
   <div class="editor-container">
     {#if $selectedDevice}
-      <textarea
-        class="json-editor"
-        value={editorContent}
-        oninput={handleEditorChange}
-        spellcheck="false"
-        placeholder="No config loaded"
-      ></textarea>
+      <JsonEditor 
+        value={editorContent} 
+        onchange={handleEditorChange}
+      />
     {:else}
       <div class="placeholder">
         <p>Connect a MIDI Captain device or select one from the dropdown.</p>
@@ -209,26 +206,6 @@
     flex: 1;
     padding: 20px;
     overflow: hidden;
-  }
-  
-  .json-editor {
-    width: 100%;
-    height: 100%;
-    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-    font-size: 14px;
-    line-height: 1.5;
-    background: #1e1e1e;
-    color: #d4d4d4;
-    border: 1px solid #404040;
-    border-radius: 4px;
-    padding: 16px;
-    resize: none;
-    box-sizing: border-box;
-  }
-  
-  .json-editor:focus {
-    outline: none;
-    border-color: #0078d4;
   }
   
   .placeholder {
