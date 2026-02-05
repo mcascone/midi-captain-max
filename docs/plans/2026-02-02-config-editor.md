@@ -21,9 +21,10 @@
 5. [Phase 5: JSON Editor Integration](#phase-5-json-editor-integration)
 6. [Phase 6: Profile Management](#phase-6-profile-management)
 7. [Phase 7: Firmware Installation](#phase-7-firmware-installation)
-8. [Phase 8: Validation & Device-Specific UI](#phase-8-validation--device-specific-ui)
-9. [Phase 9: Packaging & Distribution](#phase-9-packaging--distribution)
-10. [Future Phases](#future-phases)
+8. [Phase 8: macOS Architecture Hardening](#phase-8-macos-architecture-hardening) ← NEW
+9. [Phase 9: Validation & Device-Specific UI](#phase-9-validation--device-specific-ui)
+10. [Phase 10: Packaging & Distribution](#phase-10-packaging--distribution)
+11. [Future Phases](#future-phases)
 
 ---
 
@@ -2044,9 +2045,387 @@ git commit -m "feat: add firmware install button"
 
 ---
 
-## Phase 8: Validation & Device-Specific UI
+## Phase 8: macOS Architecture Hardening
 
-### Task 8.1: Add Live Validation
+> **Added 2026-02-04** after macOS architecture review. Addresses critical issues for production quality.
+
+### Task 8.1: Create macOS Entitlements
+
+**Files:**
+- Create: `config-editor/src-tauri/Entitlements.plist`
+- Modify: `config-editor/src-tauri/tauri.conf.json`
+
+**Context:** The app needs entitlements for `/Volumes` access. Without them, code signing and notarization will fail.
+
+**Step 1: Create entitlements file**
+
+Create `config-editor/src-tauri/Entitlements.plist`:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened runtime -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <false/>
+    
+    <!-- For removable media access (USB devices) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    
+    <!-- /Volumes access for device detection -->
+    <key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+    <array>
+        <string>/Volumes/</string>
+    </array>
+</dict>
+</plist>
+```
+
+**Step 2: Update tauri.conf.json to reference entitlements**
+
+In the `bundle.macOS` section:
+```json
+"macOS": {
+  "minimumSystemVersion": "10.15",
+  "signingIdentity": "-",
+  "entitlements": "Entitlements.plist"
+}
+```
+
+**Step 3: Commit**
+
+```bash
+git add config-editor/src-tauri/Entitlements.plist
+git add config-editor/src-tauri/tauri.conf.json
+git commit -m "feat: add macOS entitlements for /Volumes access"
+```
+
+---
+
+### Task 8.2: Fix Volume Ejection Race Condition
+
+**Files:**
+- Modify: `config-editor/src-tauri/src/commands.rs`
+
+**Context:** When a user ejects a device via Finder, there's a window where the volume still appears in `/Volumes` but writes will fail or corrupt data. We need to verify mount state before writes and sync after.
+
+**Step 1: Add mount verification and sync to write_config**
+
+Add to `commands.rs`:
+```rust
+use std::os::unix::fs::MetadataExt;
+
+/// Check if a volume is still mounted (not being ejected)
+fn is_volume_mounted(volume_path: &std::path::Path) -> bool {
+    // Check if we can stat the volume and it has a different device ID than root
+    if let (Ok(vol_meta), Ok(root_meta)) = (
+        volume_path.metadata(),
+        std::path::Path::new("/").metadata()
+    ) {
+        vol_meta.dev() != root_meta.dev()
+    } else {
+        false
+    }
+}
+
+/// Get the volume path from a file path (e.g., /Volumes/CIRCUITPY from /Volumes/CIRCUITPY/config.json)
+fn get_volume_path(path: &std::path::Path) -> Option<std::path::PathBuf> {
+    path.ancestors()
+        .find(|p| p.parent() == Some(std::path::Path::new("/Volumes")))
+        .map(|p| p.to_path_buf())
+}
+```
+
+**Step 2: Update write_config to use verification**
+
+```rust
+#[command]
+pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), ConfigError> {
+    validate_device_path(&path)?;
+    
+    let path_obj = std::path::Path::new(&path);
+    
+    // Verify volume is still mounted
+    if let Some(volume_path) = get_volume_path(path_obj) {
+        if !is_volume_mounted(&volume_path) {
+            return Err(ConfigError {
+                message: "Device was disconnected".to_string(),
+                details: None,
+            });
+        }
+    }
+    
+    // Validate before writing
+    if let Err(errors) = config.validate() {
+        return Err(ConfigError {
+            message: "Validation failed".to_string(),
+            details: Some(errors),
+        });
+    }
+    
+    let json = serde_json::to_string_pretty(&config)?;
+    fs::write(&path, &json)?;
+    
+    // Sync to ensure data reaches device before user ejects
+    if let Ok(file) = fs::File::open(&path) {
+        let _ = file.sync_all();
+    }
+    
+    Ok(())
+}
+```
+
+**Step 3: Do the same for write_config_raw**
+
+Apply the same mount verification and sync to `write_config_raw`.
+
+**Step 4: Commit**
+
+```bash
+git add config-editor/src-tauri/src/commands.rs
+git commit -m "fix: add mount verification and sync to prevent data loss on ejection"
+```
+
+---
+
+### Task 8.3: Configure FSEvents for Lower Latency
+
+**Files:**
+- Modify: `config-editor/src-tauri/src/device.rs`
+
+**Context:** The notify crate's default FSEvents config can have up to 30-second delays. Configure for faster response.
+
+**Step 1: Update watcher configuration**
+
+In `start_device_watcher`:
+```rust
+use notify::Config;
+use std::time::Duration;
+
+let config = Config::default()
+    .with_poll_interval(Duration::from_millis(500));
+
+let mut watcher = RecommendedWatcher::new(
+    move |res: Result<Event, notify::Error>| {
+        if let Ok(event) = res {
+            let _ = tx.send(event);
+        }
+    },
+    config,  // Use configured settings instead of Config::default()
+)?;
+```
+
+**Step 2: Commit**
+
+```bash
+git add config-editor/src-tauri/src/device.rs
+git commit -m "perf: configure FSEvents for lower latency device detection"
+```
+
+---
+
+### Task 8.4: Add Device Disconnection Warning Dialog
+
+**Files:**
+- Modify: `config-editor/src/App.svelte`
+- Modify: `config-editor/package.json` (add dialog plugin if needed)
+
+**Context:** If a device is disconnected while the editor has unsaved changes, users should be warned about data loss.
+
+**Step 1: Update disconnect handler in App.svelte**
+
+```typescript
+import { message } from '@tauri-apps/plugin-dialog';
+
+// In the device disconnect handler:
+unlistenDisconnect = await onDeviceDisconnected(async (name) => {
+  const wasSelected = selectedDevice?.name === name;
+  
+  devices = devices.filter(d => d.name !== name);
+  
+  if (wasSelected) {
+    if (hasUnsavedChanges) {
+      await message(
+        `Device "${name}" was disconnected. Your unsaved changes have been lost.`,
+        { title: 'Device Disconnected', kind: 'warning' }
+      );
+    }
+    selectedDevice = null;
+    currentConfigRaw = '';
+    hasUnsavedChanges = false;
+  }
+  
+  statusMessage = `Device disconnected: ${name}`;
+});
+```
+
+**Step 2: Commit**
+
+```bash
+git add config-editor/src/App.svelte
+git commit -m "feat: add warning dialog when device disconnected with unsaved changes"
+```
+
+---
+
+### Task 8.5: Remove Unnecessary macOSPrivateApi Flag
+
+**Files:**
+- Modify: `config-editor/src-tauri/tauri.conf.json`
+
+**Context:** `macOSPrivateApi: true` enables private APIs (transparent backgrounds, etc.) that we don't use. Remove to simplify notarization.
+
+**Step 1: Set macOSPrivateApi to false**
+
+In `tauri.conf.json`:
+```json
+"app": {
+  "macOSPrivateApi": false,
+  // ...
+}
+```
+
+**Step 2: Commit**
+
+```bash
+git add config-editor/src-tauri/tauri.conf.json
+git commit -m "chore: disable macOSPrivateApi flag (not needed)"
+```
+
+---
+
+### Task 8.6: Add Dark Mode Support
+
+**Files:**
+- Modify: `config-editor/src/App.svelte`
+
+**Context:** macOS HIG requires apps to respect system Dark/Light mode preferences.
+
+**Step 1: Replace hardcoded dark styles with CSS custom properties**
+
+```css
+:global(body) {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Light mode defaults */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e0e0e0;
+  --text-primary: #1e1e1e;
+  --text-secondary: #666666;
+  --border-color: #d0d0d0;
+  --accent: #0078d4;
+  --success: #4a7c4e;
+  --warning: #f0ad4e;
+  
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(body) {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #2d2d2d;
+    --bg-tertiary: #3c3c3c;
+    --text-primary: #d4d4d4;
+    --text-secondary: #888888;
+    --border-color: #404040;
+    --accent: #0078d4;
+    --success: #4a7c4e;
+    --warning: #f0ad4e;
+  }
+}
+```
+
+**Step 2: Update component styles to use CSS variables**
+
+Replace hardcoded colors (`#1e1e1e`, `#2d2d2d`, etc.) with `var(--bg-primary)`, `var(--bg-secondary)`, etc.
+
+**Step 3: Commit**
+
+```bash
+git add config-editor/src/App.svelte
+git commit -m "feat: add dark/light mode support following system preference"
+```
+
+---
+
+### Task 8.7: Add Keyboard Shortcut (⌘S to Save)
+
+**Files:**
+- Modify: `config-editor/src/App.svelte`
+
+**Context:** macOS users expect ⌘S to save. Add keyboard shortcut support.
+
+**Step 1: Add keydown listener in onMount**
+
+```typescript
+// In onMount:
+const handleKeydown = async (e: KeyboardEvent) => {
+  if (e.metaKey && e.key === 's') {
+    e.preventDefault();
+    if (selectedDevice && hasUnsavedChanges) {
+      await saveToDevice();
+    }
+  }
+};
+
+document.addEventListener('keydown', handleKeydown);
+
+// In cleanup:
+return () => {
+  document.removeEventListener('keydown', handleKeydown);
+  // ... other cleanup
+};
+```
+
+**Step 2: Commit**
+
+```bash
+git add config-editor/src/App.svelte
+git commit -m "feat: add ⌘S keyboard shortcut to save"
+```
+
+---
+
+### Task 8.8: Fix Minor Issues (App Category, HTML Title)
+
+**Files:**
+- Modify: `config-editor/src-tauri/tauri.conf.json`
+- Modify: `config-editor/src/app.html`
+
+**Step 1: Change app category to Music**
+
+In `tauri.conf.json`:
+```json
+"bundle": {
+  "category": "Music",
+  // ...
+}
+```
+
+**Step 2: Fix HTML title**
+
+In `src/app.html`:
+```html
+<title>MIDI Captain Config Editor</title>
+```
+
+**Step 3: Commit**
+
+```bash
+git add config-editor/src-tauri/tauri.conf.json
+git add config-editor/src/app.html
+git commit -m "chore: fix app category and HTML title"
+```
+
+---
+
+## Phase 9: Validation & Device-Specific UI
+
+### Task 9.1: Add Live Validation
 
 **Files:**
 - Modify: `config-editor/src/App.svelte`
@@ -2090,7 +2469,7 @@ git commit -m "feat: add live validation with debounce"
 
 ---
 
-### Task 8.2: Add Color Picker (if native is easy)
+### Task 9.2: Add Color Picker (if native is easy)
 
 The native macOS color picker can be accessed via Tauri's dialog plugin or a custom Rust command. For MVP, we'll use a simple HTML color input which maps well to the defined colors.
 
@@ -2168,9 +2547,9 @@ git commit -m "feat: add color picker component for future GUI mode"
 
 ---
 
-## Phase 9: Packaging & Distribution
+## Phase 10: Packaging & Distribution
 
-### Task 9.1: Update Build Script
+### Task 10.1: Update Build Script
 
 **Files:**
 - Modify: `tools/build-installer.sh`
@@ -2210,7 +2589,7 @@ git commit -m "chore: update installer to include Tauri config editor"
 
 ---
 
-### Task 9.2: Update CI/CD
+### Task 10.2: Update CI/CD
 
 **Files:**
 - Modify: `.github/workflows/ci.yml`
@@ -2321,6 +2700,37 @@ config-editor/
 
 ## Execution
 
-This plan has 9 phases with approximately 20 tasks. Estimated effort: 2-3 days for MVP (Phases 1-7), additional 1-2 days for polish (Phases 8-9).
+This plan has 10 phases with approximately 25 tasks. Estimated effort:
+
+| Phase | Status | Effort |
+|-------|--------|--------|
+| Phase 1: Project Scaffolding | ✅ Complete | - |
+| Phase 2: Rust Backend Core | ✅ Complete | - |
+| Phase 3: Device Detection | ✅ Complete | - |
+| Phase 4: Svelte Frontend MVP | ✅ Complete | - |
+| Phase 5: JSON Editor Integration | ✅ Complete | - |
+| Phase 6: Profile Management | Not started | 2-3 hours |
+| Phase 7: Firmware Installation | Not started | 2-3 hours |
+| Phase 8: macOS Architecture Hardening | Not started | 3-4 hours |
+| Phase 9: Validation & Device-Specific UI | Not started | 2-3 hours |
+| Phase 10: Packaging & Distribution | Not started | 2-3 hours |
+
+**Code Review Fixes Applied:**
+- ✅ Path traversal protection (Critical)
+- ✅ CSP enabled (Critical)
+- ✅ Event listener memory leak fix (Important)
+- ✅ Encoder/expression validation (Important)
+- ✅ Watcher shutdown mechanism (Minor)
+- ✅ Meaningful tests (Minor)
+
+**macOS Review Issues (Phase 8):**
+- 🔴 Create entitlements file (Task 8.1)
+- 🔴 Fix volume ejection race condition (Task 8.2)
+- 🔴 Configure FSEvents latency (Task 8.3)
+- 🟠 Add disconnect warning dialog (Task 8.4)
+- 🟠 Remove macOSPrivateApi flag (Task 8.5)
+- 🟠 Add dark mode support (Task 8.6)
+- 🟡 Add ⌘S keyboard shortcut (Task 8.7)
+- 🟡 Fix app category and title (Task 8.8)
 
 Ready to execute? Use the executing-plans skill.
