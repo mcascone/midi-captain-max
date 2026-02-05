@@ -38,9 +38,9 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "10.13",
-      "signingIdentity": null,
-      "entitlements": null
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-",
+      "entitlements": "Entitlements.plist"
     },
     "category": "DeveloperTool",
     "shortDescription": "Configure MIDI Captain foot controllers",
