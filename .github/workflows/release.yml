@@ -82,6 +82,10 @@ jobs:
           cp "dist/midicaptain-firmware-${VERSION}.zip" "dist/midi-captain-max-latest.zip"
           echo "✓ Latest zip: midi-captain-max-latest.zip" >> $GITHUB_STEP_SUMMARY
           
+          # Create "latest" pkg for stable download URL (used by Gumroad)
+          cp "dist/MIDICaptain-Firmware-${VERSION}.pkg" "dist/midi-captain-max-latest.pkg"
+          echo "✓ Latest pkg: midi-captain-max-latest.pkg" >> $GITHUB_STEP_SUMMARY
+          
           ls -la dist/
 
       - name: Generate release notes
@@ -124,9 +128,10 @@ jobs:
             2. Extract to your CIRCUITPY drive
             3. See README for configuration options
 
-            **Stable download URL** (for Gumroad):
+            **Stable download URLs** (for Gumroad):
             ```
             https://github.com/mcascone/midi-captain-max/releases/latest/download/midi-captain-max-latest.zip
+            https://github.com/mcascone/midi-captain-max/releases/latest/download/midi-captain-max-latest.pkg
             ```
 
             ## What's Changed
