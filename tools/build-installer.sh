@@ -122,14 +122,20 @@ fi
 echo -e "${GREEN}✓ Device found at $MOUNT_POINT${NC}"
 echo ""
 
-# Copy firmware files
+# Copy firmware files (dependencies first, code.py last)
+# This ensures all imports are in place before the entry point lands.
 echo "Installing firmware files..."
-
-echo -n "  code.py... "
-cp "$FIRMWARE_DIR/code.py" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
 
 echo -n "  boot.py... "
 cp "$FIRMWARE_DIR/boot.py" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
+sync
+
+echo -n "  devices/... "
+rsync -a --delete "$FIRMWARE_DIR/devices/" "$MOUNT_POINT/devices/" && echo -e "${GREEN}✓${NC}"
+
+echo -n "  fonts/... "
+rsync -a --delete "$FIRMWARE_DIR/fonts/" "$MOUNT_POINT/fonts/" && echo -e "${GREEN}✓${NC}"
+sync
 
 echo -n "  config.json... "
 if [ ! -f "$MOUNT_POINT/config.json" ]; then
@@ -138,22 +144,24 @@ else
     echo -e "${YELLOW}(preserved existing)${NC}"
 fi
 
-echo -n "  devices/... "
-rm -rf "$MOUNT_POINT/devices"
-cp -R "$FIRMWARE_DIR/devices" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
+echo -n "  config-mini6.json... "
+cp "$FIRMWARE_DIR/config-mini6.json" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
 
-echo -n "  fonts/... "
-rm -rf "$MOUNT_POINT/fonts"
-cp -R "$FIRMWARE_DIR/fonts" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
+echo -n "  code.py... "
+cp "$FIRMWARE_DIR/code.py" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
+sync
+
+# Verify critical files exist
+if [ ! -f "$MOUNT_POINT/code.py" ] || [ ! -d "$MOUNT_POINT/devices" ]; then
+    echo -e "${RED}❌ Verification failed: critical files missing${NC}"
+    exit 1
+fi
 
 echo ""
 echo -e "${GREEN}✓ Firmware installation complete!${NC}"
 echo ""
 echo "The device will restart automatically."
 echo "If it doesn't, disconnect and reconnect USB."
-
-# Sync to ensure files are written
-sync
 
 echo ""
 INSTALLSCRIPT

@@ -162,6 +162,7 @@ Files to install:
 • code.py (main firmware)
 • boot.py (startup config)
 • config.json (if not already present)
+• config-mini6.json (Mini6 defaults)
 • devices/ (hardware definitions)
 • fonts/ (display fonts)
 
@@ -191,36 +192,46 @@ on performInstallation(volumeList)
 	
 	repeat with volumeName in volumeList
 		set targetPath to "/Volumes/" & volumeName
-		
+
 		try
-			-- Copy code.py
-			do shell script "cp " & quoted form of (firmwareSourcePath & "/code.py") & " " & quoted form of (targetPath & "/code.py")
-			
-			-- Copy boot.py
+			-- Copy dependencies first, code.py last. This ensures all imports
+			-- are in place before the main entry point lands on the device.
+			-- Use rsync for directories (never deletes parent dir, unlike rm -rf && cp -R).
+
+			-- 1. boot.py first (keeps autoreload disabled)
 			do shell script "cp " & quoted form of (firmwareSourcePath & "/boot.py") & " " & quoted form of (targetPath & "/boot.py")
-			
-			-- Copy config.json only if not already present
+			do shell script "sync"
+
+			-- 2. devices/ directory (rsync overwrites in-place, never removes parent)
+			do shell script "rsync -a --delete " & quoted form of (firmwareSourcePath & "/devices/") & " " & quoted form of (targetPath & "/devices/")
+
+			-- 3. fonts/ directory
+			do shell script "rsync -a --delete " & quoted form of (firmwareSourcePath & "/fonts/") & " " & quoted form of (targetPath & "/fonts/")
+			do shell script "sync"
+
+			-- 4. config.json only if not already present
 			try
 				do shell script "test -f " & quoted form of (targetPath & "/config.json")
 			on error
 				do shell script "cp " & quoted form of (firmwareSourcePath & "/config.json") & " " & quoted form of (targetPath & "/config.json")
 			end try
-			
-			-- Copy devices/ directory
-			do shell script "rm -rf " & quoted form of (targetPath & "/devices") & " && cp -R " & quoted form of (firmwareSourcePath & "/devices") & " " & quoted form of (targetPath & "/devices")
-			
-			-- Copy fonts/ directory
-			do shell script "rm -rf " & quoted form of (targetPath & "/fonts") & " && cp -R " & quoted form of (firmwareSourcePath & "/fonts") & " " & quoted form of (targetPath & "/fonts")
-			
+
+			-- 5. config-mini6.json (device-specific default for fallback detection)
+			do shell script "cp " & quoted form of (firmwareSourcePath & "/config-mini6.json") & " " & quoted form of (targetPath & "/config-mini6.json")
+
+			-- 6. code.py LAST (all dependencies are now in place)
+			do shell script "cp " & quoted form of (firmwareSourcePath & "/code.py") & " " & quoted form of (targetPath & "/code.py")
+			do shell script "sync"
+
+			-- 7. Verify critical files exist
+			do shell script "test -f " & quoted form of (targetPath & "/code.py") & " && test -d " & quoted form of (targetPath & "/devices")
+
 			set successCount to successCount + 1
-			
+
 		on error errMsg
 			set end of failedVolumes to volumeName
 		end try
 	end repeat
-	
-	-- Sync to ensure files are written
-	do shell script "sync"
 	
 	-- Build result message
 	if successCount = deviceCount then

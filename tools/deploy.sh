@@ -188,29 +188,20 @@ fi
 
 echo "🚀 Deploying changed files..."
 
-# Use rsync directly from source for efficient incremental deploys
+# Deploy dependencies first, code.py last. This ensures all imports are
+# in place before the main entry point lands on the device.
+#
+# rsync flags:
 # --checksum: compare by content, not just timestamp (more reliable for USB drives)
 # --inplace: minimize file rewrites
 # --itemize-changes: show what changed
+
+# 1. boot.py first (keeps autoreload disabled)
 rsync -av --checksum --inplace --itemize-changes \
-    --exclude='.DS_Store' \
-    --exclude='*.pyc' \
-    --exclude='__pycache__' \
-    --exclude='experiments' \
     "$DEV_DIR/boot.py" \
-    "$DEV_DIR/code.py" \
     "$MOUNT_POINT/"
 
-# Deploy config (use device-specific if available)
-if [ -f "$CONFIG_FILE" ]; then
-    rsync -av --checksum --inplace --itemize-changes \
-        "$CONFIG_FILE" "$MOUNT_POINT/config.json"
-else
-    rsync -av --checksum --inplace --itemize-changes \
-        "$DEV_DIR/config.json" "$MOUNT_POINT/config.json"
-fi
-
-# Sync directories separately (rsync handles incremental updates)
+# 2. Device and font directories
 rsync -av --checksum --inplace --itemize-changes \
     --exclude='.DS_Store' \
     --exclude='*.pyc' \
@@ -220,6 +211,30 @@ rsync -av --checksum --inplace --itemize-changes \
 rsync -av --checksum --inplace --itemize-changes \
     --exclude='.DS_Store' \
     "$DEV_DIR/fonts/" "$MOUNT_POINT/fonts/"
+
+sync
+
+# 3. Deploy config (use device-specific if available)
+if [ -f "$CONFIG_FILE" ]; then
+    rsync -av --checksum --inplace --itemize-changes \
+        "$CONFIG_FILE" "$MOUNT_POINT/config.json"
+else
+    rsync -av --checksum --inplace --itemize-changes \
+        "$DEV_DIR/config.json" "$MOUNT_POINT/config.json"
+fi
+
+# 4. Deploy device-specific fallback config
+rsync -av --checksum --inplace --itemize-changes \
+    "$DEV_DIR/config-mini6.json" "$MOUNT_POINT/config-mini6.json"
+
+# 5. code.py LAST (all dependencies are now in place)
+rsync -av --checksum --inplace --itemize-changes \
+    --exclude='.DS_Store' \
+    --exclude='*.pyc' \
+    --exclude='__pycache__' \
+    --exclude='experiments' \
+    "$DEV_DIR/code.py" \
+    "$MOUNT_POINT/"
 
 # Sync filesystem
 sync

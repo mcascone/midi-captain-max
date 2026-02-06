@@ -1,4 +1,5 @@
 {
+  "device": "std10",
   "buttons": [
     {"label": "TSC", "cc": 20, "color": "green"},
     {"label": "CHOR", "cc": 21, "color": "blue"},

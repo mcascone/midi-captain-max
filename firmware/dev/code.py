@@ -44,56 +44,77 @@ from core.button import Switch
 # =============================================================================
 # Device Detection
 # =============================================================================
-# 
-# Device is auto-detected by probing hardware pins. The STD10 has pins that
-# don't exist on Mini6 (like GP2/GP3 for encoder). We try to detect these
-# to determine which device we're running on.
+#
+# Two-tier detection strategy:
+#   1. Config-based: read "device" field from /config.json (most reliable)
+#   2. Hardware probe: check STD10-exclusive switch pins GP0/GP18/GP19/GP20
+#
+# The old approach (probing board.LED / board.VBUS_SENSE for Mini6) was broken
+# because GP25 (board.LED) is also a switch pin on STD10, so both devices
+# passed the probe and everything was detected as Mini6.
 #
 # Config loading priority:
 #   1. /config.json if present (user customization - always wins)
-#   2. /config-mini6.json or /config-std10.json (device-specific defaults)
+#   2. /config-{device}.json (device-specific defaults)
 #   3. Built-in fallback defaults
 #
 # =============================================================================
 
 
-def detect_device_type():
-    """Auto-detect device type by probing hardware.
-    
-    Returns "mini6" or "std10" based on hardware detection.
-    
-    Detection strategy:
-    - STD10 has encoder on GP2/GP3 and 11 switches total
-    - Mini6 has 6 switches and uses unusual pins (board.LED, board.VBUS_SENSE)
-    
-    We probe by checking if Mini6-specific pins are configured as switches.
+def _read_device_from_config():
+    """Quick config.json read for just the device field.
+
+    Returns "mini6", "std10", or None if not found/invalid.
     """
-    # Try to detect Mini6 by checking for its unusual switch pins
     try:
-        # Mini6 uses board.LED (GP25) as a switch input
-        test_pin = digitalio.DigitalInOut(board.LED)
-        test_pin.direction = digitalio.Direction.INPUT
-        test_pin.pull = digitalio.Pull.UP
-        # If we can read it as input with pull-up, likely Mini6
-        _ = test_pin.value
-        test_pin.deinit()
-        
-        # Also check VBUS_SENSE (another Mini6 indicator)
-        try:
-            test_pin2 = digitalio.DigitalInOut(board.VBUS_SENSE)
-            test_pin2.direction = digitalio.Direction.INPUT
-            test_pin2.pull = digitalio.Pull.UP
-            _ = test_pin2.value
-            test_pin2.deinit()
-            # Both pins work as inputs - likely Mini6
-            return "mini6"
-        except Exception:
-            pass
+        with open("/config.json", "r") as f:
+            device = json.load(f).get("device")
+            if device in ("mini6", "std10"):
+                return device
     except Exception:
         pass
-    
-    # Default to STD10 (the more common variant)
-    return "std10"
+    return None
+
+
+def _probe_hardware():
+    """Detect device type by probing STD10-exclusive switch pins.
+
+    STD10 has physical switches on GP0 (encoder push), GP18 (switch D),
+    GP19 (switch Up), GP20 (switch Down). Mini6 does not use these pins.
+    With internal pull-ups, connected switches read HIGH when open.
+
+    Returns "std10" if 3+ of 4 pins read HIGH, otherwise "mini6".
+    """
+    probe_pins = [board.GP0, board.GP18, board.GP19, board.GP20]
+    count = 0
+    for pin in probe_pins:
+        try:
+            t = digitalio.DigitalInOut(pin)
+            t.direction = digitalio.Direction.INPUT
+            t.pull = digitalio.Pull.UP
+            if t.value:
+                count += 1
+            t.deinit()
+        except Exception:
+            pass
+    return "std10" if count >= 3 else "mini6"
+
+
+def detect_device_type():
+    """Auto-detect device type.
+
+    Priority:
+      1. Explicit "device" field in /config.json
+      2. Hardware pin probing (STD10-exclusive pins)
+    """
+    device = _read_device_from_config()
+    if device:
+        print(f"Device type from config: {device}")
+        return device
+
+    device = _probe_hardware()
+    print(f"Device type from hardware probe: {device}")
+    return device
 
 
 # Detect device first, before loading any config
@@ -144,16 +165,33 @@ print(f"Version: {VERSION}")
 
 def load_config():
     """Load button configuration from JSON file.
-    
-    Loads /config.json if present, otherwise uses built-in defaults
-    based on detected device type.
+
+    Priority:
+      1. /config.json (user customization - always wins)
+      2. /config-{device}.json (device-specific defaults)
+      3. Built-in fallback defaults
     """
+    # Try user config
     cfg = _load_config_from_file("/config.json", button_count=BUTTON_COUNT)
     if "buttons" in cfg and len(cfg["buttons"]) > 0:
         print("Loaded config.json")
-    else:
-        print("No config.json, using built-in defaults")
-    return cfg
+        return cfg
+
+    # Try device-specific default
+    device_config = f"/config-{DETECTED_DEVICE}.json"
+    cfg = _load_config_from_file(device_config, button_count=BUTTON_COUNT)
+    if "buttons" in cfg and len(cfg["buttons"]) > 0:
+        print(f"Loaded {device_config}")
+        return cfg
+
+    # Built-in fallback
+    print("No config found, using built-in defaults")
+    return {
+        "buttons": [
+            {"label": str(i + 1), "cc": 20 + i, "color": "white"}
+            for i in range(BUTTON_COUNT)
+        ]
+    }
 
 
 config = load_config()
