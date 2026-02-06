@@ -84,52 +84,38 @@ jobs:
           
           ls -la dist/
 
-      - name: Generate release notes
-        id: notes
+      - name: Generate Release Note Header
+        id: header
         run: |
+          echo "PRERELEASE=false" >> $GITHUB_OUTPUT # default to 'latest' for now
           if [[ "$VERSION" == *"alpha"* ]]; then
             echo "PRERELEASE=true" >> $GITHUB_OUTPUT
-            echo "NOTES=⚠️ **Alpha Release** - For testing only. Not recommended for production use." >> $GITHUB_OUTPUT
+            echo "NOTES=⚠️ **Alpha Release** - For testing only. Not recommended for production use." >> $GITHUB_ENV
           elif [[ "$VERSION" == *"beta"* ]]; then
-            echo "PRERELEASE=true" >> $GITHUB_OUTPUT
-            echo "NOTES=🧪 **Beta Release** - Feature complete, undergoing final testing." >> $GITHUB_OUTPUT
+            # echo "PRERELEASE=true" >> $GITHUB_OUTPUT # disabled, default to 'latest' for now
+            echo "NOTES=🧪 **Beta Release** - Feature complete, undergoing final testing." >> $GITHUB_ENV
           else
             echo "PRERELEASE=false" >> $GITHUB_OUTPUT
-            echo "NOTES=✅ **Stable Release**" >> $GITHUB_OUTPUT
+            echo "NOTES=✅ **Stable Release**" >> $GITHUB_ENV
           fi
+
+      - name: Generate Release Notes Body
+        id: notes
+        run: |
+          envsubst < tools/release_notes.md > release_notes_processed.txt
+          echo "BODY<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes_processed.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          make_latest: true
-          files: dist/*
-          # prerelease: ${{ steps.notes.outputs.PRERELEASE }}
-          prerelease: false
+          prerelease:  ${{ steps.header.outputs.PRERELEASE }}
+          make_latest: ${{ steps.header.outputs.PRERELEASE != 'true' }}
           generate_release_notes: true
-          body: |
-            ${{ steps.notes.outputs.NOTES }}
-
-            ## Installation
-
-            ### macOS (Recommended)
-            1. Download `MIDICaptain-Firmware-${{ env.VERSION }}.pkg`
-            2. Double-click to run the installer
-            3. The **MIDI Captain Installer** app opens automatically after installation
-            4. Connect your MIDI Captain via USB
-            5. Click **Install** when your device appears!
-
-            ### All Platforms (Manual)
-            1. Download `midicaptain-firmware-${{ env.VERSION }}.zip`
-            2. Extract to your CIRCUITPY drive
-            3. See README for configuration options
-
-            **Stable download URL** (for Gumroad):
-            ```
-            https://github.com/mcascone/midi-captain-max/releases/latest/download/midi-captain-max-latest.zip
-            ```
-
-            ## What's Changed
+          files: dist/*
+          body: ${{ steps.notes.outputs.BODY }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
