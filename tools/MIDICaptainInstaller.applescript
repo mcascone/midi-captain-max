@@ -194,37 +194,10 @@ on performInstallation(volumeList)
 		set targetPath to "/Volumes/" & volumeName
 
 		try
-			-- Copy dependencies first, code.py last. This ensures all imports
-			-- are in place before the main entry point lands on the device.
-			-- Use rsync for directories (never deletes parent dir, unlike rm -rf && cp -R).
-
-			-- 1. boot.py first (keeps autoreload disabled)
-			do shell script "cp " & quoted form of (firmwareSourcePath & "/boot.py") & " " & quoted form of (targetPath & "/boot.py")
-			do shell script "sync"
-
-			-- 2. devices/ directory (rsync overwrites in-place, never removes parent)
-			do shell script "rsync -a --delete " & quoted form of (firmwareSourcePath & "/devices/") & " " & quoted form of (targetPath & "/devices/")
-
-			-- 3. fonts/ directory
-			do shell script "rsync -a --delete " & quoted form of (firmwareSourcePath & "/fonts/") & " " & quoted form of (targetPath & "/fonts/")
-			do shell script "sync"
-
-			-- 4. config.json only if not already present
-			try
-				do shell script "test -f " & quoted form of (targetPath & "/config.json")
-			on error
-				do shell script "cp " & quoted form of (firmwareSourcePath & "/config.json") & " " & quoted form of (targetPath & "/config.json")
-			end try
-
-			-- 5. config-mini6.json (device-specific default for fallback detection)
-			do shell script "cp " & quoted form of (firmwareSourcePath & "/config-mini6.json") & " " & quoted form of (targetPath & "/config-mini6.json")
-
-			-- 6. code.py LAST (all dependencies are now in place)
-			do shell script "cp " & quoted form of (firmwareSourcePath & "/code.py") & " " & quoted form of (targetPath & "/code.py")
-			do shell script "sync"
-
-			-- 7. Verify critical files exist
-			do shell script "test -f " & quoted form of (targetPath & "/code.py") & " && test -d " & quoted form of (targetPath & "/devices")
+			-- Delegate to the CLI installer (single source of truth for copy
+			-- ordering, sync, and verification). Installed by the .pkg to
+			-- /usr/local/bin/midicaptain-install alongside the firmware files.
+			do shell script "/usr/local/bin/midicaptain-install " & quoted form of targetPath
 
 			set successCount to successCount + 1
 
