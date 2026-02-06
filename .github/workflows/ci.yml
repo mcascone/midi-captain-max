@@ -2,13 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: 
+      - "**"
     paths-ignore:
       - ./**/*.md
       - docs/**
 
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
