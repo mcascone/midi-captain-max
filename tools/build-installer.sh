@@ -68,6 +68,7 @@ cp "$DEV_DIR/code.py" "$PAYLOAD_DIR/"
 cp "$DEV_DIR/boot.py" "$PAYLOAD_DIR/"
 cp "$DEV_DIR/config.json" "$PAYLOAD_DIR/"
 cp "$DEV_DIR/config-mini6.json" "$PAYLOAD_DIR/"
+cp -R "$DEV_DIR/core" "$PAYLOAD_DIR/"
 cp -R "$DEV_DIR/devices" "$PAYLOAD_DIR/"
 cp -R "$DEV_DIR/fonts" "$PAYLOAD_DIR/"
 
@@ -130,6 +131,9 @@ echo -n "  boot.py... "
 cp "$FIRMWARE_DIR/boot.py" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
 sync
 
+echo -n "  core/... "
+rsync -a --delete "$FIRMWARE_DIR/core/" "$MOUNT_POINT/core/" && echo -e "${GREEN}✓${NC}"
+
 echo -n "  devices/... "
 rsync -a --delete "$FIRMWARE_DIR/devices/" "$MOUNT_POINT/devices/" && echo -e "${GREEN}✓${NC}"
 
@@ -152,7 +156,7 @@ cp "$FIRMWARE_DIR/code.py" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
 sync
 
 # Verify critical files exist
-if [ ! -f "$MOUNT_POINT/code.py" ] || [ ! -d "$MOUNT_POINT/devices" ]; then
+if [ ! -f "$MOUNT_POINT/code.py" ] || [ ! -d "$MOUNT_POINT/core" ] || [ ! -d "$MOUNT_POINT/devices" ]; then
     echo -e "${RED}❌ Verification failed: critical files missing${NC}"
     exit 1
 fi

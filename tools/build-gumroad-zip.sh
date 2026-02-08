@@ -36,6 +36,7 @@ cp "$REPO_ROOT/firmware/dev/code.py" "$STAGE_DIR/firmware/"
 cp "$REPO_ROOT/firmware/dev/boot.py" "$STAGE_DIR/firmware/"
 cp "$REPO_ROOT/firmware/dev/config.json" "$STAGE_DIR/firmware/"
 cp "$REPO_ROOT/firmware/dev/config-mini6.json" "$STAGE_DIR/firmware/"
+cp -R "$REPO_ROOT/firmware/dev/core" "$STAGE_DIR/firmware/"
 cp -R "$REPO_ROOT/firmware/dev/devices" "$STAGE_DIR/firmware/"
 cp -R "$REPO_ROOT/firmware/dev/fonts" "$STAGE_DIR/firmware/"
 

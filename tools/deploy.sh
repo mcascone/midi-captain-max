@@ -201,7 +201,13 @@ rsync -av --checksum --inplace --itemize-changes \
     "$DEV_DIR/boot.py" \
     "$MOUNT_POINT/"
 
-# 2. Device and font directories
+# 2. Core modules, device definitions, and fonts
+rsync -av --checksum --inplace --itemize-changes \
+    --exclude='.DS_Store' \
+    --exclude='*.pyc' \
+    --exclude='__pycache__' \
+    "$DEV_DIR/core/" "$MOUNT_POINT/core/"
+
 rsync -av --checksum --inplace --itemize-changes \
     --exclude='.DS_Store' \
     --exclude='*.pyc' \

@@ -74,6 +74,7 @@ jobs:
             boot.py \
             config.json \
             config-mini6.json \
+            core/ \
             devices/ \
             fonts/ \
             -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"

@@ -163,6 +163,7 @@ Files to install:
 • boot.py (startup config)
 • config.json (if not already present)
 • config-mini6.json (Mini6 defaults)
+• core/ (firmware modules)
 • devices/ (hardware definitions)
 • fonts/ (display fonts)
 
