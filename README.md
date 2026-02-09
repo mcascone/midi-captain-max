@@ -27,33 +27,14 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 ### Requirements
 - Paint Audio MIDI Captain (STD10)
 - CircuitPython 7.3.1+ installed on device
-- Required libraries in `lib/` folder (see [Installation](#installation))
+- All required CircuitPython libraries are included in `lib/`
 
 ### Installation
 
-***Standard Installer Package to reduce all these steps in the works***
-
-
-1. **Install CircuitPython** (if not already):
-   - Download [CircuitPython for Raspberry Pi Pico](https://circuitpython.org/board/raspberry_pi_pico/)
-   - Hold BOOTSEL while plugging in USB
-   - Copy `.uf2` file to `RPI-RP2` drive
-
-2. **Install required libraries** via [circup](https://github.com/adafruit/circup):
-   ```bash
-   pip install circup
-   circup install adafruit_midi adafruit_display_text adafruit_st7789 neopixel adafruit_debouncer
-   ```
-
-3. **Copy firmware files**:
-   ```bash
-   cp firmware/dev/code.py /Volumes/CIRCUITPY/
-   cp firmware/dev/boot.py /Volumes/CIRCUITPY/
-   cp firmware/dev/config.json /Volumes/CIRCUITPY/
-   cp -r firmware/dev/devices /Volumes/CIRCUITPY/
-   ```
-
-4. **Power cycle** the device (required for boot.py to take effect)
+1. Download the firmware zip from [Releases](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
+2. Connect your MIDI Captain via USB (hold Button 1 while powering on)
+3. Copy all files and folders from the zip to the device drive (CIRCUITPY or MIDICAPTAIN)
+4. Unplug and replug USB to restart
 
 ## Configuration
 

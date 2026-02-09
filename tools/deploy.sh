@@ -218,6 +218,10 @@ rsync -av --checksum --inplace --itemize-changes \
     --exclude='.DS_Store' \
     "$DEV_DIR/fonts/" "$MOUNT_POINT/fonts/"
 
+rsync -av --checksum --inplace --itemize-changes \
+    --exclude='.DS_Store' \
+    "$DEV_DIR/lib/" "$MOUNT_POINT/lib/"
+
 sync
 
 # 3. Deploy config (use device-specific if available)

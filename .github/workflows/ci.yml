@@ -106,6 +106,7 @@ jobs:
             core/ \
             devices/ \
             fonts/ \
+            lib/ \
             -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"
           cd ../..
           echo "Created: \`dist/midicaptain-firmware-${VERSION}.zip\`" >> $GITHUB_STEP_SUMMARY

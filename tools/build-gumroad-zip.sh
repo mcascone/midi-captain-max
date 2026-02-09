@@ -39,6 +39,7 @@ cp "$REPO_ROOT/firmware/dev/config-mini6.json" "$STAGE_DIR/firmware/"
 cp -R "$REPO_ROOT/firmware/dev/core" "$STAGE_DIR/firmware/"
 cp -R "$REPO_ROOT/firmware/dev/devices" "$STAGE_DIR/firmware/"
 cp -R "$REPO_ROOT/firmware/dev/fonts" "$STAGE_DIR/firmware/"
+cp -R "$REPO_ROOT/firmware/dev/lib" "$STAGE_DIR/firmware/"
 
 # ---- COPY DOCS ----
 mkdir -p "$STAGE_DIR/docs"

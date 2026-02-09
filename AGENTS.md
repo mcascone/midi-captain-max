@@ -115,6 +115,7 @@ All code in `firmware/original_helmut/` is authored by **Helmut Keller** and mus
 | `firmware/dev/devices/` | Device abstraction modules (std10.py, mini6.py) |
 | `firmware/dev/experiments/` | Throwaway experiments and proof-of-concepts |
 | `firmware/dev/core/` | Core modules (planned: button.py, led.py, display.py, etc.) |
+| `firmware/dev/lib/` | CircuitPython libraries (CP 7.x `.mpy` format, from bundle `20230718`) |
 | `docs/` | Architecture notes, MIDI protocol docs, hardware findings |
 | `docs/plans/` | Design documents and implementation plans |
 | `tools/` | Helper scripts (packaging, validation, deployment) |

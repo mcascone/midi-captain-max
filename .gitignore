@@ -9,7 +9,6 @@ __pycache__/
 *.pyc
 
 # CircuitPython / device artifacts
-*.mpy
 boot_out.txt
 settings.toml
 

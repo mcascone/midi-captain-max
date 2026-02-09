@@ -16,6 +16,7 @@ Files included:
   core/            Firmware modules
   devices/         Hardware definitions
   fonts/           Display fonts
+  lib/             CircuitPython libraries (included, no separate install needed)
 
 Note: If you already have a config.json on your device with
 custom button mappings, don't overwrite it — keep your existing one.
