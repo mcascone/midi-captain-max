@@ -183,25 +183,16 @@ on performInstallation(volumeList)
 	set successCount to 0
 	set failedVolumes to {}
 	set deviceCount to count of volumeList
-	
-	-- Show progress
-	if deviceCount = 1 then
-		display notification "Installing firmware..." with title "MIDI Captain Installer"
-	else
-		display notification "Installing firmware to " & deviceCount & " devices..." with title "MIDI Captain Installer"
-	end if
-	
+
 	repeat with volumeName in volumeList
 		set targetPath to "/Volumes/" & volumeName
 
 		try
 			-- Delegate to the CLI installer (single source of truth for copy
-			-- ordering, sync, and verification). Installed by the .pkg to
+			-- ordering and verification). Installed by the .pkg to
 			-- /usr/local/bin/midicaptain-install alongside the firmware files.
-			do shell script "/usr/local/bin/midicaptain-install " & quoted form of targetPath
-
+			set installResult to do shell script "/usr/local/bin/midicaptain-install " & quoted form of targetPath
 			set successCount to successCount + 1
-
 		on error errMsg
 			set end of failedVolumes to volumeName
 		end try

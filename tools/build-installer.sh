@@ -84,6 +84,9 @@ cat > "$PAYLOAD_ROOT/usr/local/bin/midicaptain-install" << 'INSTALLSCRIPT'
 #!/bin/bash
 # MIDI Captain Firmware Installation Script
 # Copies firmware files to a mounted CIRCUITPY device
+#
+# Uses cp instead of rsync — simpler, faster on FAT USB drives, and avoids
+# the long blocking sync that caused the AppleScript GUI to hang.
 
 set -e
 
@@ -129,17 +132,18 @@ echo "Installing firmware files..."
 
 echo -n "  boot.py... "
 cp "$FIRMWARE_DIR/boot.py" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
-sync
 
 echo -n "  core/... "
-rsync -a --delete "$FIRMWARE_DIR/core/" "$MOUNT_POINT/core/" && echo -e "${GREEN}✓${NC}"
+rm -rf "$MOUNT_POINT/core"
+cp -R "$FIRMWARE_DIR/core" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
 
 echo -n "  devices/... "
-rsync -a --delete "$FIRMWARE_DIR/devices/" "$MOUNT_POINT/devices/" && echo -e "${GREEN}✓${NC}"
+rm -rf "$MOUNT_POINT/devices"
+cp -R "$FIRMWARE_DIR/devices" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
 
 echo -n "  fonts/... "
-rsync -a --delete "$FIRMWARE_DIR/fonts/" "$MOUNT_POINT/fonts/" && echo -e "${GREEN}✓${NC}"
-sync
+rm -rf "$MOUNT_POINT/fonts"
+cp -R "$FIRMWARE_DIR/fonts" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
 
 echo -n "  config.json... "
 if [ ! -f "$MOUNT_POINT/config.json" ]; then
@@ -153,7 +157,6 @@ cp "$FIRMWARE_DIR/config-mini6.json" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC
 
 echo -n "  code.py... "
 cp "$FIRMWARE_DIR/code.py" "$MOUNT_POINT/" && echo -e "${GREEN}✓${NC}"
-sync
 
 # Verify critical files exist
 if [ ! -f "$MOUNT_POINT/code.py" ] || [ ! -d "$MOUNT_POINT/core" ] || [ ! -d "$MOUNT_POINT/devices" ]; then
