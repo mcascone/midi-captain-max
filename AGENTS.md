@@ -183,6 +183,20 @@ git push origin v1.0.0-alpha.1
 
 **TODO**: When upgrading to CircuitPython 8.x+, update `boot.py` to use `supervisor.runtime.autoreload = False` instead of `supervisor.disable_autoreload()`.
 
+### CP 7.x Syntax Restrictions (CRITICAL)
+
+CircuitPython 7.3.1 does NOT support all CPython syntax. These features pass `py_compile` and `pytest` on desktop Python but **crash on device boot** with `SyntaxError`:
+
+| Banned Construct | Example | Use Instead |
+|------------------|---------|-------------|
+| Dict unpacking in literals | `{**cfg, "key": val}` | Manual loop: `for k,v in d.items(): r[k] = v` |
+| Walrus operator | `if (n := len(x)) > 0:` | Separate assignment |
+| `match`/`case` | `match x: case 1:` | `if`/`elif` |
+
+**CI enforces this** via the "CircuitPython 7.x compatibility guard" step in `ci.yml`. It greps `firmware/dev/` for banned patterns and fails the build.
+
+**Barrel imports are dangerous on embedded.** Keep `__init__.py` files minimal (no re-exports). If `__init__.py` imports a submodule, CircuitPython parses the entire submodule eagerly — a single syntax error in any submodule prevents the whole package from importing.
+
 ---
 
 ## Hardware Reference
@@ -204,10 +218,11 @@ For historical context on reverse engineering, see [docs/midicaptain_reverse_eng
 - No encoder or expression inputs
 
 ### Device Auto-Detection
-Firmware automatically detects device type by probing hardware pins at startup:
-- Checks for Mini6-specific pins (`board.LED`, `board.VBUS_SENSE` as switch inputs)
-- Falls back to STD10 if detection fails
-- Same `code.py` works on all device variants
+Two-tier detection (config first, then hardware probe):
+1. **Config-based**: reads `"device"` field from `/config.json` (`"mini6"` or `"std10"`)
+2. **Hardware probe fallback**: checks STD10-exclusive switch pins (GP0/GP18/GP19/GP20) — if 3+ read HIGH with pull-ups, it's STD10; otherwise Mini6
+
+**Note**: The old approach (probing `board.LED`/`board.VBUS_SENSE` for Mini6) was broken — GP25 exists on both devices, so everything was detected as Mini6. Always include `"device"` in config.json.
 
 ### Device Abstraction
 Device-specific constants live in `firmware/dev/devices/`:
@@ -224,11 +239,19 @@ Device-specific constants live in `firmware/dev/devices/`:
 - Experiments in `firmware/dev/experiments/` for isolated testing
 
 ### Deployment
+
+Use `tools/deploy.sh` for dev deploys (handles ordering, sync, and device detection).
+
+All 5 distribution paths must include the same set of files. If you add a new directory under `firmware/dev/`, you must add it to **all** of these:
+1. `tools/deploy.sh` — dev deploy via rsync
+2. `tools/build-installer.sh` — payload section (line ~67) AND embedded CLI script
+3. `tools/MIDICaptainInstaller.applescript` — confirmation message (delegates to CLI)
+4. `.github/workflows/ci.yml` — firmware zip (`build-zip` job)
+5. `tools/build-gumroad-zip.sh` — Gumroad distribution
+
 ```bash
-# MIDI Captain mounts as CIRCUITPY
-cp firmware/dev/code.py /Volumes/CIRCUITPY/code.py
-cp firmware/dev/config.json /Volumes/CIRCUITPY/
-cp -r firmware/dev/devices /Volumes/CIRCUITPY/
+# Quick dev deploy (dependencies first, code.py last):
+./tools/deploy.sh /Volumes/MIDICAPTAIN
 ```
 
 ### Desktop Testing (Future)
@@ -324,6 +347,9 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 | `firmware/dev/boot.py` | Disables autoreload for stage reliability |
 | `firmware/dev/config.json` | STD10 default config (button labels, CC numbers, colors) |
 | `firmware/dev/config-mini6.json` | Mini6 template config (copy to device as config.json) |
+| `firmware/dev/core/config.py` | Config loading and validation |
+| `firmware/dev/core/button.py` | Switch and ButtonState classes |
+| `firmware/dev/core/colors.py` | Color palette and utilities |
 | `firmware/dev/devices/std10.py` | STD10 hardware constants |
 | `firmware/dev/devices/mini6.py` | Mini6 hardware constants |
 | `tools/build-installer.sh` | Build macOS .pkg installer |
