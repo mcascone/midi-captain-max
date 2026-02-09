@@ -98,6 +98,7 @@ jobs:
           mkdir -p dist
           cd firmware/dev
           zip -r "../../dist/midicaptain-firmware-${VERSION}.zip" \
+            INSTALL.txt \
             code.py \
             boot.py \
             config.json \
@@ -115,103 +116,4 @@ jobs:
           name: firmware-zip
           path: dist/*.zip
           retention-days: 90
-
-  build-macos-installer:
-    name: Build macOS Installer
-    runs-on: macos-latest
-    timeout-minutes: 15
-    needs: lint
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Import signing certificates
-        id: import-certs
-        env:
-          MACOS_INSTALLER_CERT: ${{ secrets.MACOS_INSTALLER_CERT }}
-          MACOS_INSTALLER_CERT_PWD: ${{ secrets.MACOS_INSTALLER_CERT_PWD }}
-          MACOS_APPLICATION_CERT: ${{ secrets.MACOS_APPLICATION_CERT }}
-          MACOS_APPLICATION_CERT_PWD: ${{ secrets.MACOS_APPLICATION_CERT_PWD }}
-        run: |
-          # Skip if no certificates configured
-          if [ -z "$MACOS_INSTALLER_CERT" ]; then
-            echo "::warning::No signing certificates configured — installer will not be signed or notarized"
-            exit 0
-          fi
-          
-          # Create temporary keychain
-          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
-          KEYCHAIN_PWD=$(openssl rand -base64 32)
-          
-          if ! security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"; then
-            echo "::warning::Failed to create keychain — installer will not be signed"
-            exit 0
-          fi
-          
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
-          
-          # Import Developer ID Installer certificate
-          echo "$MACOS_INSTALLER_CERT" | base64 --decode > $RUNNER_TEMP/installer_cert.p12
-          if ! security import $RUNNER_TEMP/installer_cert.p12 -k "$KEYCHAIN_PATH" \
-            -P "$MACOS_INSTALLER_CERT_PWD" -T /usr/bin/productsign -T /usr/bin/pkgbuild -T /usr/bin/productbuild; then
-            echo "::warning::Failed to import Installer certificate — installer will not be signed"
-            exit 0
-          fi
-          
-          # Import Developer ID Application certificate
-          echo "$MACOS_APPLICATION_CERT" | base64 --decode > $RUNNER_TEMP/app_cert.p12
-          if ! security import $RUNNER_TEMP/app_cert.p12 -k "$KEYCHAIN_PATH" \
-            -P "$MACOS_APPLICATION_CERT_PWD" -T /usr/bin/codesign; then
-            echo "::warning::Failed to import Application certificate — app will not be signed with hardened runtime"
-            exit 0
-          fi
-          
-          # Set keychain for signing
-          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
-          
-          echo "✓ Certificates imported"
-
-      - name: Build macOS installer
-        env:
-          MIDICAPTAIN_VERSION: ${{ needs.lint.outputs.version }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          chmod +x tools/build-installer.sh
-          ./tools/build-installer.sh
-
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: macos-installer
-          path: build/installer/*.pkg
-          retention-days: 90
-
-      - name: Report installer build
-        run: |
-          VERSION="${{ needs.lint.outputs.version }}"
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### macOS Installer" >> $GITHUB_STEP_SUMMARY
-          echo "Created installer for \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          PKG_FILE=$(ls build/installer/*.pkg 2>/dev/null | head -1)
-          if [ -n "$PKG_FILE" ]; then
-            if pkgutil --check-signature "$PKG_FILE" 2>/dev/null | grep -q "Developer ID Installer"; then
-              echo "✅ Package is **signed** with Developer ID" >> $GITHUB_STEP_SUMMARY
-              if xcrun stapler validate "$PKG_FILE" 2>/dev/null; then
-                echo "✅ Package is **notarized** and stapled" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "⚠️ Package is signed but **not notarized** — Gatekeeper may require internet verification" >> $GITHUB_STEP_SUMMARY
-              fi
-            else
-              echo "⚠️ **Warning:** Package is **unsigned** — Gatekeeper will block installation. Not suitable for release." >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "⚠️ **Warning:** No .pkg installer was created" >> $GITHUB_STEP_SUMMARY
-          fi
 

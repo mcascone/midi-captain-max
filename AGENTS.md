@@ -242,12 +242,10 @@ Device-specific constants live in `firmware/dev/devices/`:
 
 Use `tools/deploy.sh` for dev deploys (handles ordering, sync, and device detection).
 
-All 5 distribution paths must include the same set of files. If you add a new directory under `firmware/dev/`, you must add it to **all** of these:
+All 3 distribution paths must include the same set of files. If you add a new directory under `firmware/dev/`, you must add it to **all** of these:
 1. `tools/deploy.sh` — dev deploy via rsync
-2. `tools/build-installer.sh` — payload section (line ~67) AND embedded CLI script
-3. `tools/MIDICaptainInstaller.applescript` — confirmation message (delegates to CLI)
-4. `.github/workflows/ci.yml` — firmware zip (`build-zip` job)
-5. `tools/build-gumroad-zip.sh` — Gumroad distribution
+2. `.github/workflows/ci.yml` — firmware zip (`build-zip` job)
+3. `tools/build-gumroad-zip.sh` — Gumroad distribution
 
 ```bash
 # Quick dev deploy (dependencies first, code.py last):
@@ -320,10 +318,7 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [x] Merge experiments into main `code.py`
 - [x] Mini6 device module (`devices/mini6.py`)
 - [x] Auto-detect device type at runtime
-- [x] macOS installer package (`.pkg`) with interactive GUI
-- [x] Multi-device installer (install to STD10 + Mini6 simultaneously)
-- [x] CI/CD: Build artifacts on every push, release on tag
-- [x] Apple Developer code signing + notarization for installer ✅
+- [x] CI/CD: Build firmware zip on every push, release on tag
 - [ ] Complete YAML config schema
 
 ### Future
@@ -352,12 +347,10 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 | `firmware/dev/core/colors.py` | Color palette and utilities |
 | `firmware/dev/devices/std10.py` | STD10 hardware constants |
 | `firmware/dev/devices/mini6.py` | Mini6 hardware constants |
-| `tools/build-installer.sh` | Build macOS .pkg installer |
-| `tools/MIDICaptainInstaller.applescript` | Interactive installer GUI app |
 | `docs/hardware-reference.md` | Verified hardware specs, auto-detection docs |
 | `docs/screen-cheatsheet.md` | Serial console (screen) usage guide |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
-| `.github/workflows/ci.yml` | CI: lint, build zip + macOS installer |
+| `.github/workflows/ci.yml` | CI: lint, build firmware zip |
 | `.github/workflows/release.yml` | Create GitHub Release on version tag |
 
 ---

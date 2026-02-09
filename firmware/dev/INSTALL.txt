@@ -1,0 +1,23 @@
+MIDI Captain MAX — Firmware Installation
+========================================
+
+1. Connect your MIDI Captain to your computer via USB.
+2. Wait for it to mount as a drive (CIRCUITPY or MIDICAPTAIN).
+3. Copy ALL files and folders from this zip to the device drive,
+   replacing any existing files.
+4. The device will restart automatically after the copy completes.
+   If it doesn't, unplug and replug USB.
+
+Files included:
+  code.py          Main firmware entry point
+  boot.py          Startup configuration
+  config.json      Default config (STD10)
+  config-mini6.json  Default config (Mini6)
+  core/            Firmware modules
+  devices/         Hardware definitions
+  fonts/           Display fonts
+
+Note: If you already have a config.json on your device with
+custom button mappings, don't overwrite it — keep your existing one.
+
+The firmware auto-detects your device type (STD10 or Mini6).
