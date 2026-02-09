@@ -84,10 +84,11 @@ def validate_config(cfg, button_count=10):
         validate_button(btn, i) for i, btn in enumerate(buttons[:button_count])
     ]
     
-    return {
-        **cfg,
-        "buttons": validated_buttons,
-    }
+    result = {}
+    for k, v in cfg.items():
+        result[k] = v
+    result["buttons"] = validated_buttons
+    return result
 
 
 def get_encoder_config(cfg):
