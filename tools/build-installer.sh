@@ -164,12 +164,17 @@ if [ ! -f "$MOUNT_POINT/code.py" ] || [ ! -d "$MOUNT_POINT/core" ] || [ ! -d "$M
     exit 1
 fi
 
+# Send soft reset (Ctrl+C then Ctrl+D) over serial to reload firmware
+SERIAL_PORT=$(ls /dev/tty.usbmodem* 2>/dev/null | head -1)
+if [ -n "$SERIAL_PORT" ]; then
+    echo -n "  Restarting device... "
+    printf '\x03\x04' > "$SERIAL_PORT" 2>/dev/null && echo -e "${GREEN}✓${NC}" || echo -e "${YELLOW}(manual restart needed)${NC}"
+else
+    echo -e "${YELLOW}  No serial port found — unplug and replug USB to restart.${NC}"
+fi
+
 echo ""
 echo -e "${GREEN}✓ Firmware installation complete!${NC}"
-echo ""
-echo "The device will restart automatically."
-echo "If it doesn't, disconnect and reconnect USB."
-
 echo ""
 INSTALLSCRIPT
 chmod +x "$PAYLOAD_ROOT/usr/local/bin/midicaptain-install"
