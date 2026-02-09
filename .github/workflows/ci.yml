@@ -49,8 +49,36 @@ jobs:
 
       - name: Check Python syntax
         run: |
-          python -m py_compile firmware/dev/code.py
-          find firmware/dev/devices -name "*.py" -exec python -m py_compile {} \;
+          find firmware/dev -name "*.py" -not -path "*/experiments/*" -exec python -m py_compile {} \;
+
+      - name: CircuitPython 7.x compatibility guard
+        run: |
+          # Flag Python features that CircuitPython 7.x doesn't support.
+          # These pass py_compile (valid CPython) but crash on the device.
+          ERRORS=0
+
+          # Dict unpacking in literals: {**d, "k": v}
+          if grep -rn '{\s*\*\*' firmware/dev/ --include="*.py" | grep -v experiments/; then
+            echo "::error::Dict unpacking ({**dict}) is not supported in CircuitPython 7.x"
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          # Walrus operator: :=
+          if grep -rn ':=' firmware/dev/ --include="*.py" | grep -v experiments/; then
+            echo "::error::Walrus operator (:=) is not supported in CircuitPython 7.x"
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          # match/case (Python 3.10+)
+          if grep -rn '^[[:space:]]*match ' firmware/dev/ --include="*.py" | grep -v experiments/; then
+            echo "::error::match/case is not supported in CircuitPython 7.x"
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          if [ "$ERRORS" -gt 0 ]; then
+            exit 1
+          fi
+          echo "No CircuitPython compatibility issues found"
 
       - name: Run tests
         run: |
