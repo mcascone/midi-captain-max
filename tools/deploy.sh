@@ -8,7 +8,6 @@
 #   --libs-only   Only install libraries (no firmware copy)
 #   --eject       Eject device after deploy (for performance mode)
 #   --no-reset    Don't send soft reset after deploy
-#   --force       Overwrite files without prompting
 #
 # Examples:
 #   ./tools/deploy.sh                    # Quick deploy (dev mode)
@@ -29,7 +28,6 @@ DO_EJECT=false
 DO_RESET=true
 DO_INSTALL=false
 LIBS_ONLY=false
-FORCE=false
 
 # Required CircuitPython libraries
 REQUIRED_LIBS=(
@@ -64,9 +62,6 @@ for arg in "$@"; do
         --no-reset)
             DO_RESET=false
             ;;
-        --force)
-            FORCE=true
-            ;;
         --help|-h)
             echo "Usage: ./tools/deploy.sh [options] [mount_point]"
             echo ""
@@ -75,7 +70,6 @@ for arg in "$@"; do
             echo "  --libs-only   Only install libraries (no firmware copy)"
             echo "  --eject       Eject device after deploy"
             echo "  --no-reset    Don't send soft reset after deploy"
-            echo "  --force       Overwrite without prompting"
             exit 0
             ;;
         /*)
