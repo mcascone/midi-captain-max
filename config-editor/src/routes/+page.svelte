@@ -216,10 +216,10 @@
         {#each $validationErrors as error}
           <li>{error}</li>
         {/each}
-      </ul>loadFromDevice} 
-        disabled={!$selectedDevice || $isLoading}
-      >
-        Reload
+      </ul>
+    </div>
+  {/if}
+  
   <footer>
     <div class="status">{$statusMessage}</div>
     <div class="actions">
