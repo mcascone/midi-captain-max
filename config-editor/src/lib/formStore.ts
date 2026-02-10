@@ -181,3 +181,69 @@ export function updateField(path: string, value: any) {
     formState.update(state => pushHistory(state));
   }, DEBOUNCE_MS);
 }
+
+function createDefaultButtons(startIndex: number, endIndex: number): ButtonConfig[] {
+  const defaults: ButtonConfig[] = [];
+  for (let i = startIndex; i <= endIndex; i++) {
+    defaults.push({
+      label: `BTN${i}`,
+      cc: 20 + i,
+      color: 'white',
+      mode: 'toggle',
+      off_mode: 'dim',
+    });
+  }
+  return defaults;
+}
+
+export function setDevice(deviceType: DeviceType) {
+  formState.update(state => {
+    const newState = { ...state };
+    const currentDevice = state.config.device;
+    
+    // Switching TO Mini6: preserve STD10-only features
+    if (deviceType === 'mini6' && currentDevice === 'std10') {
+      // Preserve buttons 7-10
+      if (state.config.buttons.length > 6) {
+        newState._hiddenButtons = state.config.buttons.slice(6);
+      }
+      
+      // Preserve encoder config
+      if (state.config.encoder?.enabled) {
+        newState._hiddenEncoder = structuredClone(state.config.encoder);
+      }
+      
+      // Truncate buttons array and disable encoder
+      newState.config = {
+        ...state.config,
+        device: 'mini6',
+        buttons: state.config.buttons.slice(0, 6),
+        encoder: state.config.encoder ? { ...state.config.encoder, enabled: false } : undefined,
+      };
+    }
+    
+    // Switching TO STD10: restore preserved features
+    else if (deviceType === 'std10' && currentDevice === 'mini6') {
+      newState.config = {
+        ...state.config,
+        device: 'std10',
+        buttons: [
+          ...state.config.buttons,
+          ...(state._hiddenButtons || createDefaultButtons(7, 10)),
+        ],
+        encoder: state._hiddenEncoder || state.config.encoder,
+      };
+      
+      // Clear preserved data
+      delete newState._hiddenButtons;
+      delete newState._hiddenEncoder;
+    }
+    
+    // Same device: no-op
+    else {
+      newState.config = { ...state.config, device: deviceType };
+    }
+    
+    return pushHistory(newState);
+  });
+}
