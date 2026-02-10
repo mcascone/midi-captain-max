@@ -28,13 +28,23 @@
       
       // Listen for device events (store cleanup functions)
       unlistenConnect = await onDeviceConnected((device) => {
-        $devices = [...$devices, device];
-        $statusMessage = `Device connected: ${device.name}`;
+        // Deduplicate: check if device is already in the list
+        const exists = $devices.some(d => d.path === device.path);
+        if (!exists) {
+          $devices = [...$devices, device];
+          $statusMessage = `Device connected: ${device.name}`;
+          
+          // Auto-select if device was previously selected or if it's the only one
+          if ($devices.length === 1 || ($selectedDevice && $selectedDevice.path === device.path)) {
+            selectDevice(device);
+          }
+        }
       });
       
       unlistenDisconnect = await onDeviceDisconnected(async (name) => {
         const wasSelected = $selectedDevice?.name === name;
         
+        // Remove device by name
         $devices = $devices.filter(d => d.name !== name);
         
         if (wasSelected) {
@@ -44,7 +54,7 @@
               { title: 'Device Disconnected', kind: 'warning' }
             );
           }
-          $selectedDevice = null;
+          // Don't clear selectedDevice - keep it so we can auto-select when it reconnects
           $currentConfigRaw = '';
           $hasUnsavedChanges = false;
         }
