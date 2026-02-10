@@ -185,6 +185,10 @@ echo "🚀 Deploying changed files..."
 # Deploy dependencies first, code.py last. This ensures all imports are
 # in place before the main entry point lands on the device.
 #
+# NOTE: This script deploys raw .py source files for rapid development.
+# CI builds compile core/ and devices/ to .mpy bytecode for smaller/faster
+# production firmware. See .github/workflows/ci.yml for the compile step.
+#
 # rsync flags:
 # --checksum: compare by content, not just timestamp (more reliable for USB drives)
 # --inplace: minimize file rewrites
@@ -242,6 +246,22 @@ rsync -av --checksum --inplace --itemize-changes \
 
 # Sync filesystem
 sync
+
+# Generate manifest on device for incremental installer updates.
+# The installer compares this against the firmware zip's manifest
+# to skip unchanged files on subsequent installs.
+echo "📋 Generating firmware manifest..."
+(
+  cd "$DEV_DIR"
+  find . -type f \
+    -not -name "*.pyc" \
+    -not -path "*/__pycache__/*" \
+    -not -path "*/experiments/*" \
+    -not -name "firmware.md5" \
+    -not -name ".DS_Store" \
+    | sort \
+    | xargs md5sum > "$MOUNT_POINT/firmware.md5"
+)
 
 echo ""
 

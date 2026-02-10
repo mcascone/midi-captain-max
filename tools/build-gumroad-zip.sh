@@ -41,6 +41,30 @@ cp -R "$REPO_ROOT/firmware/dev/devices" "$STAGE_DIR/firmware/"
 cp -R "$REPO_ROOT/firmware/dev/fonts" "$STAGE_DIR/firmware/"
 cp -R "$REPO_ROOT/firmware/dev/lib" "$STAGE_DIR/firmware/"
 
+# ---- COMPILE .PY TO .MPY (smaller files, faster boot) ----
+# Download mpy-cross for CircuitPython 7.x if not already available.
+# Uses the Adafruit S3 build — the pip mpy-cross package is MicroPython-only.
+if ! command -v mpy-cross &>/dev/null; then
+  MPY_CROSS_URL="https://adafruit-circuit-python.s3.amazonaws.com/bin/mpy-cross/macos/mpy-cross-macos-universal-7.3.2"
+  echo "Downloading mpy-cross for CircuitPython 7.x..."
+  curl -sL "$MPY_CROSS_URL" -o /usr/local/bin/mpy-cross
+  chmod +x /usr/local/bin/mpy-cross
+fi
+
+echo "Compiling .py → .mpy..."
+for f in "$STAGE_DIR/firmware/core"/__init__.py \
+         "$STAGE_DIR/firmware/core"/button.py \
+         "$STAGE_DIR/firmware/core"/colors.py \
+         "$STAGE_DIR/firmware/core"/config.py \
+         "$STAGE_DIR/firmware/devices"/std10.py \
+         "$STAGE_DIR/firmware/devices"/mini6.py; do
+  [ -f "$f" ] && mpy-cross -O2 "$f" && rm "$f"
+done
+rm -f "$STAGE_DIR/firmware/devices/__init__.py"
+
+# ---- GENERATE FIRMWARE MANIFEST ----
+(cd "$STAGE_DIR/firmware" && find . -type f -not -name "firmware.md5" | sort | xargs md5sum > firmware.md5)
+
 # ---- COPY DOCS ----
 mkdir -p "$STAGE_DIR/docs"
 cp -R "$REPO_ROOT/docs/." "$STAGE_DIR/docs/"

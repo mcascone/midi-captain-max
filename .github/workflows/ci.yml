@@ -92,6 +92,49 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Download mpy-cross for CircuitPython 7.x
+        run: |
+          # Download the CircuitPython-specific mpy-cross (NOT the MicroPython pip package).
+          # The pip `mpy-cross` package produces MicroPython-format .mpy files which are
+          # incompatible with CircuitPython. Must use Adafruit's build from S3.
+          MPY_CROSS_URL="https://adafruit-circuit-python.s3.amazonaws.com/bin/mpy-cross/linux-amd64/mpy-cross.static-amd64-linux-7.3.3"
+          curl -sL "$MPY_CROSS_URL" -o /usr/local/bin/mpy-cross
+          chmod +x /usr/local/bin/mpy-cross
+          echo "mpy-cross version:"
+          mpy-cross --version || true
+
+      - name: Compile .py to .mpy
+        run: |
+          cd firmware/dev
+          # Compile core/ and devices/ modules to .mpy bytecode.
+          # This reduces file sizes ~30-50% and eliminates parse/compile
+          # time on the device, improving both flash speed and boot time.
+          # -O2 strips docstrings and assertions for smallest output.
+          for f in core/__init__.py core/button.py core/colors.py core/config.py; do
+            mpy-cross -O2 "$f" && rm "$f"
+          done
+          for f in devices/std10.py devices/mini6.py; do
+            mpy-cross -O2 "$f" && rm "$f"
+          done
+          # Remove empty __init__.py (no value as .mpy)
+          rm -f devices/__init__.py
+          echo "Compiled .py → .mpy:"
+          ls -la core/ devices/
+
+      - name: Generate firmware manifest
+        run: |
+          cd firmware/dev
+          # Generate checksums for incremental updates. The installer compares
+          # this manifest against the device's existing one to skip unchanged files.
+          find . -type f \
+            -not -name "*.pyc" \
+            -not -path "*/__pycache__/*" \
+            -not -path "*/experiments/*" \
+            -not -name "firmware.md5" \
+            | sort \
+            | xargs md5sum > firmware.md5
+          echo "Generated firmware.md5 with $(wc -l < firmware.md5) entries"
+
       - name: Create firmware zip
         run: |
           VERSION="${{ needs.lint.outputs.version }}"
@@ -107,6 +150,7 @@ jobs:
             devices/ \
             fonts/ \
             lib/ \
+            firmware.md5 \
             -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"
           cd ../..
           echo "Created: \`dist/midicaptain-firmware-${VERSION}.zip\`" >> $GITHUB_STEP_SUMMARY
