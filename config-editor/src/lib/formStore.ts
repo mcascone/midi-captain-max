@@ -239,7 +239,7 @@ export function setDevice(deviceType: DeviceType) {
         device: 'std10',
         buttons: [
           ...mini6Buttons,
-          ...(state._hiddenButtons || createDefaultButtons(7, 10)),
+          ...(state._hiddenButtons || createDefaultButtons(6, 9)),
         ],
         encoder: state._hiddenEncoder || state.config.encoder,
       };
