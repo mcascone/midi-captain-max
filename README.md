@@ -48,6 +48,9 @@ The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration
 4. Edit button labels, CC numbers, and colors using the visual editor
 5. Save directly to the device
 
+**First Launch (macOS):**
+If you see a Gatekeeper warning, right-click the app and select "Open", then click "Open" in the dialog. This only needs to be done once.
+
 **Features:**
 - 🖱️ **Visual editing** — No JSON syntax to learn
 - ✅ **Real-time validation** — Catch errors before saving

@@ -39,8 +39,9 @@
     ],
     "macOS": {
       "minimumSystemVersion": "10.15",
-      "signingIdentity": "-",
-      "entitlements": "Entitlements.plist"
+      "signingIdentity": "Developer ID Application: Maximilian Cascone (9WNXKEF4SM)",
+      "entitlements": "Entitlements.plist",
+      "providerShortName": "9WNXKEF4SM"
     },
     "category": "Music",
     "shortDescription": "Configure MIDI Captain foot controllers",
