@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, type Snippet } from 'svelte';
-  import { isDirty, canUndo, canRedo, undo, redo, validationErrors } from '$lib/formStore';
+  import { isDirty, canUndo, canRedo, undo, redo, validationErrors, config } from '$lib/formStore';
   
   interface Props {
     onSave: () => void;
@@ -10,6 +10,8 @@
   let { onSave, children }: Props = $props();
   
   let hasErrors = $derived($validationErrors.size > 0);
+  let showJsonModal = $state(false);
+  let jsonText = $state('');
 
   function handleUndo() {
     undo();
@@ -20,8 +22,16 @@
   }
 
   function handleViewJson() {
-    console.log('View JSON clicked');
-    // TODO: Export config as JSON
+    jsonText = JSON.stringify($config, null, 2);
+    showJsonModal = true;
+  }
+  
+  function closeJsonModal() {
+    showJsonModal = false;
+  }
+  
+  function copyJsonToClipboard() {
+    navigator.clipboard.writeText(jsonText);
   }
 
   function handleSave() {
@@ -64,7 +74,7 @@
       <button
         class="toolbar-btn"
         disabled={!$canUndo}
-        on:click={handleUndo}
+        onclick={handleUndo}
         title="Undo (⌘Z)"
       >
         Undo
@@ -72,7 +82,7 @@
       <button
         class="toolbar-btn"
         disabled={!$canRedo}
-        on:click={handleRedo}
+        onclick={handleRedo}
         title="Redo (⌘⇧Z)"
       >
         Redo
@@ -80,13 +90,13 @@
     </div>
 
     <div class="toolbar-group">
-      <button class="toolbar-btn secondary" on:click={handleViewJson}>
+      <button class="toolbar-btn secondary" onclick={handleViewJson}>
         View JSON
       </button>
       <button
         class="toolbar-btn primary"
         disabled={hasErrors}
-        on:click={handleSave}
+        onclick={handleSave}
         title="Save (⌘S)"
       >
         {hasErrors ? 'Fix errors to save' : $isDirty ? 'Save to Device *' : 'Save to Device'}
@@ -99,6 +109,44 @@
     {@render children()}
   </div>
 </div>
+
+<!-- JSON Modal -->
+{#if showJsonModal}
+  <div class="modal-backdrop" onclick={closeJsonModal}>
+    <div class="modal-content" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <h2>Current Configuration (JSON)</h2>
+        <button class="close-btn" onclick={closeJsonModal}>✕</button>
+      </div>
+      <div class="modal-body">
+        <pre class="json-display">{jsonText}</pre>
+      </div>
+      <div class="modal-footer">
+        <button class="toolbar-btn secondary" onclick={copyJsonToClipboard}>Copy to Clipboard</button>
+        <button class="toolbar-btn" onclick={closeJsonModal}>Close</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- JSON Modal -->
+{#if showJsonModal}
+  <div class="modal-backdrop" onclick={closeJsonModal}>
+    <div class="modal-content" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <h2>Current Configuration (JSON)</h2>
+        <button class="close-btn" onclick={closeJsonModal}>✕</button>
+      </div>
+      <div class="modal-body">
+        <pre class="json-display">{jsonText}</pre>
+      </div>
+      <div class="modal-footer">
+        <button class="toolbar-btn secondary" onclick={copyJsonToClipboard}>Copy to Clipboard</button>
+        <button class="toolbar-btn" onclick={closeJsonModal}>Close</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .config-form {
@@ -234,6 +282,91 @@
     color: var(--color-text-secondary);
     font-style: italic;
     margin: 0;
+  }
+
+  /* JSON Modal */
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background-color: var(--color-bg);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--color-text-secondary);
+  }
+
+  .close-btn:hover {
+    background-color: var(--color-bg-hover);
+  }
+
+  .modal-body {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+  }
+
+  .json-display {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 16px;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-x: auto;
+    margin: 0;
+    white-space: pre;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--color-border);
   }
 
   /* CSS Variables (will inherit from app theme) */
