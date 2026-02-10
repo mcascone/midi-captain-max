@@ -122,17 +122,17 @@ def get_encoder_config(cfg):
 
 def get_expression_config(cfg):
     """Extract expression pedal configuration with defaults.
-    
+
     Args:
         cfg: Full config dict
-        
+
     Returns:
         Expression config dict with exp1 and exp2
     """
     exp = cfg.get("expression", {})
     exp1 = exp.get("exp1", {})
     exp2 = exp.get("exp2", {})
-    
+
     return {
         "exp1": {
             "enabled": exp1.get("enabled", True),
@@ -152,4 +152,36 @@ def get_expression_config(cfg):
             "polarity": exp2.get("polarity", "normal"),
             "threshold": exp2.get("threshold", 2),
         },
+    }
+
+
+def get_display_config(cfg):
+    """Extract display configuration with defaults.
+
+    Args:
+        cfg: Full config dict
+
+    Returns:
+        Display config dict with text size settings
+    """
+    display = cfg.get("display", {})
+
+    # Validate size names
+    valid_sizes = ["small", "medium", "large"]
+    button_size = display.get("button_text_size", "small")
+    status_size = display.get("status_text_size", "medium")
+    expression_size = display.get("expression_text_size", "small")
+
+    # Fallback to defaults if invalid
+    if button_size not in valid_sizes:
+        button_size = "small"
+    if status_size not in valid_sizes:
+        status_size = "medium"
+    if expression_size not in valid_sizes:
+        expression_size = "small"
+
+    return {
+        "button_text_size": button_size,
+        "status_text_size": status_size,
+        "expression_text_size": expression_size,
     }

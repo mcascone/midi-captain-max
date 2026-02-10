@@ -38,8 +38,23 @@ from adafruit_midi.control_change import ControlChange
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color
-from core.config import load_config as _load_config_from_file
+from core.config import load_config as _load_config_from_file, get_display_config
 from core.button import Switch
+
+# =============================================================================
+# Font Size Configuration
+# =============================================================================
+#
+# Maps descriptive size names to font files and approximate heights.
+# - "small": terminalio.FONT (built-in, ~8px) - compact button labels
+# - "medium": PTSans-Regular-20.pcf (~20px) - readable status text
+# - "large": PTSans-Bold-60.pcf (~60px) - large, bold display
+#
+FONT_SIZE_MAP = {
+    "small": ("terminalio", 8),
+    "medium": ("/fonts/PTSans-Regular-20.pcf", 20),
+    "large": ("/fonts/PTSans-Bold-60.pcf", 60),
+}
 
 # =============================================================================
 # Device Detection
@@ -202,14 +217,46 @@ print(f"Loaded {len(buttons)} button configs")
 # Fonts
 # =============================================================================
 
-try:
-    STATUS_FONT = bitmap_font.load_font("/fonts/PTSans-Regular-20.pcf")
-    print("Loaded PCF status font")
-except Exception as e:
-    print(f"Font load failed: {e}")
-    STATUS_FONT = terminalio.FONT
 
-BUTTON_FONT = terminalio.FONT  # Built-in works well for narrow button boxes
+def load_font(size_name):
+    """Load a font based on size name, with fallback to terminalio.
+
+    Args:
+        size_name: One of "small", "medium", "large"
+
+    Returns:
+        Tuple of (font_object, approximate_height_px)
+    """
+    if size_name not in FONT_SIZE_MAP:
+        print(f"Invalid font size '{size_name}', using 'small'")
+        size_name = "small"
+
+    font_path, height = FONT_SIZE_MAP[size_name]
+
+    if font_path == "terminalio":
+        return terminalio.FONT, height
+
+    try:
+        loaded_font = bitmap_font.load_font(font_path)
+        print(f"Loaded font: {font_path} (~{height}px)")
+        return loaded_font, height
+    except Exception as e:
+        print(f"Font load failed for '{font_path}': {e}, falling back to terminalio")
+        return terminalio.FONT, 8
+
+
+# Load display config
+display_config = get_display_config(config)
+button_text_size = display_config["button_text_size"]
+status_text_size = display_config["status_text_size"]
+expression_text_size = display_config["expression_text_size"]
+
+print(f"Display config: button={button_text_size}, status={status_text_size}, expression={expression_text_size}")
+
+# Load fonts based on config
+BUTTON_FONT, BUTTON_FONT_HEIGHT = load_font(button_text_size)
+STATUS_FONT, STATUS_FONT_HEIGHT = load_font(status_text_size)
+EXPRESSION_FONT, EXPRESSION_FONT_HEIGHT = load_font(expression_text_size)
 
 # =============================================================================
 # Hardware Init
@@ -332,21 +379,24 @@ main_group.append(bg_sprite)
 # Button labels - layout depends on device
 button_labels = []
 button_boxes = []
-top_row_y = 5
-bottom_row_y = 205
+
+# Auto-size button height based on font
+button_height = BUTTON_FONT_HEIGHT + 10  # 10px padding
 
 if BUTTON_COUNT == 6:
     # Mini6: 3 buttons per row, wider spacing
     button_width = 70
-    button_height = 30
     button_spacing = 80
     row_size = 3
 else:
     # STD10: 5 buttons per row
     button_width = 46
-    button_height = 30
     button_spacing = 48
     row_size = 5
+
+# Adjust row positions to center vertically based on button height
+top_row_y = 5
+bottom_row_y = 240 - button_height - 5
 
 for i in range(BUTTON_COUNT):
     btn_config = buttons[i] if i < len(buttons) else {"label": str(i + 1), "color": "white"}
@@ -406,17 +456,17 @@ exp2_label = None
 if HAS_EXPRESSION:
     exp1_lbl_text = exp1_config.get("label", "EXP1")
     exp1_label = label.Label(
-        BUTTON_FONT,
+        EXPRESSION_FONT,
         text=f"{exp1_lbl_text}: ---",
         color=0x888888,
         anchor_point=(0.5, 0.5),
         anchored_position=(70, 150),
     )
     main_group.append(exp1_label)
-    
+
     exp2_lbl_text = exp2_config.get("label", "EXP2")
     exp2_label = label.Label(
-        BUTTON_FONT,
+        EXPRESSION_FONT,
         text=f"{exp2_lbl_text}: ---",
         color=0x888888,
         anchor_point=(0.5, 0.5),

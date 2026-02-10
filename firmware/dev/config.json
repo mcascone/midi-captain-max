@@ -1,5 +1,10 @@
 {
   "device": "std10",
+  "display": {
+    "button_text_size": "small",
+    "status_text_size": "medium",
+    "expression_text_size": "small"
+  },
   "buttons": [
     {"label": "TSC", "cc": 20, "color": "green"},
     {"label": "CHOR", "cc": 21, "color": "blue"},
