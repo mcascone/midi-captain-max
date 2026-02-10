@@ -100,3 +100,54 @@ export function redo() {
     };
   });
 }
+
+function setNestedValue(obj: any, path: string, value: any) {
+  const parts = path.split('.');
+  let current = obj;
+  
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i];
+    const arrayMatch = part.match(/(\w+)\[(\d+)\]/);
+    
+    if (arrayMatch) {
+      const [, key, index] = arrayMatch;
+      current = current[key][parseInt(index)];
+    } else {
+      current = current[part];
+    }
+  }
+  
+  const lastPart = parts[parts.length - 1];
+  const arrayMatch = lastPart.match(/(\w+)\[(\d+)\]/);
+  
+  if (arrayMatch) {
+    const [, key, index] = arrayMatch;
+    current[key][parseInt(index)] = value;
+  } else {
+    current[lastPart] = value;
+  }
+}
+
+export function updateField(path: string, value: any) {
+  // Clear existing debounce
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+  
+  // Update value immediately
+  formState.update(state => {
+    const newConfig = structuredClone(state.config);
+    setNestedValue(newConfig, path, value);
+    
+    return {
+      ...state,
+      config: newConfig,
+      isDirty: true,
+    };
+  });
+  
+  // Debounce history push
+  debounceTimer = setTimeout(() => {
+    formState.update(state => pushHistory(state));
+  }, DEBOUNCE_MS);
+}
