@@ -1,7 +1,9 @@
 #!/bin/bash
 # Deploy firmware to MIDI Captain device
 #
-# Usage: ./tools/deploy.sh [options] [mount_point]
+# Works from both development repository and distributed firmware package.
+#
+# Usage: ./deploy.sh [options] [mount_point]
 #
 # Options:
 #   --install     Full install: check/install libraries first
@@ -10,12 +12,12 @@
 #   --fresh       Overwrite config.json even if it exists
 #
 # Examples:
-#   ./tools/deploy.sh                    # Quick deploy (dev mode)
-#   ./tools/deploy.sh --install          # Full install with libraries
-#   ./tools/deploy.sh --libs-only        # Just install CircuitPython libs
-#   ./tools/deploy.sh --eject            # Deploy + eject (clean disconnect)
-#   ./tools/deploy.sh --fresh            # Deploy + overwrite config
-#   ./tools/deploy.sh /Volumes/MIDICAPT  # Custom mount point
+#   ./deploy.sh                          # Quick deploy
+#   ./deploy.sh --install                # Full install with libraries
+#   ./deploy.sh --libs-only              # Just install CircuitPython libs
+#   ./deploy.sh --eject                  # Deploy + eject (clean disconnect)
+#   ./deploy.sh --fresh                  # Deploy + overwrite config
+#   ./deploy.sh /Volumes/MIDICAPT        # Custom mount point
 #
 # Requires boot.py on device with autoreload disabled for best results.
 
@@ -23,7 +25,26 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-DEV_DIR="$PROJECT_ROOT/firmware/dev"
+
+# Auto-detect context: development repo vs. distributed package
+if [ -d "$PROJECT_ROOT/firmware/dev" ]; then
+    # Running from development repository
+    DEV_DIR="$PROJECT_ROOT/firmware/dev"
+    CONTEXT="dev"
+elif [ -f "$SCRIPT_DIR/code.py" ] || [ -d "$SCRIPT_DIR/firmware" ]; then
+    # Running from distributed package (firmware files in same dir or firmware/ subdir)
+    if [ -f "$SCRIPT_DIR/code.py" ]; then
+        DEV_DIR="$SCRIPT_DIR"
+    else
+        DEV_DIR="$SCRIPT_DIR/firmware"
+    fi
+    CONTEXT="dist"
+else
+    echo -e "${RED}❌ Cannot locate firmware files${NC}"
+    echo "Expected firmware/dev/ (dev repo) or code.py (distributed package)"
+    exit 1
+fi
+
 MOUNT_POINT="/Volumes/CIRCUITPY"
 DO_EJECT=false
 DO_RESET=false
@@ -64,13 +85,15 @@ for arg in "$@"; do
             DO_FRESH=true
             ;;
         --help|-h)
-            echo "Usage: ./tools/deploy.sh [options] [mount_point]"
+            echo "Usage: ./deploy.sh [options] [mount_point]"
             echo ""
             echo "Options:"
             echo "  --install     Full install: check/install libraries first"
             echo "  --libs-only   Only install libraries (no firmware copy)"
             echo "  --eject       Eject device after deploy (forces clean reload)"
             echo "  --fresh       Overwrite config.json even if it exists"
+            echo ""
+            echo "Works from both development repository and distributed package."
             exit 0
             ;;
         /*)
@@ -151,6 +174,11 @@ fi
 echo ""
 echo "📁 Source: $DEV_DIR"
 echo "📱 Target: $MOUNT_POINT"
+if [ "$CONTEXT" = "dev" ]; then
+    echo "🔧 Mode: Development"
+else
+    echo "📦 Mode: Distribution package"
+fi
 
 # Detect device type from existing config on device, or by mount point
 DEVICE_TYPE=""
