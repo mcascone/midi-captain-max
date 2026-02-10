@@ -132,6 +132,13 @@
     }
   }
   
+  function resetChanges() {
+    editorContent = $currentConfigRaw;
+    $hasUnsavedChanges = false;
+    $validationErrors = [];
+    $statusMessage = 'Changes reset to device version';
+  }
+  
   function handleEditorChange(newValue: string) {
     editorContent = newValue;
     $hasUnsavedChanges = editorContent !== $currentConfigRaw;
@@ -192,6 +199,13 @@
       {#if $hasUnsavedChanges}
         <span class="unsaved">● Unsaved changes</span>
       {/if}
+      <button 
+        class="secondary"
+        onclick={resetChanges} 
+        disabled={!$selectedDevice || !$hasUnsavedChanges || $isLoading}
+      >
+        Reset
+      </button>
       <button 
         onclick={saveToDevice} 
         disabled={!$selectedDevice || !$hasUnsavedChanges || $isLoading}
@@ -343,12 +357,29 @@
     cursor: pointer;
   }
   
+  button.secondary {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+  }
+  
   button:hover:not(:disabled) {
     background: var(--accent-hover);
+  }
+  
+  button.secondary:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
   }
   
   button:disabled {
     background: var(--disabled-bg);
     cursor: not-allowed;
+  }
+  
+  button.secondary:disabled {
+    background: transparent;
+    color: var(--text-secondary);
+    opacity: 0.5;
   }
 </style>
