@@ -420,15 +420,6 @@
     overflow: hidden;
   }
   
-  .placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--text-secondary);
-  }
-  
   .errors {
     padding: 12px 20px;
     background: var(--error-bg);

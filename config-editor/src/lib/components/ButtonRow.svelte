@@ -181,8 +181,7 @@
     background: white;
   }
   
-  input.error,
-  select.error {
+  input.error {
     border-color: #dc3545;
   }
   
