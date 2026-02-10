@@ -153,6 +153,8 @@ jobs:
             firmware.md5 \
             -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"
           cd ../..
+          # Add deploy script to root of zip
+          zip "dist/midicaptain-firmware-${VERSION}.zip" tools/deploy.sh
           echo "Created: \`dist/midicaptain-firmware-${VERSION}.zip\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload zip artifact
