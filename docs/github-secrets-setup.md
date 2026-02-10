@@ -15,6 +15,8 @@ Configure these in **Settings → Secrets and variables → Actions** on GitHub:
 
 **Team ID:** `9WNXKEF4SM` (hardcoded in workflows)
 
+**Note:** The workflow gracefully handles missing secrets - if not configured, the app is built unsigned with a warning in the build summary. Users will see the right-click-to-open Gatekeeper warning.
+
 ---
 
 ## Step 1: Export Certificate as Base64
