@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { writable } from 'svelte/store';
+  import type { Snippet } from 'svelte';
   
   interface Props {
     title: string;
     defaultOpen?: boolean;
     disabled?: boolean;
     message?: string;
+    children: Snippet;
   }
   
-  let { title, defaultOpen = true, disabled = false, message }: Props = $props();
+  let { title, defaultOpen = true, disabled = false, message, children }: Props = $props();
   
   let isOpen = $state(defaultOpen);
   

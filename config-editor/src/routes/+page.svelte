@@ -27,6 +27,7 @@
     try {
       // Initial device scan
       $devices = await scanDevices();
+      console.log('Devices found:', $devices);
       
       // Start watching for device changes
       await startDeviceWatcher();
@@ -126,6 +127,8 @@
   });
   
   async function selectDevice(device: DetectedDevice) {
+    console.log('selectDevice called with:', device);
+    
     if ($hasUnsavedChanges) {
       if (!confirm('You have unsaved changes. Discard them?')) {
         return;
@@ -137,21 +140,27 @@
     
     try {
       if (device.has_config) {
+        console.log('Reading config from:', device.config_path);
         const configRaw = await readConfigRaw(device.config_path);
+        console.log('Config raw loaded, length:', configRaw.length);
         const configObj = JSON.parse(configRaw);
+        console.log('Config parsed:', configObj);
         
         // Load into form store
         loadConfig(configObj);
+        console.log('Config loaded into form store');
         
         $currentConfigRaw = configRaw;
         $hasUnsavedChanges = false;
         $validationErrors = [];
         $statusMessage = 'Config loaded successfully';
       } else {
+        console.log('No config found on device');
         $currentConfigRaw = '';
         $statusMessage = 'No config.json found on device';
       }
     } catch (e: any) {
+      console.error('Error loading config:', e);
       $statusMessage = `Error reading config: ${e.message || e}`;
     } finally {
       $isLoading = false;
@@ -195,12 +204,15 @@
   }
   
   async function reloadFromDevice() {
+    console.log('reloadFromDevice called, selectedDevice:', $selectedDevice);
     if (!$selectedDevice) return;
     
     $isLoading = true;
     try {
       if ($selectedDevice.has_config) {
+        console.log('Reloading config from:', $selectedDevice.config_path);
         const configRaw = await readConfigRaw($selectedDevice.config_path);
+        console.log('Config reloaded, length:', configRaw.length);
         const configObj = JSON.parse(configRaw);
         
         // Load into form store
@@ -212,6 +224,7 @@
         $statusMessage = 'Config reloaded from device';
       }
     } catch (e: any) {
+      console.error('Error reloading config:', e);
       $statusMessage = `Error reloading config: ${e.message || e}`;
     } finally {
       $isLoading = false;

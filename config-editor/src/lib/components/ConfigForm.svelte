@@ -1,20 +1,22 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-
-  // Placeholder toolbar actions (will be connected to formStore later)
-  let canUndo = false;
-  let canRedo = false;
-  let hasErrors = false;
-  let isDirty = false;
+  import { onMount, type Snippet } from 'svelte';
+  import { isDirty, canUndo, canRedo, undo, redo, validationErrors } from '$lib/formStore';
+  
+  interface Props {
+    onSave: () => void;
+    children: Snippet;
+  }
+  
+  let { onSave, children }: Props = $props();
+  
+  let hasErrors = $derived($validationErrors.size > 0);
 
   function handleUndo() {
-    console.log('Undo clicked');
-    // TODO: Connect to formStore.undo()
+    undo();
   }
 
   function handleRedo() {
-    console.log('Redo clicked');
-    // TODO: Connect to formStore.redo()
+    redo();
   }
 
   function handleViewJson() {
@@ -23,8 +25,7 @@
   }
 
   function handleSave() {
-    console.log('Save clicked');
-    // TODO: Validate and save to device
+    onSave();
   }
 
   // Keyboard shortcuts
@@ -33,9 +34,9 @@
     
     if (isCmd && event.key === 'z') {
       event.preventDefault();
-      if (event.shiftKey) {
+      if (event.shiftKey && $canRedo) {
         handleRedo();
-      } else {
+      } else if ($canUndo) {
         handleUndo();
       }
     } else if (isCmd && event.key === 's') {
@@ -50,19 +51,6 @@
       window.removeEventListener('keydown', handleKeydown);
     };
   });
-
-  // Accordion state (all expanded by default)
-  let expandedSections = {
-    device: true,
-    buttons: true,
-    encoder: true,
-    expression: true,
-    display: true,
-  };
-
-  function toggleSection(section: keyof typeof expandedSections) {
-    expandedSections[section] = !expandedSections[section];
-  }
 </script>
 
 <svelte:head>
@@ -75,7 +63,7 @@
     <div class="toolbar-group">
       <button
         class="toolbar-btn"
-        disabled={!canUndo}
+        disabled={!$canUndo}
         on:click={handleUndo}
         title="Undo (⌘Z)"
       >
@@ -83,7 +71,7 @@
       </button>
       <button
         class="toolbar-btn"
-        disabled={!canRedo}
+        disabled={!$canRedo}
         on:click={handleRedo}
         title="Redo (⌘⇧Z)"
       >
@@ -101,97 +89,14 @@
         on:click={handleSave}
         title="Save (⌘S)"
       >
-        {hasErrors ? 'Fix errors to save' : isDirty ? 'Save to Device *' : 'Save to Device'}
+        {hasErrors ? 'Fix errors to save' : $isDirty ? 'Save to Device *' : 'Save to Device'}
       </button>
     </div>
   </div>
 
-  <!-- Form sections (accordion) -->
+  <!-- Form sections -->
   <div class="form-sections">
-    <!-- Device Settings -->
-    <section class="form-section">
-      <button
-        class="section-header"
-        class:expanded={expandedSections.device}
-        on:click={() => toggleSection('device')}
-      >
-        <span class="expand-icon">{expandedSections.device ? '▼' : '▶'}</span>
-        <span class="section-title">Device Settings</span>
-      </button>
-      {#if expandedSections.device}
-        <div class="section-content">
-          <p class="placeholder">Device section coming soon...</p>
-        </div>
-      {/if}
-    </section>
-
-    <!-- Buttons -->
-    <section class="form-section">
-      <button
-        class="section-header"
-        class:expanded={expandedSections.buttons}
-        on:click={() => toggleSection('buttons')}
-      >
-        <span class="expand-icon">{expandedSections.buttons ? '▼' : '▶'}</span>
-        <span class="section-title">Buttons</span>
-      </button>
-      {#if expandedSections.buttons}
-        <div class="section-content">
-          <p class="placeholder">Buttons section coming soon...</p>
-        </div>
-      {/if}
-    </section>
-
-    <!-- Encoder -->
-    <section class="form-section">
-      <button
-        class="section-header"
-        class:expanded={expandedSections.encoder}
-        on:click={() => toggleSection('encoder')}
-      >
-        <span class="expand-icon">{expandedSections.encoder ? '▼' : '▶'}</span>
-        <span class="section-title">Encoder</span>
-      </button>
-      {#if expandedSections.encoder}
-        <div class="section-content">
-          <p class="placeholder">Encoder section coming soon...</p>
-        </div>
-      {/if}
-    </section>
-
-    <!-- Expression Pedals -->
-    <section class="form-section">
-      <button
-        class="section-header"
-        class:expanded={expandedSections.expression}
-        on:click={() => toggleSection('expression')}
-      >
-        <span class="expand-icon">{expandedSections.expression ? '▼' : '▶'}</span>
-        <span class="section-title">Expression Pedals</span>
-      </button>
-      {#if expandedSections.expression}
-        <div class="section-content">
-          <p class="placeholder">Expression section coming soon...</p>
-        </div>
-      {/if}
-    </section>
-
-    <!-- Display -->
-    <section class="form-section">
-      <button
-        class="section-header"
-        class:expanded={expandedSections.display}
-        on:click={() => toggleSection('display')}
-      >
-        <span class="expand-icon">{expandedSections.display ? '▼' : '▶'}</span>
-        <span class="section-title">Display</span>
-      </button>
-      {#if expandedSections.display}
-        <div class="section-content">
-          <p class="placeholder">Display section coming soon...</p>
-        </div>
-      {/if}
-    </section>
+    {@render children()}
   </div>
 </div>
 
