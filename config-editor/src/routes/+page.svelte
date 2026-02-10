@@ -132,11 +132,23 @@
     }
   }
   
-  function resetChanges() {
-    editorContent = $currentConfigRaw;
-    $hasUnsavedChanges = false;
-    $validationErrors = [];
-    $statusMessage = 'Changes reset to device version';
+  async function reloadFromDevice() {
+    if (!$selectedDevice) return;
+    
+    $isLoading = true;
+    try {
+      if ($selectedDevice.has_config) {
+        $currentConfigRaw = await readConfigRaw($selectedDevice.config_path);
+        editorContent = $currentConfigRaw;
+        $hasUnsavedChanges = false;
+        $validationErrors = [];
+        $statusMessage = 'Config reloaded from device';
+      }
+    } catch (e: any) {
+      $statusMessage = `Error reloading config: ${e.message || e}`;
+    } finally {
+      $isLoading = false;
+    }
   }
   
   function handleEditorChange(newValue: string) {
@@ -189,10 +201,10 @@
         {#each $validationErrors as error}
           <li>{error}</li>
         {/each}
-      </ul>
-    </div>
-  {/if}
-  
+      </ul>loadFromDevice} 
+        disabled={!$selectedDevice || $isLoading}
+      >
+        Reload
   <footer>
     <div class="status">{$statusMessage}</div>
     <div class="actions">
