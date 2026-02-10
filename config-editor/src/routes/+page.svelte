@@ -27,7 +27,7 @@
       await startDeviceWatcher();
       
       // Listen for device events (store cleanup functions)
-      unlistenConnect = await onDeviceConnected((device) => {
+      unlistenConnect = await onDeviceConnected(async (device) => {
         // Deduplicate: check if device is already in the list
         const exists = $devices.some(d => d.path === device.path);
         if (!exists) {
@@ -35,8 +35,31 @@
           $statusMessage = `Device connected: ${device.name}`;
           
           // Auto-select if device was previously selected or if it's the only one
-          if ($devices.length === 1 || ($selectedDevice && $selectedDevice.path === device.path)) {
-            selectDevice(device);
+          const shouldAutoSelect = $devices.length === 1 || 
+            ($selectedDevice && $selectedDevice.path === device.path);
+          
+          if (shouldAutoSelect) {
+            // Small delay to ensure device is fully mounted before loading config
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Force reload config by reading directly from device
+            $selectedDevice = device;
+            $isLoading = true;
+            
+            try {
+              const configRaw = await readConfigRaw(device.config_path);
+              $currentConfigRaw = configRaw;
+              editorContent = configRaw;
+              $hasUnsavedChanges = false;
+              $validationErrors = [];
+              $statusMessage = 'Config reloaded from device';
+            } catch (e: any) {
+              $currentConfigRaw = '';
+              editorContent = '';
+              $statusMessage = `Error loading config: ${e.message || e}`;
+            } finally {
+              $isLoading = false;
+            }
           }
         }
       });
