@@ -38,7 +38,26 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 
 ## Configuration
 
-Edit `config.json` on the device to customize your setup:
+### Config Editor App (Recommended)
+
+The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration easy:
+
+1. Download `MIDI-Captain-MAX-Config-Editor-[version].dmg` from [Releases](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
+2. Open the DMG and drag the app to your Applications folder
+3. Launch the app and connect your MIDI Captain
+4. Edit button labels, CC numbers, and colors using the visual editor
+5. Save directly to the device
+
+**Features:**
+- 🖱️ **Visual editing** — No JSON syntax to learn
+- ✅ **Real-time validation** — Catch errors before saving
+- 🎨 **Color picker** — Visual color selection
+- 💾 **Auto-save** — Changes saved automatically to device
+- 🔍 **Device detection** — Automatically detects connected MIDI Captain
+
+### Manual Configuration
+
+You can also edit `config.json` directly on the device:
 
 ```json
 {
@@ -91,6 +110,7 @@ Send CC 20-29 with value 0 or 127 to set button state:
 | Path | Purpose |
 |------|---------|
 | `firmware/dev/` | Active firmware (copy to device) |
+| `config-editor/` | Desktop config editor app (Tauri + Svelte) |
 | `firmware/original_helmut/` | Helmut Keller's original code (reference) |
 | `docs/` | Hardware specs, design docs |
 | `tools/` | Helper scripts |

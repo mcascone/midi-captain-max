@@ -164,3 +164,46 @@ jobs:
           path: dist/*.zip
           retention-days: 90
 
+  build-config-editor:
+    name: Build Config Editor
+    runs-on: macos-latest
+    timeout-minutes: 20
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install frontend dependencies
+        run: |
+          cd config-editor
+          npm install
+
+      - name: Build Tauri app (universal binary)
+        run: |
+          cd config-editor
+          npm run tauri build -- --target universal-apple-darwin
+          ls -lah src-tauri/target/universal-apple-darwin/release/bundle/
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: config-editor-dmg
+          path: config-editor/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          retention-days: 90
+
+      - name: Upload app bundle artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: config-editor-app
+          path: config-editor/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+          retention-days: 90
+
