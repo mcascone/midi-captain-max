@@ -168,17 +168,17 @@ def get_display_config(cfg):
 
     # Validate size names
     valid_sizes = ["small", "medium", "large"]
-    button_size = display.get("button_text_size", "small")
+    button_size = display.get("button_text_size", "medium")
     status_size = display.get("status_text_size", "medium")
-    expression_size = display.get("expression_text_size", "small")
+    expression_size = display.get("expression_text_size", "medium")
 
     # Fallback to defaults if invalid
     if button_size not in valid_sizes:
-        button_size = "small"
+        button_size = "medium"
     if status_size not in valid_sizes:
         status_size = "medium"
     if expression_size not in valid_sizes:
-        expression_size = "small"
+        expression_size = "medium"
 
     return {
         "button_text_size": button_size,
