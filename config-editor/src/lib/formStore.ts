@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import type { MidiCaptainConfig, ButtonConfig, EncoderConfig, DeviceType } from './types';
+import { validateConfig } from './validation';
 
 interface FormState {
   config: MidiCaptainConfig;
@@ -176,6 +177,9 @@ export function updateField(path: string, value: any) {
     };
   });
   
+  // Validate after update
+  validate();
+  
   // Debounce history push
   debounceTimer = setTimeout(() => {
     formState.update(state => pushHistory(state));
@@ -283,4 +287,16 @@ export function setDevice(deviceType: DeviceType) {
     
     return pushHistory(newState);
   });
+}
+
+export function validate() {
+  const state = get(formState);
+  const result = validateConfig(state.config);
+  
+  formState.update(s => ({
+    ...s,
+    validationErrors: result.errors,
+  }));
+  
+  return result.isValid;
 }
