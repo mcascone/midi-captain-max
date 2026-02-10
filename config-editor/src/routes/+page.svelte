@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { message } from '@tauri-apps/plugin-dialog';
   import { 
     devices, selectedDevice, currentConfigRaw, 
     hasUnsavedChanges, validationErrors, statusMessage, isLoading 
@@ -31,12 +32,23 @@
         $statusMessage = `Device connected: ${device.name}`;
       });
       
-      unlistenDisconnect = await onDeviceDisconnected((name) => {
+      unlistenDisconnect = await onDeviceDisconnected(async (name) => {
+        const wasSelected = $selectedDevice?.name === name;
+        
         $devices = $devices.filter(d => d.name !== name);
-        if ($selectedDevice?.name === name) {
+        
+        if (wasSelected) {
+          if ($hasUnsavedChanges) {
+            await message(
+              `Device "${name}" was disconnected. Your unsaved changes have been lost.`,
+              { title: 'Device Disconnected', kind: 'warning' }
+            );
+          }
           $selectedDevice = null;
           $currentConfigRaw = '';
+          $hasUnsavedChanges = false;
         }
+        
         $statusMessage = `Device disconnected: ${name}`;
       });
       
@@ -177,8 +189,44 @@
   :global(body) {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #1e1e1e;
-    color: #d4d4d4;
+    
+    /* Light mode defaults */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f5;
+    --bg-tertiary: #e0e0e0;
+    --text-primary: #1e1e1e;
+    --text-secondary: #666666;
+    --border-color: #d0d0d0;
+    --accent: #0078d4;
+    --accent-hover: #1084d8;
+    --success: #4a7c4e;
+    --warning: #f0ad4e;
+    --error-bg: #fce4e4;
+    --error-border: #f5c6cb;
+    --error-text: #a94442;
+    --disabled-bg: #cccccc;
+    
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(body) {
+      --bg-primary: #1e1e1e;
+      --bg-secondary: #2d2d2d;
+      --bg-tertiary: #3c3c3c;
+      --text-primary: #d4d4d4;
+      --text-secondary: #888888;
+      --border-color: #404040;
+      --accent: #0078d4;
+      --accent-hover: #1084d8;
+      --success: #4a7c4e;
+      --warning: #f0ad4e;
+      --error-bg: #3c1f1f;
+      --error-border: #5c2f2f;
+      --error-text: #f48771;
+      --disabled-bg: #555555;
+    }
   }
   
   main {
@@ -192,8 +240,8 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 20px;
-    background: #2d2d2d;
-    border-bottom: 1px solid #404040;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
   }
   
   h1 {
@@ -205,14 +253,14 @@
   .device-selector select {
     padding: 6px 12px;
     font-size: 14px;
-    background: #3c3c3c;
-    color: #d4d4d4;
-    border: 1px solid #555;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
   }
   
   .no-device {
-    color: #888;
+    color: var(--text-secondary);
     font-style: italic;
   }
   
@@ -228,14 +276,14 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #888;
+    color: var(--text-secondary);
   }
   
   .errors {
     padding: 12px 20px;
-    background: #3c1f1f;
-    border-top: 1px solid #5c2f2f;
-    color: #f48771;
+    background: var(--error-bg);
+    border-top: 1px solid var(--error-border);
+    color: var(--error-text);
   }
   
   .errors ul {
@@ -248,12 +296,12 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 20px;
-    background: #2d2d2d;
-    border-top: 1px solid #404040;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
   }
   
   .status {
-    color: #888;
+    color: var(--text-secondary);
     font-size: 13px;
   }
   
@@ -271,7 +319,7 @@
   button {
     padding: 8px 16px;
     font-size: 14px;
-    background: #0078d4;
+    background: var(--accent);
     color: white;
     border: none;
     border-radius: 4px;
@@ -279,11 +327,11 @@
   }
   
   button:hover:not(:disabled) {
-    background: #1084d8;
+    background: var(--accent-hover);
   }
   
   button:disabled {
-    background: #555;
+    background: var(--disabled-bg);
     cursor: not-allowed;
   }
 </style>

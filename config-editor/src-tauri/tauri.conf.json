@@ -10,7 +10,7 @@
     "frontendDist": "../build"
   },
   "app": {
-    "macOSPrivateApi": true,
+    "macOSPrivateApi": false,
     "windows": [
       {
         "title": "MIDI Captain MAX Config Editor",
