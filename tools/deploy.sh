@@ -8,12 +8,14 @@
 #   --libs-only   Only install libraries (no firmware copy)
 #   --eject       Eject device after deploy (for performance mode)
 #   --no-reset    Don't send soft reset after deploy
+#   --fresh       Overwrite config.json even if it exists
 #
 # Examples:
 #   ./tools/deploy.sh                    # Quick deploy (dev mode)
 #   ./tools/deploy.sh --install          # Full install with libraries
 #   ./tools/deploy.sh --libs-only        # Just install CircuitPython libs
 #   ./tools/deploy.sh --eject            # Deploy + eject (clean disconnect)
+#   ./tools/deploy.sh --fresh            # Deploy + overwrite config
 #   ./tools/deploy.sh /Volumes/MIDICAPT  # Custom mount point
 #
 # Requires boot.py on device with autoreload disabled for best results.
@@ -28,6 +30,7 @@ DO_EJECT=false
 DO_RESET=true
 DO_INSTALL=false
 LIBS_ONLY=false
+DO_FRESH=false
 
 # Required CircuitPython libraries
 REQUIRED_LIBS=(
@@ -62,6 +65,9 @@ for arg in "$@"; do
         --no-reset)
             DO_RESET=false
             ;;
+        --fresh)
+            DO_FRESH=true
+            ;;
         --help|-h)
             echo "Usage: ./tools/deploy.sh [options] [mount_point]"
             echo ""
@@ -70,6 +76,7 @@ for arg in "$@"; do
             echo "  --libs-only   Only install libraries (no firmware copy)"
             echo "  --eject       Eject device after deploy"
             echo "  --no-reset    Don't send soft reset after deploy"
+            echo "  --fresh       Overwrite config.json even if it exists"
             exit 0
             ;;
         /*)
@@ -222,16 +229,25 @@ rsync -av --checksum --inplace --itemize-changes \
 
 sync
 
-# 3. Deploy config (use device-specific if available)
-if [ -f "$CONFIG_FILE" ]; then
-    rsync -av --checksum --inplace --itemize-changes \
-        "$CONFIG_FILE" "$MOUNT_POINT/config.json"
+# 3. Deploy config ONLY if it doesn't exist (preserve user customizations)
+if [ ! -f "$MOUNT_POINT/config.json" ] || [ "$DO_FRESH" = true ]; then
+    if [ "$DO_FRESH" = true ] && [ -f "$MOUNT_POINT/config.json" ]; then
+        echo "📝 Overwriting config.json with fresh default (--fresh mode)..."
+    else
+        echo "📝 Installing default config.json (device-specific)..."
+    fi
+    if [ -f "$CONFIG_FILE" ]; then
+        rsync -av --checksum --inplace --itemize-changes \
+            "$CONFIG_FILE" "$MOUNT_POINT/config.json"
+    else
+        rsync -av --checksum --inplace --itemize-changes \
+            "$DEV_DIR/config.json" "$MOUNT_POINT/config.json"
+    fi
 else
-    rsync -av --checksum --inplace --itemize-changes \
-        "$DEV_DIR/config.json" "$MOUNT_POINT/config.json"
+    echo "📝 Preserving existing config.json (use --fresh to overwrite)"
 fi
 
-# 4. Deploy device-specific fallback config
+# 4. Deploy device-specific fallback config (reference only)
 rsync -av --checksum --inplace --itemize-changes \
     "$DEV_DIR/config-mini6.json" "$MOUNT_POINT/config-mini6.json"
 
