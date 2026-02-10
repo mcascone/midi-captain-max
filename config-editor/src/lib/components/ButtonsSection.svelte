@@ -3,9 +3,9 @@
   import ButtonRow from './ButtonRow.svelte';
   import { config, updateField } from '$lib/formStore';
   
-  $: deviceType = $config.device;
-  $: buttons = $config.buttons;
-  $: visibleCount = buttons.length;
+  let deviceType = $derived($config.device);
+  let buttons = $derived($config.buttons);
+  let visibleCount = $derived(buttons.length);
   
   function handleButtonUpdate(index: number, field: string, value: any) {
     updateField(`buttons[${index}].${field}`, value);

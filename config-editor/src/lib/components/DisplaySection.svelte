@@ -2,7 +2,7 @@
   import Accordion from './Accordion.svelte';
   import { config, updateField } from '$lib/formStore';
   
-  $: display = $config.display;
+  let display = $derived($config.display);
   
   function handleField(path: string, e: Event) {
     const target = e.target as HTMLSelectElement;

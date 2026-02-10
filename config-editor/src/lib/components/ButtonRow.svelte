@@ -38,8 +38,8 @@
     onUpdate('off_mode', target.value as OffMode);
   }
   
-  $: labelError = $validationErrors.get(`${basePath}.label`);
-  $: ccError = $validationErrors.get(`${basePath}.cc`);
+  let labelError = $derived($validationErrors.get(`${basePath}.label`));
+  let ccError = $derived($validationErrors.get(`${basePath}.cc`));
 </script>
 
 <div class="button-row" class:disabled>

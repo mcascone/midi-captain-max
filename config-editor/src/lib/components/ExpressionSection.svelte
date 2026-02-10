@@ -3,7 +3,7 @@
   import ExpressionPedal from './ExpressionPedal.svelte';
   import { config, updateField } from '$lib/formStore';
   
-  $: expression = $config.expression;
+  let expression = $derived($config.expression);
   
   function handlePedalUpdate(pedal: 'exp1' | 'exp2', field: string, value: any) {
     updateField(`expression.${pedal}.${field}`, value);

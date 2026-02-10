@@ -3,10 +3,10 @@
   import { config, updateField } from '$lib/formStore';
   import { validationErrors } from '$lib/formStore';
   
-  $: deviceType = $config.device;
-  $: encoder = $config.encoder;
-  $: isDisabled = deviceType === 'mini6';
-  $: message = isDisabled ? 'Disabled on Mini6' : undefined;
+  let deviceType = $derived($config.device);
+  let encoder = $derived($config.encoder);
+  let isDisabled = $derived(deviceType === 'mini6');
+  let message = $derived(isDisabled ? 'Disabled on Mini6' : undefined);
   
   function handleField(path: string, e: Event) {
     const target = e.target as HTMLInputElement | HTMLSelectElement;
@@ -19,8 +19,8 @@
     updateField(`encoder.${path}`, value);
   }
   
-  $: ccError = $validationErrors.get('encoder.cc');
-  $: pushCCError = $validationErrors.get('encoder.push.cc');
+  let ccError = $derived($validationErrors.get('encoder.cc'));
+  let pushCCError = $derived($validationErrors.get('encoder.push.cc'));
 </script>
 
 <Accordion 
