@@ -4,16 +4,15 @@ This document describes the GitHub secrets required for automatic code signing a
 
 ## Required Secrets
 
-Configure these in **Settings → Secrets and variables → Actions** on GitHub:
+These secrets are **already configured** in the repository:
 
-| Secret Name | Description | How to Obtain |
-|-------------|-------------|---------------|
-| `APPLE_CERTIFICATE` | Base64-encoded .p12 certificate | Export Developer ID Application cert from Keychain |
-| `APPLE_CERTIFICATE_PASSWORD` | Password for the .p12 file | Set when exporting certificate |
-| `APPLE_ID` | Apple ID email | Your Apple Developer account email |
-| `APPLE_PASSWORD` | App-specific password | Generate at appleid.apple.com |
-
-**Team ID:** `9WNXKEF4SM` (hardcoded in workflows)
+| Secret Name | Description | Current Status |
+|-------------|-------------|----------------|
+| `MACOS_APPLICATION_CERT` | Base64-encoded Developer ID Application .p12 | ✅ Configured |
+| `MACOS_APPLICATION_CERT_PWD` | Password for the .p12 file | ✅ Configured |
+| `APPLE_ID` | Apple ID email for notarization | ✅ Configured |
+| `APPLE_APP_PASSWORD` | App-specific password for notarization | ✅ Configured |
+| `APPLE_TEAM_ID` | Team ID for notarization | ✅ Configured |
 
 **Note:** The workflow gracefully handles missing secrets - if not configured, the app is built unsigned with a warning in the build summary. Users will see the right-click-to-open Gatekeeper warning.
 

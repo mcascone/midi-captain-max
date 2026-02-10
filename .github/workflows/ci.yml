@@ -184,11 +184,11 @@ jobs:
 
       - name: Import code signing certificate
         env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          MACOS_APPLICATION_CERT: ${{ secrets.MACOS_APPLICATION_CERT }}
+          MACOS_APPLICATION_CERT_PWD: ${{ secrets.MACOS_APPLICATION_CERT_PWD }}
         run: |
           # Skip if certificate not configured
-          if [ -z "$APPLE_CERTIFICATE" ]; then
+          if [ -z "$MACOS_APPLICATION_CERT" ]; then
             echo "⚠️ Code signing certificate not configured - building unsigned" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
@@ -202,9 +202,9 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           
           # Import certificate
-          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          echo "$MACOS_APPLICATION_CERT" | base64 --decode > certificate.p12
           security import certificate.p12 -k "$KEYCHAIN_PATH" \
-            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+            -P "$MACOS_APPLICATION_CERT_PWD" -T /usr/bin/codesign
           rm certificate.p12
           
           # Set as default keychain
@@ -230,11 +230,11 @@ jobs:
       - name: Notarize DMG
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: "9WNXKEF4SM"
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           # Skip if notarization credentials not configured
-          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ]; then
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_PASSWORD" ]; then
             echo "⚠️ Notarization credentials not configured - skipping" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
@@ -248,7 +248,7 @@ jobs:
           echo "Notarizing: $DMG_PATH"
           xcrun notarytool submit "$DMG_PATH" \
             --apple-id "$APPLE_ID" \
-            --password "$APPLE_PASSWORD" \
+            --password "$APPLE_APP_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
             --wait
           
