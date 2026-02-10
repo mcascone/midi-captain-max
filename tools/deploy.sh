@@ -6,8 +6,7 @@
 # Options:
 #   --install     Full install: check/install libraries first
 #   --libs-only   Only install libraries (no firmware copy)
-#   --eject       Eject device after deploy (for performance mode)
-#   --no-reset    Don't send soft reset after deploy
+#   --eject       Eject device after deploy (forces clean reload)
 #   --fresh       Overwrite config.json even if it exists
 #
 # Examples:
@@ -27,7 +26,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DEV_DIR="$PROJECT_ROOT/firmware/dev"
 MOUNT_POINT="/Volumes/CIRCUITPY"
 DO_EJECT=false
-DO_RESET=true
+DO_RESET=false
 DO_INSTALL=false
 LIBS_ONLY=false
 DO_FRESH=false
@@ -60,10 +59,6 @@ for arg in "$@"; do
             ;;
         --eject)
             DO_EJECT=true
-            DO_RESET=false
-            ;;
-        --no-reset)
-            DO_RESET=false
             ;;
         --fresh)
             DO_FRESH=true
@@ -74,8 +69,7 @@ for arg in "$@"; do
             echo "Options:"
             echo "  --install     Full install: check/install libraries first"
             echo "  --libs-only   Only install libraries (no firmware copy)"
-            echo "  --eject       Eject device after deploy"
-            echo "  --no-reset    Don't send soft reset after deploy"
+            echo "  --eject       Eject device after deploy (forces clean reload)"
             echo "  --fresh       Overwrite config.json even if it exists"
             exit 0
             ;;
@@ -285,42 +279,11 @@ if [ "$DO_EJECT" = true ]; then
     echo "⏏️  Ejecting device..."
     diskutil eject "$MOUNT_POINT" 2>/dev/null || true
     echo "✅ Deploy complete! Reconnect device to start firmware."
-elif [ "$DO_RESET" = true ]; then
-    echo "🔄 Sending soft reset..."
-    # Find CircuitPython serial port and send Ctrl+C then Ctrl+D
-    SERIAL_PORT=$(ls /dev/tty.usbmodem* 2>/dev/null | head -1)
-    if [ -n "$SERIAL_PORT" ]; then
-        # Kill any screen sessions using this port (they block access)
-        SCREEN_PIDS=$(lsof -t "$SERIAL_PORT" 2>/dev/null || true)
-        if [ -n "$SCREEN_PIDS" ]; then
-            echo "   Closing existing serial connection..."
-            kill $SCREEN_PIDS 2>/dev/null || true
-            sleep 0.5
-        fi
-        # Send Ctrl+C (interrupt) then Ctrl+D (soft reload)
-        # Use timeout to prevent hanging if port is unresponsive
-        if command -v gtimeout &>/dev/null; then
-            TIMEOUT_CMD="gtimeout"
-        elif command -v timeout &>/dev/null; then
-            TIMEOUT_CMD="timeout"
-        else
-            TIMEOUT_CMD=""
-        fi
-        
-        if [ -n "$TIMEOUT_CMD" ]; then
-            $TIMEOUT_CMD 3 bash -c "printf '\x03\x04' > '$SERIAL_PORT'" 2>/dev/null || true
-        else
-            # No timeout available, try with backgrounding
-            ( printf '\x03\x04' > "$SERIAL_PORT" 2>/dev/null ) &
-            RESET_PID=$!
-            sleep 1
-            kill $RESET_PID 2>/dev/null || true
-        fi
-        echo "✅ Deploy complete! Device is reloading."
-    else
-        echo "⚠️  No serial port found. Power-cycle device to reload."
-    fi
 else
     echo "✅ Deploy complete!"
-    echo "   Send Ctrl+D in serial console to reload, or eject device."
+    echo ""
+    echo "To reload the firmware:"
+    echo "  • Open serial console and press Ctrl+D"
+    echo "  • Or: Power-cycle the device"
+    echo "  • Or: Re-run with --eject to force clean reload"
 fi
