@@ -40,3 +40,63 @@ export const canUndo = derived(formState, $state => $state.historyIndex > 0);
 export const canRedo = derived(formState, $state => 
   $state.historyIndex < $state.history.length - 1
 );
+
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function loadConfig(newConfig: MidiCaptainConfig) {
+  formState.update(state => ({
+    config: structuredClone(newConfig),
+    history: [structuredClone(newConfig)],
+    historyIndex: 0,
+    validationErrors: new Map(),
+    isDirty: false,
+  }));
+}
+
+function pushHistory(state: FormState): FormState {
+  // Clear any future history if we're not at the end
+  const newHistory = state.history.slice(0, state.historyIndex + 1);
+  
+  // Add current config to history
+  newHistory.push(structuredClone(state.config));
+  
+  // Limit history size
+  if (newHistory.length > HISTORY_LIMIT) {
+    newHistory.shift();
+  }
+  
+  return {
+    ...state,
+    history: newHistory,
+    historyIndex: newHistory.length - 1,
+    isDirty: true,
+  };
+}
+
+export function undo() {
+  formState.update(state => {
+    if (state.historyIndex <= 0) return state;
+    
+    const newIndex = state.historyIndex - 1;
+    return {
+      ...state,
+      config: structuredClone(state.history[newIndex]),
+      historyIndex: newIndex,
+      isDirty: newIndex !== 0,
+    };
+  });
+}
+
+export function redo() {
+  formState.update(state => {
+    if (state.historyIndex >= state.history.length - 1) return state;
+    
+    const newIndex = state.historyIndex + 1;
+    return {
+      ...state,
+      config: structuredClone(state.history[newIndex]),
+      historyIndex: newIndex,
+      isDirty: true,
+    };
+  });
+}
