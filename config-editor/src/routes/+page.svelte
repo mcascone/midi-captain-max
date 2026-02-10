@@ -151,6 +151,21 @@
     }
   }
   
+  async function resetDevice() {
+    if (!$selectedDevice) return;
+    
+    await message(
+      'To apply config changes, reset your MIDI Captain device:\n\n' +
+      '1. Unplug the USB cable\n' +
+      '2. Wait 2 seconds\n' +
+      '3. Plug it back in\n\n' +
+      'The device will restart with the new configuration.',
+      { title: 'Reset Device', kind: 'info' }
+    );
+    
+    $statusMessage = 'Waiting for device to reconnect...';
+  }
+  
   function handleEditorChange(newValue: string) {
     editorContent = newValue;
     $hasUnsavedChanges = editorContent !== $currentConfigRaw;
