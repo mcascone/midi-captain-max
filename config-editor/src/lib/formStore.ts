@@ -111,18 +111,48 @@ function setNestedValue(obj: any, path: string, value: any) {
     
     if (arrayMatch) {
       const [, key, index] = arrayMatch;
-      current = current[key][parseInt(index)];
+      const idx = parseInt(index);
+      
+      // Check array exists and is valid
+      if (!current[key]) {
+        throw new Error(`Invalid path "${path}": ${key} does not exist`);
+      }
+      if (!Array.isArray(current[key])) {
+        throw new Error(`Invalid path "${path}": ${key} is not an array`);
+      }
+      if (idx < 0 || idx >= current[key].length) {
+        throw new Error(`Invalid path "${path}": index ${idx} out of bounds for ${key} (length ${current[key].length})`);
+      }
+      
+      current = current[key][idx];
     } else {
+      // Check object property exists
+      if (current[part] === undefined || current[part] === null) {
+        throw new Error(`Invalid path "${path}": ${part} does not exist`);
+      }
       current = current[part];
     }
   }
   
+  // Same checks for the last part
   const lastPart = parts[parts.length - 1];
   const arrayMatch = lastPart.match(/(\w+)\[(\d+)\]/);
   
   if (arrayMatch) {
     const [, key, index] = arrayMatch;
-    current[key][parseInt(index)] = value;
+    const idx = parseInt(index);
+    
+    if (!current[key]) {
+      throw new Error(`Invalid path "${path}": ${key} does not exist`);
+    }
+    if (!Array.isArray(current[key])) {
+      throw new Error(`Invalid path "${path}": ${key} is not an array`);
+    }
+    if (idx < 0 || idx >= current[key].length) {
+      throw new Error(`Invalid path "${path}": index ${idx} out of bounds for ${key} (length ${current[key].length})`);
+    }
+    
+    current[key][idx] = value;
   } else {
     current[lastPart] = value;
   }
