@@ -154,16 +154,21 @@
   async function resetDevice() {
     if (!$selectedDevice) return;
     
-    await message(
-      'To apply config changes, reset your MIDI Captain device:\n\n' +
-      '1. Unplug the USB cable\n' +
-      '2. Wait 2 seconds\n' +
-      '3. Plug it back in\n\n' +
-      'The device will restart with the new configuration.',
-      { title: 'Reset Device', kind: 'info' }
-    );
-    
-    $statusMessage = 'Waiting for device to reconnect...';
+    try {
+      await message(
+        'To apply config changes, reset your MIDI Captain device:\n\n' +
+        '1. Unplug the USB cable\n' +
+        '2. Wait 2 seconds\n' +
+        '3. Plug it back in\n\n' +
+        'The device will restart with the new configuration.',
+        { title: 'Reset Device', kind: 'info' }
+      );
+      
+      $statusMessage = 'Waiting for device to reconnect...';
+    } catch (e: any) {
+      console.error('Error showing reset dialog:', e);
+      $statusMessage = `Error showing dialog: ${e.message || e}`;
+    }
   }
   
   function handleEditorChange(newValue: string) {
