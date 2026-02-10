@@ -42,7 +42,7 @@
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist"
     },
-    "category": "DeveloperTool",
+    "category": "Music",
     "shortDescription": "Configure MIDI Captain foot controllers",
     "longDescription": "A configuration editor for Paint Audio MIDI Captain foot controllers. Edit button labels, MIDI CC mappings, colors, and more."
   }

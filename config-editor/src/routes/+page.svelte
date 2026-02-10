@@ -56,6 +56,23 @@
       if ($devices.length === 1) {
         await selectDevice($devices[0]);
       }
+      
+      // Add keyboard shortcut handler (⌘S to save)
+      const handleKeydown = async (e: KeyboardEvent) => {
+        if (e.metaKey && e.key === 's') {
+          e.preventDefault();
+          if ($selectedDevice && $hasUnsavedChanges) {
+            await saveToDevice();
+          }
+        }
+      };
+      
+      document.addEventListener('keydown', handleKeydown);
+      
+      // Clean up keyboard listener
+      return () => {
+        document.removeEventListener('keydown', handleKeydown);
+      };
     } catch (e: any) {
       $statusMessage = `Error initializing: ${e.message || e}`;
     }
