@@ -1,9 +1,9 @@
 {
   "device": "std10",
   "display": {
-    "button_text_size": "small",
+    "button_text_size": "medium",
     "status_text_size": "medium",
-    "expression_text_size": "small"
+    "expression_text_size": "medium"
   },
   "buttons": [
     {"label": "TSC", "cc": 20, "color": "green"},
