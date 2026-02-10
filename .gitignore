@@ -15,3 +15,6 @@ settings.toml
 # Local release bundles / copied device images
 dist/
 build/
+
+# Git worktrees
+.worktrees/
