@@ -251,10 +251,14 @@ export function setDevice(deviceType: DeviceType) {
     
     // First-time Mini6 initialization
     else if (deviceType === 'mini6' && !currentDevice) {
+      const buttons = state.config.buttons.slice(0, 6);
+      while (buttons.length < 6) {
+        buttons.push(createDefaultButton(buttons.length));
+      }
       newState.config = {
         ...state.config,
         device: 'mini6',
-        buttons: state.config.buttons.slice(0, 6),
+        buttons,
         encoder: state.config.encoder ? { ...state.config.encoder, enabled: false } : undefined,
       };
     }
