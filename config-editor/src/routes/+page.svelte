@@ -228,10 +228,17 @@
       {/if}
       <button 
         class="secondary"
-        onclick={resetChanges} 
-        disabled={!$selectedDevice || !$hasUnsavedChanges || $isLoading}
+        onclick={reloadFromDevice} 
+        disabled={!$selectedDevice || $isLoading}
       >
-        Reset
+        Reload
+      </button>
+      <button 
+        class="secondary"
+        onclick={resetDevice} 
+        disabled={!$selectedDevice || $isLoading}
+      >
+        Reset Device
       </button>
       <button 
         onclick={saveToDevice} 
