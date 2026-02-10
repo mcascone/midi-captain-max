@@ -1,0 +1,12 @@
+#!/bin/bash
+# Post-installation: make scripts executable, de-quarantine app, show instructions
+chmod +x /usr/local/bin/midicaptain-install 2>/dev/null || true
+chmod +x /usr/local/bin/midicaptain-deploy 2>/dev/null || true
+
+# De-quarantine the GUI app
+xattr -cr "/Applications/MIDI Captain Installer.app" 2>/dev/null || true
+
+# Open the installer app automatically
+open -a "/Applications/MIDI Captain Installer.app" 2>/dev/null || true
+
+exit 0
