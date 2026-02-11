@@ -37,7 +37,7 @@ import adafruit_midi
 from adafruit_midi.control_change import ControlChange
 
 # Import core modules (testable logic)
-from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color
+from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
 from core.config import load_config as _load_config_from_file, get_display_config
 from core.button import Switch
 
@@ -410,7 +410,7 @@ for i in range(BUTTON_COUNT):
 
     color_rgb = get_color(btn_config.get("color", "white"))
     off_mode = btn_config.get("off_mode", "dim")  # "dim" or "off"
-    off_color = get_off_color(color_rgb, off_mode)
+    off_color = get_off_color_for_display(color_rgb, off_mode)
 
     # Create box background with border
     box_bitmap = displayio.Bitmap(button_width, button_height, 2)
@@ -504,7 +504,7 @@ def set_button_state(switch_idx, on):
 
     # Update display
     if idx < len(button_labels):
-        color_hex = rgb_to_hex(color_rgb if on else get_off_color(color_rgb, off_mode))
+        color_hex = rgb_to_hex(color_rgb if on else get_off_color_for_display(color_rgb, off_mode))
         button_labels[idx].color = color_hex
         if idx < len(button_boxes):
             _, box_palette = button_boxes[idx]
