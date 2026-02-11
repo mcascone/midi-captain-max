@@ -164,3 +164,109 @@ jobs:
           path: dist/*.zip
           retention-days: 90
 
+  build-config-editor:
+    name: Build Config Editor
+    runs-on: macos-latest
+    timeout-minutes: 30
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Import code signing certificate
+        env:
+          MACOS_APPLICATION_CERT: ${{ secrets.MACOS_APPLICATION_CERT }}
+          MACOS_APPLICATION_CERT_PWD: ${{ secrets.MACOS_APPLICATION_CERT_PWD }}
+        run: |
+          # Skip if certificate not configured
+          if [ -z "$MACOS_APPLICATION_CERT" ]; then
+            echo "⚠️ Code signing certificate not configured - building unsigned" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          
+          # Import certificate
+          echo "$MACOS_APPLICATION_CERT" | base64 --decode > certificate.p12
+          security import certificate.p12 -k "$KEYCHAIN_PATH" \
+            -P "$MACOS_APPLICATION_CERT_PWD" -T /usr/bin/codesign
+          rm certificate.p12
+          
+          # Set as default keychain
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          
+          echo "✓ Code signing certificate imported" >> $GITHUB_STEP_SUMMARY
+
+      - name: Install frontend dependencies
+        run: |
+          cd config-editor
+          npm install
+
+      - name: Build Tauri app (universal binary)
+        env:
+          APPLE_SIGNING_IDENTITY: "Developer ID Application: Maximilian Cascone (9WNXKEF4SM)"
+        run: |
+          cd config-editor
+          npm run tauri build -- --target universal-apple-darwin
+          ls -lah src-tauri/target/universal-apple-darwin/release/bundle/
+
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Skip if notarization credentials not configured
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_PASSWORD" ]; then
+            echo "⚠️ Notarization credentials not configured - skipping" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
+          DMG_PATH=$(find config-editor/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -1)
+          if [ -z "$DMG_PATH" ]; then
+            echo "::error::DMG not found after build"
+            exit 1
+          fi
+          
+          echo "Notarizing: $DMG_PATH"
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          
+          echo "Stapling notarization ticket..."
+          xcrun stapler staple "$DMG_PATH"
+          echo "✓ DMG notarized and stapled" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: config-editor-dmg
+          path: config-editor/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          retention-days: 90
+
+      - name: Upload app bundle artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: config-editor-app
+          path: config-editor/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+          retention-days: 90
+

@@ -72,6 +72,15 @@ jobs:
           cp "dist/midicaptain-firmware-${VERSION}.zip" "dist/midi-captain-max-latest.zip"
           echo "✓ Latest zip: midi-captain-max-latest.zip" >> $GITHUB_STEP_SUMMARY
           
+          # Find and rename config editor DMG
+          DMG_FILE=$(find ci-artifacts -name "*.dmg" | head -1)
+          if [ -n "$DMG_FILE" ]; then
+            cp "$DMG_FILE" "dist/MIDI-Captain-MAX-Config-Editor-${VERSION}.dmg"
+            echo "✓ Config Editor DMG: MIDI-Captain-MAX-Config-Editor-${VERSION}.dmg" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::warning::Config Editor DMG not found in CI artifacts"
+          fi
+          
           ls -la dist/
 
       - name: Generate Release Note Header

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { message } from '@tauri-apps/plugin-dialog';
   import { 
     devices, selectedDevice, currentConfigRaw, 
@@ -10,9 +11,13 @@
     onDeviceConnected, onDeviceDisconnected 
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
-  import JsonEditor from '$lib/components/JsonEditor.svelte';
-
-  let editorContent = $state('');
+  import ConfigForm from '$lib/components/ConfigForm.svelte';
+  import DeviceSection from '$lib/components/DeviceSection.svelte';
+  import ButtonsSection from '$lib/components/ButtonsSection.svelte';
+  import EncoderSection from '$lib/components/EncoderSection.svelte';
+  import ExpressionSection from '$lib/components/ExpressionSection.svelte';
+  import DisplaySection from '$lib/components/DisplaySection.svelte';
+  import { loadConfig, validate, config } from '$lib/formStore';
   
   // Event listener cleanup functions
   let unlistenConnect: (() => void) | undefined;
@@ -22,6 +27,7 @@
     try {
       // Initial device scan
       $devices = await scanDevices();
+      console.log('Devices found:', $devices);
       
       // Start watching for device changes
       await startDeviceWatcher();
@@ -48,14 +54,17 @@
             
             try {
               const configRaw = await readConfigRaw(device.config_path);
+              const configObj = JSON.parse(configRaw);
+              
+              // Load into form store
+              loadConfig(configObj);
+              
               $currentConfigRaw = configRaw;
-              editorContent = configRaw;
               $hasUnsavedChanges = false;
               $validationErrors = [];
               $statusMessage = 'Config reloaded from device';
             } catch (e: any) {
               $currentConfigRaw = '';
-              editorContent = '';
               $statusMessage = `Error loading config: ${e.message || e}`;
             } finally {
               $isLoading = false;
@@ -118,6 +127,8 @@
   });
   
   async function selectDevice(device: DetectedDevice) {
+    console.log('selectDevice called with:', device);
+    
     if ($hasUnsavedChanges) {
       if (!confirm('You have unsaved changes. Discard them?')) {
         return;
@@ -129,16 +140,27 @@
     
     try {
       if (device.has_config) {
-        $currentConfigRaw = await readConfigRaw(device.config_path);
-        editorContent = $currentConfigRaw;
+        console.log('Reading config from:', device.config_path);
+        const configRaw = await readConfigRaw(device.config_path);
+        console.log('Config raw loaded, length:', configRaw.length);
+        const configObj = JSON.parse(configRaw);
+        console.log('Config parsed:', configObj);
+        
+        // Load into form store
+        loadConfig(configObj);
+        console.log('Config loaded into form store');
+        
+        $currentConfigRaw = configRaw;
+        $hasUnsavedChanges = false;
+        $validationErrors = [];
+        $statusMessage = 'Config loaded successfully';
       } else {
+        console.log('No config found on device');
         $currentConfigRaw = '';
-        editorContent = '';
         $statusMessage = 'No config.json found on device';
       }
-      $hasUnsavedChanges = false;
-      $validationErrors = [];
     } catch (e: any) {
+      console.error('Error loading config:', e);
       $statusMessage = `Error reading config: ${e.message || e}`;
     } finally {
       $isLoading = false;
@@ -148,36 +170,61 @@
   async function saveToDevice() {
     if (!$selectedDevice) return;
     
+    const isValid = validate();
+    if (!isValid) {
+      await message('Please fix validation errors before saving', { 
+        title: 'Validation Error', 
+        kind: 'error' 
+      });
+      return;
+    }
+    
     $isLoading = true;
+    
     try {
-      await writeConfigRaw($selectedDevice.config_path, editorContent);
-      $currentConfigRaw = editorContent;
+      const configObj = get(config);
+      const configJson = JSON.stringify(configObj, null, 2);
+      
+      await writeConfigRaw($selectedDevice.config_path, configJson);
+      
+      $currentConfigRaw = configJson;
       $hasUnsavedChanges = false;
-      $validationErrors = [];
-      $statusMessage = 'Config saved to device!';
+      $statusMessage = 'Config saved successfully';
+      
+      await message('Config saved to device successfully!', { 
+        title: 'Success', 
+        kind: 'info' 
+      });
     } catch (e: any) {
-      if (e.details) {
-        $validationErrors = e.details;
-      }
-      $statusMessage = `Error: ${e.message || e}`;
+      $statusMessage = `Error saving config: ${e.message || e}`;
+      await message($statusMessage, { title: 'Error', kind: 'error' });
     } finally {
       $isLoading = false;
     }
   }
   
   async function reloadFromDevice() {
+    console.log('reloadFromDevice called, selectedDevice:', $selectedDevice);
     if (!$selectedDevice) return;
     
     $isLoading = true;
     try {
       if ($selectedDevice.has_config) {
-        $currentConfigRaw = await readConfigRaw($selectedDevice.config_path);
-        editorContent = $currentConfigRaw;
+        console.log('Reloading config from:', $selectedDevice.config_path);
+        const configRaw = await readConfigRaw($selectedDevice.config_path);
+        console.log('Config reloaded, length:', configRaw.length);
+        const configObj = JSON.parse(configRaw);
+        
+        // Load into form store
+        loadConfig(configObj);
+        
+        $currentConfigRaw = configRaw;
         $hasUnsavedChanges = false;
         $validationErrors = [];
         $statusMessage = 'Config reloaded from device';
       }
     } catch (e: any) {
+      console.error('Error reloading config:', e);
       $statusMessage = `Error reloading config: ${e.message || e}`;
     } finally {
       $isLoading = false;
@@ -206,7 +253,7 @@
   
   function handleEditorChange(newValue: string) {
     editorContent = newValue;
-    $hasUnsavedChanges = editorContent !== $currentConfigRaw;
+    $hasUnsavedChanges = newValue !== $currentConfigRaw;
   }
 </script>
 
@@ -234,15 +281,20 @@
   </header>
   
   <div class="editor-container">
-    {#if $selectedDevice}
-      <JsonEditor 
-        value={editorContent} 
-        onchange={handleEditorChange}
-      />
+    {#if $selectedDevice && !$isLoading}
+      <ConfigForm onSave={saveToDevice}>
+        <DeviceSection />
+        <ButtonsSection />
+        <EncoderSection />
+        <ExpressionSection />
+        <DisplaySection />
+      </ConfigForm>
+    {:else if $isLoading}
+      <div class="loading">Loading config...</div>
     {:else}
-      <div class="placeholder">
-        <p>Connect a MIDI Captain device or select one from the dropdown.</p>
-        <p>Watching for devices: CIRCUITPY, MIDICAPTAIN</p>
+      <div class="no-device">
+        <p>No device selected</p>
+        <p>Connect a MIDI Captain device and select it above</p>
       </div>
     {/if}
   </div>
@@ -277,12 +329,6 @@
         disabled={!$selectedDevice || $isLoading}
       >
         Reset Device
-      </button>
-      <button 
-        onclick={saveToDevice} 
-        disabled={!$selectedDevice || !$hasUnsavedChanges || $isLoading}
-      >
-        Save to Device
       </button>
     </div>
   </footer>
@@ -371,15 +417,6 @@
     flex: 1;
     padding: 20px;
     overflow: hidden;
-  }
-  
-  .placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--text-secondary);
   }
   
   .errors {
