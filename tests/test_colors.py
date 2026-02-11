@@ -56,18 +56,44 @@ class TestDimColor:
 
 class TestRgbToHex:
     """Tests for rgb_to_hex function."""
-    
+
     def test_red(self):
         assert rgb_to_hex((255, 0, 0)) == 0xFF0000
-    
+
     def test_green(self):
         assert rgb_to_hex((0, 255, 0)) == 0x00FF00
-    
+
     def test_blue(self):
         assert rgb_to_hex((0, 0, 255)) == 0x0000FF
-    
+
     def test_white(self):
         assert rgb_to_hex((255, 255, 255)) == 0xFFFFFF
-    
+
     def test_mixed(self):
         assert rgb_to_hex((128, 64, 32)) == 0x804020
+
+
+class TestGetOffColor:
+    """Tests for get_off_color function."""
+
+    def test_off_mode_returns_dim_not_black(self):
+        """Off mode should return dim color for visibility, not complete black."""
+        color = (255, 0, 0)  # Red
+        result = get_off_color(color, off_mode="off")
+        # Should be dim red, not black
+        assert result == dim_color(color)
+        assert result != (0, 0, 0)
+
+    def test_dim_mode_returns_dim_color(self):
+        """Dim mode should return dim color."""
+        color = (0, 255, 0)  # Green
+        result = get_off_color(color, off_mode="dim")
+        assert result == dim_color(color)
+
+    def test_off_mode_white_stays_visible(self):
+        """White button in off mode should still be visible."""
+        color = (255, 255, 255)  # White
+        result = get_off_color(color, off_mode="off")
+        expected_dim = (38, 38, 38)  # dim_color default factor 0.15
+        assert result == expected_dim
+        assert result != (0, 0, 0)

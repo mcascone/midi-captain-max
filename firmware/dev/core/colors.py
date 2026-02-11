@@ -58,14 +58,14 @@ def rgb_to_hex(rgb):
 
 def get_off_color(color_rgb, off_mode="dim"):
     """Get the color to use when button is off.
-    
+
     Args:
         color_rgb: The button's on-state RGB color
-        off_mode: "dim" for dimmed color, "off" for completely off
-        
+        off_mode: "dim" for dimmed color, "off" for dimmed color (labels stay visible)
+
     Returns:
-        RGB tuple for the off state
+        RGB tuple for the off state (always dimmed for visibility)
     """
-    if off_mode == "off":
-        return (0, 0, 0)
+    # Always return dim color to keep labels visible on display
+    # Both "dim" and "off" modes now show dim labels
     return dim_color(color_rgb)
