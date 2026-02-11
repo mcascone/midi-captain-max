@@ -250,6 +250,11 @@
       $statusMessage = `Error showing dialog: ${e.message || e}`;
     }
   }
+  
+  function handleEditorChange(newValue: string) {
+    editorContent = newValue;
+    $hasUnsavedChanges = newValue !== $currentConfigRaw;
+  }
 </script>
 
 <main>
