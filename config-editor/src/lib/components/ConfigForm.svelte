@@ -129,25 +129,6 @@
   </div>
 {/if}
 
-<!-- JSON Modal -->
-{#if showJsonModal}
-  <div class="modal-backdrop" onclick={closeJsonModal}>
-    <div class="modal-content" onclick={(e) => e.stopPropagation()}>
-      <div class="modal-header">
-        <h2>Current Configuration (JSON)</h2>
-        <button class="close-btn" onclick={closeJsonModal}>✕</button>
-      </div>
-      <div class="modal-body">
-        <pre class="json-display">{jsonText}</pre>
-      </div>
-      <div class="modal-footer">
-        <button class="toolbar-btn secondary" onclick={copyJsonToClipboard}>Copy to Clipboard</button>
-        <button class="toolbar-btn" onclick={closeJsonModal}>Close</button>
-      </div>
-    </div>
-  </div>
-{/if}
-
 <style>
   .config-form {
     display: flex;

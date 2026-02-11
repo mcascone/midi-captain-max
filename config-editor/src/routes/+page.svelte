@@ -325,12 +325,6 @@
       >
         Reset Device
       </button>
-      <button 
-        onclick={saveToDevice} 
-        disabled={!$selectedDevice || !$hasUnsavedChanges || $isLoading}
-      >
-        Save to Device
-      </button>
     </div>
   </footer>
 </main>
