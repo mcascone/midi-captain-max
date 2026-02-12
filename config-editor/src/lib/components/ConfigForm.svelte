@@ -275,6 +275,7 @@
     overflow-x: auto;
     margin: 0;
     white-space: pre;
+    color: var(--color-text);
   }
 
   .modal-footer {
