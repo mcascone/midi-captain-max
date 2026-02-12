@@ -121,6 +121,11 @@ jobs:
           echo "Compiled .py → .mpy:"
           ls -la core/ devices/
 
+      - name: Write VERSION file
+        run: |
+          VERSION="${{ needs.lint.outputs.version }}"
+          echo "$VERSION" > firmware/dev/VERSION
+
       - name: Generate firmware manifest
         run: |
           cd firmware/dev
@@ -151,6 +156,7 @@ jobs:
             fonts/ \
             lib/ \
             firmware.md5 \
+            VERSION \
             -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"
           cd ../..
           # Add deploy script to root of zip (using -j to strip path)

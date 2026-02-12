@@ -1,14 +1,52 @@
 MIDI Captain MAX — Firmware Installation
 ========================================
 
-1. Connect your MIDI Captain to your computer via USB.
-2. Wait for it to mount as a drive (CIRCUITPY or MIDICAPTAIN).
-3. Copy ALL files and folders from this zip to the device drive,
-   replacing any existing files.
-4. The device will restart automatically after the copy completes.
-   If it doesn't, unplug and replug USB.
+Prerequisites:
+  - CircuitPython 7.x installed on your device
+  - Device connected via USB and mounted as CIRCUITPY or MIDICAPTAIN
+
+Recommended: Use deploy.sh (macOS/Linux)
+------------------------------------------------
+
+  First install (includes CircuitPython libraries):
+
+    ./deploy.sh --install
+
+  Update existing firmware:
+
+    ./deploy.sh
+
+  Options:
+    --install     Full install with CircuitPython libraries
+    --eject       Eject device after deploy (forces clean reload)
+    --fresh       Overwrite config.json with default
+    --libs-only   Only install CircuitPython libraries
+
+  deploy.sh auto-detects your device type and preserves your
+  existing config.json (button mappings, colors, etc.).
+
+Manual Installation (Windows or if deploy.sh is unavailable)
+------------------------------------------------
+
+  1. Connect your MIDI Captain via USB.
+  2. Hold Button 1 (upper-left switch) while powering on.
+  3. Copy ALL files and folders to the device drive,
+     replacing existing files.
+  4. The device restarts automatically after the copy completes.
+     If not, unplug and replug USB.
+
+  Important: If you have a custom config.json with your own
+  button mappings, keep your existing one — don't overwrite it.
+
+Recovery
+------------------------------------------------
+
+  If the device ends up in a bad state, it's fully recoverable:
+  mount the device again, erase the contents, and copy the
+  firmware files again.
 
 Files included:
+  deploy.sh        Installation script (recommended)
   code.py          Main firmware entry point
   boot.py          Startup configuration
   config.json      Default config (STD10)
@@ -16,9 +54,5 @@ Files included:
   core/            Firmware modules
   devices/         Hardware definitions
   fonts/           Display fonts
-  lib/             CircuitPython libraries (included, no separate install needed)
-
-Note: If you already have a config.json on your device with
-custom button mappings, don't overwrite it — keep your existing one.
-
-The firmware auto-detects your device type (STD10 or Mini6).
+  lib/             CircuitPython libraries
+  VERSION          Firmware version identifier

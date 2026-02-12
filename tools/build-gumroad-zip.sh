@@ -62,6 +62,10 @@ for f in "$STAGE_DIR/firmware/core"/__init__.py \
 done
 rm -f "$STAGE_DIR/firmware/devices/__init__.py"
 
+# ---- WRITE VERSION FILE ----
+VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+echo "$VERSION" > "$STAGE_DIR/firmware/VERSION"
+
 # ---- GENERATE FIRMWARE MANIFEST ----
 (cd "$STAGE_DIR/firmware" && find . -type f -not -name "firmware.md5" | sort | xargs md5sum > firmware.md5)
 

@@ -165,7 +165,16 @@ DEVICE_TYPE = DETECTED_DEVICE  # For compatibility
 # Version
 # =============================================================================
 
-VERSION = "1.0.0-alpha.3"
+
+def _read_version():
+    try:
+        with open("/VERSION", "r") as f:
+            return f.read().strip()
+    except Exception:
+        return "dev"
+
+
+VERSION = _read_version()
 print(f"Version: {VERSION}")
 
 # =============================================================================

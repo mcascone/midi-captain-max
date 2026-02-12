@@ -282,6 +282,12 @@ rsync -av --checksum --inplace --itemize-changes \
     "$DEV_DIR/code.py" \
     "$MOUNT_POINT/"
 
+# 6. Write VERSION file for firmware version display
+VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+echo "$VERSION" > "$MOUNT_POINT/VERSION"
+echo "$VERSION" > "$DEV_DIR/VERSION"
+echo "📌 Version: $VERSION"
+
 # Sync filesystem
 sync
 
