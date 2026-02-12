@@ -28,7 +28,7 @@ This repository creates **custom CircuitPython firmware** for Paint Audio MIDI C
 
 ### Primary Goals
 - **Bidirectional MIDI sync** — host controls LEDs/LCD state, device sends switch/encoder events
-- **Config-driven mapping** — YAML-based configuration for MIDI assignments and UI layouts
+- **Config-driven mapping** — JSON configuration for MIDI assignments and UI layouts
 - **Multi-device support** — STD10 (10-switch) and Mini6 (6-switch) primary targets
 - **Hybrid state model** — local toggle for instant feedback, host-authoritative when it speaks
 - **Clean architecture** — device abstraction layer, separation of concerns, testable components
@@ -59,7 +59,7 @@ These decisions were made during the 2026-01-23 brainstorming session:
 | **Source of truth** | Hybrid | Local state for instant feedback, host overrides when it speaks |
 | **MIDI types** | CC + PC + SysEx + Notes | Full protocol support; Notes enable tuner display |
 | **Display MVP** | Button label slots | Each switch gets a labeled area; center status area later |
-| **Config format** | YAML | Standard, predictable, web-tool-friendly |
+| **Config format** | JSON | Standard, predictable, web-tool-friendly (originally planned YAML, shipped JSON) |
 | **Architecture** | Polling loop | Polling-based main loop (asyncio unavailable in CP 7.x) |
 | **Button modes** | All | Momentary, toggle, long-press, tap tempo (phased rollout) |
 
@@ -114,8 +114,12 @@ All code in `firmware/original_helmut/` is authored by **Helmut Keller** and mus
 | `firmware/dev/` | Active development — refactored code goes here |
 | `firmware/dev/devices/` | Device abstraction modules (std10.py, mini6.py) |
 | `firmware/dev/experiments/` | Throwaway experiments and proof-of-concepts |
-| `firmware/dev/core/` | Core modules (planned: button.py, led.py, display.py, etc.) |
+| `firmware/dev/core/` | Core modules (button.py, config.py, colors.py) |
+| `firmware/dev/fonts/` | PCF display fonts (PTSans variants) |
 | `firmware/dev/lib/` | CircuitPython libraries (CP 7.x `.mpy` format, from bundle `20230718`) |
+| `config-editor/` | Config editor app (Tauri + SvelteKit) |
+| `tests/` | pytest test suite with CircuitPython hardware mocks |
+| `tests/mocks/` | Mock modules for board, digitalio, neopixel, etc. |
 | `docs/` | Architecture notes, MIDI protocol docs, hardware findings |
 | `docs/plans/` | Design documents and implementation plans |
 | `tools/` | Helper scripts (packaging, validation, deployment) |
@@ -148,8 +152,8 @@ All code in `firmware/original_helmut/` is authored by **Helmut Keller** and mus
   - Lints code with Ruff (ignores E501, F401, E402 for CircuitPython compatibility)
   - Validates Python syntax
   - Writes `VERSION` file into firmware zip from git tag/describe
+  - Runs pytest suite (`tests/`)
   - Uses `requirements-dev.txt` for dependencies
-  - Future: Unit tests with pytest + blinka
 - **Release workflow** (`.github/workflows/release.yml`): Triggered by version tags
   - Packages `firmware/dev/` into a zip (excludes `experiments/`, `__pycache__/`)
   - Creates GitHub Release with artifacts
@@ -162,13 +166,13 @@ git push origin v1.0.0-alpha.1
 ```
 
 ### Dependencies
-- **`requirements-dev.txt`**: CI/dev tools (ruff, future pytest/blinka)
+- **`requirements-dev.txt`**: CI/dev tools (ruff, pytest)
 - **`requirements-circuitpython.txt`**: On-device libraries for `circup install -r`
 
 ### Configuration
-- **YAML** for user-facing configuration (MIDI mappings, layouts, device settings)
+- **JSON** for user-facing configuration (MIDI mappings, layouts, device settings)
 - Keep config schema documented and validated
-- Design with future web/app config tool in mind
+- Config editor app in `config-editor/` (Tauri + SvelteKit)
 
 ---
 
@@ -253,21 +257,17 @@ All 3 distribution paths must include the same set of files and write the `VERSI
 3. `tools/build-gumroad-zip.sh` — Gumroad distribution (writes `VERSION` via `git describe`)
 
 ```bash
-# Quick dev deploy (dependencies first, code.py last):
-./tools/deploy.sh /Volumes/MIDICAPTAIN
+./tools/deploy.sh                   # Quick deploy (auto-detects mount point)
+./tools/deploy.sh --install          # Full install with CircuitPython libraries
+./tools/deploy.sh --eject            # Deploy + eject (forces clean reload)
+./tools/deploy.sh /Volumes/MIDICAPT  # Custom mount point
 ```
 
-### Desktop Testing (Future)
-Options for RP2040/CircuitPython simulation and mocking:
-
-| Tool | Description | Use Case |
-|------|-------------|----------|
-| **Wokwi** | Browser-based RP2040 simulator | Quick prototyping, visual debugging |
-| **QEMU (RP2040 fork)** | Full hardware emulation | Automated CI testing |
-| **pytest + mocks** | Python unit tests with hardware mocks | Logic testing without hardware |
-| **blinka** | Adafruit's CircuitPython compatibility layer | Run CP code on desktop Python |
-
-Recommended approach: Use `blinka` + `pytest` for unit testing core logic, on-device testing for integration.
+### Desktop Testing
+- **pytest** with CircuitPython hardware mocks in `tests/mocks/`
+- Mocks cover: `board`, `digitalio`, `neopixel`, `displayio`, `busio`, `rotaryio`, `analogio`, `usb_midi`, `terminalio`
+- Tests: `test_button_state.py`, `test_config.py`, `test_colors.py`, `test_neopixel_mock.py`, `test_switch_mock.py`
+- Run: `pytest` from project root
 
 ---
 
@@ -324,10 +324,10 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [x] Mini6 device module (`devices/mini6.py`)
 - [x] Auto-detect device type at runtime
 - [x] CI/CD: Build firmware zip on every push, release on tag
-- [ ] Complete YAML config schema
+- [ ] Complete JSON config schema
 
 ### Future
-- [ ] Web-based configuration tool
+- [ ] Config editor app (in progress — `config-editor/`)
 - [ ] Support for 1/2/4-switch variants
 - [ ] Custom display layouts
 - [ ] SysEx protocol documentation
@@ -342,17 +342,19 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 
 | Path | Purpose |
 |------|---------|
-| `firmware/original_helmut/code.py` | Helmut's original firmware (reference only) |
 | `firmware/dev/code.py` | **Active**: Unified firmware with config, display, bidirectional MIDI |
 | `firmware/dev/boot.py` | Disables autoreload for stage reliability |
 | `firmware/dev/config.json` | STD10 default config (button labels, CC numbers, colors) |
 | `firmware/dev/config-mini6.json` | Mini6 template config (copy to device as config.json) |
+| `firmware/dev/VERSION` | Firmware version (generated, gitignored) |
 | `firmware/dev/core/config.py` | Config loading and validation |
 | `firmware/dev/core/button.py` | Switch and ButtonState classes |
-| `firmware/dev/VERSION` | Firmware version (generated, gitignored) |
 | `firmware/dev/core/colors.py` | Color palette and utilities |
 | `firmware/dev/devices/std10.py` | STD10 hardware constants |
 | `firmware/dev/devices/mini6.py` | Mini6 hardware constants |
+| `firmware/original_helmut/code.py` | Helmut's original firmware (reference only) |
+| `tools/deploy.sh` | Dev deploy to device (rsync, VERSION, device detection) |
+| `tools/build-gumroad-zip.sh` | Build Gumroad distribution zip |
 | `docs/hardware-reference.md` | Verified hardware specs, auto-detection docs |
 | `docs/screen-cheatsheet.md` | Serial console (screen) usage guide |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
