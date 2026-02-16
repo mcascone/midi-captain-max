@@ -321,3 +321,19 @@ jobs:
           path: config-editor/src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 90
 
+      - name: Build summary
+        shell: bash
+        run: |
+          echo "## Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✓ Successfully built Config Editor for Windows" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- **MSI Installer** (Windows Installer format)" >> $GITHUB_STEP_SUMMARY
+          echo "- **NSIS Installer** (Setup executable format)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Builds are unsigned. Users will see Windows SmartScreen warning." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See \`docs/windows-build.md\` for code signing setup." >> $GITHUB_STEP_SUMMARY
+
