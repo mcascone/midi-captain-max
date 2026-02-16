@@ -91,7 +91,9 @@ jobs:
           fi
           
           # Find and rename config editor NSIS installer (Windows)
-          NSIS_FILE=$(find ci-artifacts -name "MIDI-Captain-MAX-Config-Editor*-setup.exe" -o -name "*config-editor*-setup.exe" | head -1)
+          # Tauri generates filename from productName: "MIDI Captain MAX Config Editor"
+          # Spaces are replaced with hyphens in the output filename
+          NSIS_FILE=$(find ci-artifacts -name "*Config-Editor*-setup.exe" | head -1)
           if [ -n "$NSIS_FILE" ]; then
             cp "$NSIS_FILE" "dist/MIDI-Captain-MAX-Config-Editor-${VERSION}-setup.exe"
             echo "✓ Config Editor NSIS: MIDI-Captain-MAX-Config-Editor-${VERSION}-setup.exe" >> $GITHUB_STEP_SUMMARY

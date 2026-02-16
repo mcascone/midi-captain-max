@@ -26,8 +26,7 @@ File: `config-editor/src-tauri/tauri.conf.json`
     "targets": "all",
     "windows": {
       "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "digestAlgorithm": "sha256"
     }
   }
 }
@@ -37,7 +36,6 @@ File: `config-editor/src-tauri/tauri.conf.json`
 - `targets: "all"` — Build all supported formats for the current platform
 - `certificateThumbprint: null` — No code signing certificate configured (unsigned builds)
 - `digestAlgorithm: "sha256"` — Hash algorithm for file integrity
-- `timestampUrl: ""` — No timestamp server (not needed for unsigned builds)
 
 ### CI Workflow
 
