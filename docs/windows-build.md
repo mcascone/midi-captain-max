@@ -175,9 +175,11 @@ To sign Windows builds, configure:
 3. **Update workflow:**
    ```yaml
    - name: Import code signing certificate
+     shell: pwsh
      run: |
-       echo "${{ secrets.WINDOWS_CERTIFICATE }}" | base64 -d > cert.pfx
-       # Sign with signtool.exe
+       $pfx = [Convert]::FromBase64String("${{ secrets.WINDOWS_CERTIFICATE }}")
+       [IO.File]::WriteAllBytes("$pwd\cert.pfx", $pfx)
+       # Certificate will be automatically used by Tauri build
    ```
 
 4. **Update tauri.conf.json:**
