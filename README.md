@@ -42,9 +42,24 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 
 The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration easy:
 
-1. Download `MIDI-Captain-MAX-Config-Editor-[version].dmg` from [Releases](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
-2. Open the DMG and drag the app to your Applications folder
-3. Launch the app and connect your MIDI Captain
+**Download for your platform:**
+- **macOS:** `MIDI-Captain-MAX-Config-Editor-[version].dmg`
+- **Windows:** `MIDI-Captain-MAX-Config-Editor-[version].msi` or `MIDI-Captain-MAX-Config-Editor-[version]-setup.exe`
+
+Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
+
+**Installation:**
+
+*macOS:*
+1. Open the DMG and drag the app to your Applications folder
+2. Launch the app and connect your MIDI Captain
+3. Edit button labels, CC numbers, and colors using the visual editor
+4. Save directly to the device
+
+*Windows:*
+1. Run the MSI installer or setup.exe
+2. Launch the app from the Start Menu
+3. Connect your MIDI Captain
 4. Edit button labels, CC numbers, and colors using the visual editor
 5. Save directly to the device
 
