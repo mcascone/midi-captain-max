@@ -50,29 +50,34 @@ The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration
 
 Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
 
-**Installation:**
+## Installation
 
-*macOS:*
+### macOS
 1. Open the DMG and drag the app to your Applications folder
+
+
+### Windows
+1. Run the MSI installer or setup.exe
+2. At this time, Windows builds are unsigned. Users will see a Windows SmartScreen warning.
+3. To continue installation, click "More Info" --> "Run Anyway".
+    - Signing certificates will be obtained in the near future.
+
+## Usage
+
 2. Launch the app and connect your MIDI Captain
 3. Edit button labels, CC numbers, and colors using the visual editor
-4. Save directly to the device
+4. Save directly to the device.
+5. Power cycle the device to load the new settings.
 
-*Windows:*
-1. Run the MSI installer or setup.exe
-2. Launch the app from the Start Menu
-3. Connect your MIDI Captain
-4. Edit button labels, CC numbers, and colors using the visual editor
-5. Save directly to the device
+# Features
 
-**Features:**
 - 🖱️ **Visual editing** — No JSON syntax to learn
 - ✅ **Real-time validation** — Catch errors before saving
 - 🎨 **Color picker** — Visual color selection
 - 💾 **Auto-save** — Changes saved automatically to device
 - 🔍 **Device detection** — Automatically detects connected MIDI Captain
 
-### Manual Configuration
+## Manual Configuration
 
 You can also edit `config.json` directly on the device:
 
@@ -132,17 +137,19 @@ Send CC 20-29 with value 0 or 127 to set button state:
 | `docs/` | Hardware specs, design docs |
 | `tools/` | Helper scripts |
 
-## Attribution
-
-This project builds on work by **Helmut Keller** ([hfrk.de](https://hfrk.de)), whose original firmware demonstrated bidirectional MIDI on the MIDI Captain. His code is preserved in `firmware/original_helmut/` as a reference.
-
 ## License
 
 Copyright © 2026 Maximilian Cascone. All rights reserved.
 
 You may use this firmware freely for personal or commercial performances. Redistribution of modified versions requires permission. See [LICENSE](LICENSE) for details.
 
+## Attribution
+
+This project builds on work by **Helmut Keller** ([hfrk.de](https://hfrk.de)), whose original firmware demonstrated bidirectional MIDI on the MIDI Captain. His code is preserved in `firmware/original_helmut/` as a reference.
+
 ---
 
-**Questions?** Open an issue or check [AGENTS.md](AGENTS.md) for developer documentation.
+## Questions, Comments, Suggestions are welcome
+
+[Open an issue](https://github.com/MC-Music-Workshop/midi-captain-max/issues) or check [AGENTS.md](AGENTS.md) for developer documentation.
 
