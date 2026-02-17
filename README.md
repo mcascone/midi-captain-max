@@ -1,5 +1,7 @@
 # MIDI Captain Custom Firmware
 
+[![CI](https://github.com/MC-Music-Workshop/midi-captain-max/actions/workflows/ci.yml/badge.svg)](https://github.com/MC-Music-Workshop/midi-captain-max/actions/workflows/ci.yml)
+
 **Bidirectional, config-driven CircuitPython firmware for Paint Audio MIDI Captain foot controllers.**
 
 > ⚠️ **Beta Release** — Core features working, more coming soon.
