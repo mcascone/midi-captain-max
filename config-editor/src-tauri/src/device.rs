@@ -1,5 +1,6 @@
 //! Device detection via volume mounting
 
+#[cfg(not(target_os = "windows"))]
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher, Event, EventKind};
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Sender, Receiver};
@@ -221,8 +222,9 @@ fn start_windows_watcher(app: AppHandle) -> Result<(), String> {
             // Check for newly connected devices
             for device in current_devices {
                 if !known_devices.contains(&device.name) {
+                    let name = device.name.clone();
                     let _ = app.emit("device-connected", device);
-                    known_devices.insert(device.name);
+                    known_devices.insert(name);
                 }
             }
             
