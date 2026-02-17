@@ -1,8 +1,10 @@
 # MIDI Captain Custom Firmware
 
+[![CI](https://github.com/MC-Music-Workshop/midi-captain-max/actions/workflows/ci.yml/badge.svg)](https://github.com/MC-Music-Workshop/midi-captain-max/actions/workflows/ci.yml)
+
 **Bidirectional, config-driven CircuitPython firmware for Paint Audio MIDI Captain foot controllers.**
 
-> ⚠️ **Alpha Release** — Core features working, more coming soon.
+> ⚠️ **Beta Release** — Core features working, more coming soon.
 
 ## What It Does
 
@@ -62,9 +64,6 @@ Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi
 3. Connect your MIDI Captain
 4. Edit button labels, CC numbers, and colors using the visual editor
 5. Save directly to the device
-
-**First Launch (macOS):**
-If you see a Gatekeeper warning, right-click the app and select "Open", then click "Open" in the dialog. This only needs to be done once.
 
 **Features:**
 - 🖱️ **Visual editing** — No JSON syntax to learn
