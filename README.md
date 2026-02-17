@@ -2,7 +2,7 @@
 
 **Bidirectional, config-driven CircuitPython firmware for Paint Audio MIDI Captain foot controllers.**
 
-> ⚠️ **Alpha Release** — Core features working, more coming soon.
+> ⚠️ **Beta Release** — Core features working, more coming soon.
 
 ## What It Does
 
@@ -47,9 +47,6 @@ The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration
 3. Launch the app and connect your MIDI Captain
 4. Edit button labels, CC numbers, and colors using the visual editor
 5. Save directly to the device
-
-**First Launch (macOS):**
-If you see a Gatekeeper warning, right-click the app and select "Open", then click "Open" in the dialog. This only needs to be done once.
 
 **Features:**
 - 🖱️ **Visual editing** — No JSON syntax to learn
