@@ -2,14 +2,70 @@
 
 use crate::config::MidiCaptainConfig;
 use std::fs::{self, File};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::command;
 
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 
-/// Known device volume prefixes (for path validation)
-const VALID_VOLUME_PREFIXES: &[&str] = &["/Volumes/CIRCUITPY", "/Volumes/MIDICAPTAIN"];
+/// Known device volume names (for validation)
+const DEVICE_VOLUMES: &[&str] = &["CIRCUITPY", "MIDICAPTAIN"];
+
+/// Get volume name for a path (cross-platform)
+#[cfg(target_os = "windows")]
+fn get_path_volume_name(path: &Path) -> Option<String> {
+    use std::os::windows::ffi::OsStrExt;
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+    
+    // Get the root path (e.g., "C:\" from "C:\Users\...")
+    let mut components = path.components();
+    let root = components.next()?;
+    let root_path = PathBuf::from(root.as_os_str());
+    let root_str = format!("{}\\", root_path.display());
+    
+    let mut volume_name: Vec<u16> = vec![0; 261];
+    
+    unsafe {
+        let root_wide: Vec<u16> = OsString::from(&root_str)
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
+        
+        let result = winapi::um::fileapi::GetVolumeInformationW(
+            root_wide.as_ptr(),
+            volume_name.as_mut_ptr(),
+            volume_name.len() as winapi::shared::minwindef::DWORD,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            0,
+        );
+        
+        if result != 0 {
+            let len = volume_name.iter().position(|&c| c == 0).unwrap_or(volume_name.len());
+            let name = OsString::from_wide(&volume_name[..len]);
+            return name.into_string().ok();
+        }
+    }
+    
+    None
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_path_volume_name(path: &Path) -> Option<String> {
+    // On Unix, find the volume under /Volumes/ or /media/
+    for ancestor in path.ancestors() {
+        if let Some(parent) = ancestor.parent() {
+            let parent_str = parent.to_string_lossy();
+            if parent_str == "/Volumes" || parent_str.starts_with("/media/") || parent_str.starts_with("/run/media/") {
+                return ancestor.file_name()?.to_str().map(|s| s.to_string());
+            }
+        }
+    }
+    None
+}
 
 /// Error type for config operations
 #[derive(Debug, serde::Serialize)]
@@ -42,17 +98,20 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
     let path = Path::new(path);
     
     // Canonicalize to resolve any .. or symlinks
-    let canonical = path.canonicalize().map_err(|_| ConfigError {
-        message: "Invalid path: could not resolve".to_string(),
+    let canonical = path.canonicalize().map_err(|e| ConfigError {
+        message: format!("Input watch path is neither a file nor a directory: {}", e),
         details: None,
     })?;
     
-    let path_str = canonical.to_string_lossy();
+    // Check if the path is on a valid device volume
+    let volume_name = get_path_volume_name(&canonical).ok_or_else(|| ConfigError {
+        message: "Could not determine volume name for path".to_string(),
+        details: None,
+    })?;
     
-    // Check if path starts with a valid volume prefix
-    if !VALID_VOLUME_PREFIXES.iter().any(|prefix| path_str.starts_with(prefix)) {
+    if !DEVICE_VOLUMES.iter().any(|v| volume_name.eq_ignore_ascii_case(v)) {
         return Err(ConfigError {
-            message: "Path must be on a MIDI Captain device (CIRCUITPY or MIDICAPTAIN volume)".to_string(),
+            message: format!("Path must be on a MIDI Captain device (CIRCUITPY or MIDICAPTAIN volume), found: {}", volume_name),
             details: None,
         });
     }
@@ -80,10 +139,30 @@ fn is_volume_mounted(volume_path: &Path) -> bool {
     volume_path.exists()
 }
 
-/// Get the volume path from a file path (e.g., /Volumes/CIRCUITPY from /Volumes/CIRCUITPY/config.json)
-fn get_volume_path(path: &Path) -> Option<std::path::PathBuf> {
+/// Get the volume/drive root path from a file path
+/// e.g., /Volumes/CIRCUITPY from /Volumes/CIRCUITPY/config.json on macOS
+/// or C:\ from C:\config.json on Windows
+#[cfg(target_os = "windows")]
+fn get_volume_path(path: &Path) -> Option<PathBuf> {
+    // On Windows, get the drive root (e.g., C:\)
+    let mut components = path.components();
+    components.next().map(|c| PathBuf::from(c.as_os_str()))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_volume_path(path: &Path) -> Option<PathBuf> {
+    // On Unix, find the mount point under /Volumes/, /media/, or /run/media/
     path.ancestors()
-        .find(|p| p.parent() == Some(Path::new("/Volumes")))
+        .find(|p| {
+            if let Some(parent) = p.parent() {
+                let parent_str = parent.to_string_lossy();
+                parent_str == "/Volumes" 
+                    || parent_str.starts_with("/media/") 
+                    || parent_str.starts_with("/run/media/")
+            } else {
+                false
+            }
+        })
         .map(|p| p.to_path_buf())
 }
 

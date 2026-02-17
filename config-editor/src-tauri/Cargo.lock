@@ -473,6 +473,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
  "tauri-plugin-opener",
+ "winapi",
 ]
 
 [[package]]
