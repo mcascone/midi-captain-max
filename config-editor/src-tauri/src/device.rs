@@ -92,7 +92,7 @@ fn get_volume_name(path: &PathBuf) -> Option<String> {
         let result = winapi::um::fileapi::GetVolumeInformationW(
             root.as_ptr(),
             volume_name.as_mut_ptr(),
-            volume_name.len() as u32,
+            volume_name.len() as winapi::shared::minwindef::DWORD,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
             std::ptr::null_mut(),
