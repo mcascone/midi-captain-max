@@ -23,3 +23,5 @@ This directory contains research and investigation documents for technical decis
 - Tauri: macOS, Windows, Linux (all browsers irrelevant)
 
 **Decision:** Continue with Tauri app. Consider SysEx protocol as future enhancement for browser/mobile support.
+
+**Addendum (2026-02-17):** Evaluated simplified requirement (USB storage only, no MIDI/Serial). File System Access API *can* access USB volumes but requires manual file selection—user must navigate to device and pick files every session. UX significantly worse than Tauri's automatic detection. Recommendation unchanged: Continue with Tauri.

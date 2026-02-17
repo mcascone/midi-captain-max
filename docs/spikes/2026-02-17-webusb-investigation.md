@@ -727,3 +727,232 @@ while True:
 ```
 
 **Note:** This SysEx approach is a significant undertaking and would require extensive testing to ensure reliability and prevent device bricking.
+
+---
+
+## Addendum: Simplified Requirement Assessment (USB Storage Only)
+
+**Date:** 2026-02-17  
+**Question:** If we only need USB Mass Storage access (read/write files) and don't need MIDI or Serial connectivity, does that change the assessment?
+
+### Short Answer
+
+**Unfortunately, no.** WebUSB still blocks USB Mass Storage devices by design, regardless of whether you need MIDI. However, the **File System Access API** provides an alternative that could work—with significant UX compromises.
+
+---
+
+### The Core Problem Remains
+
+**WebUSB explicitly blocks USB Mass Storage devices** for security reasons, as confirmed by the W3C specification and recent 2025-2026 security policy reinforcements. This is a fundamental security boundary that applies to all websites, not just those that need MIDI.
+
+From the WebUSB specification:
+> "WebUSB is designed to prevent malicious websites from controlling security-sensitive devices. Standard device classes like MIDI, Audio, HID, and **Mass Storage are blocked**."
+
+**Why?** Allowing web pages to access raw USB storage would enable malicious sites to:
+- Read private files from any connected USB drive
+- Write malware to USB drives
+- Modify system files if drives are mounted
+- Exfiltrate data silently
+
+There is a proposal for "Unrestricted WebUSB" (available only to Isolated Web Apps in highly controlled enterprise environments), but this is:
+- Not generally available to public websites
+- Requires enterprise signing and trust
+- Still in prototype/proposal stage
+- Not suitable for end-user distribution
+
+---
+
+### Alternative: File System Access API
+
+**Good news:** There's a browser API designed specifically for filesystem operations: the **File System Access API** (formerly Native File System API).
+
+#### What It Can Do
+
+✅ **Read files from USB volumes** — if the user selects them via file picker  
+✅ **Write files to USB volumes** — if the user selects destination via save dialog  
+✅ **Access directories** — user can grant access to entire folders  
+✅ **Works with mounted USB drives** — appears in OS file picker like any other volume  
+✅ **Secure** — requires HTTPS and explicit user consent for each operation  
+
+#### What It Cannot Do
+
+❌ **Programmatic device detection** — cannot detect when USB device is connected  
+❌ **Automatic file access** — cannot automatically find config.json on device  
+❌ **Volume enumeration** — cannot list available USB volumes  
+❌ **Identifier persistence** — cannot auto-remember which volume is the device  
+
+#### Browser Support
+
+| Browser | File System Access API Support |
+|---------|-------------------------------|
+| Chrome | ✅ Full support |
+| Edge | ✅ Full support |
+| Opera | ✅ Full support |
+| Firefox | ❌ No support |
+| Safari | ❌ No support |
+
+(Same Chromium-only limitation as WebUSB)
+
+---
+
+### Revised Architecture: File System Access API Approach
+
+If you're willing to accept manual file operations, here's how it would work:
+
+#### User Workflow
+
+1. **Connect device** → User plugs in MIDI Captain
+2. **Open web app** → User visits hosted web app (requires HTTPS)
+3. **Click "Load Config"** → Triggers file picker
+4. **User navigates to device volume** → Manually finds `/Volumes/CIRCUITPY/config.json` (macOS) or `D:\config.json` (Windows)
+5. **User selects config.json** → App reads and parses file
+6. **Edit config** → User makes changes in web UI
+7. **Click "Save Config"** → Triggers save dialog
+8. **User navigates back to device volume** → Manually selects destination as device
+9. **User saves file** → Config written to device
+
+#### Code Example
+
+```javascript
+// Load config from user-selected file
+async function loadConfig() {
+  try {
+    const [fileHandle] = await window.showOpenFilePicker({
+      types: [{
+        description: 'JSON Config',
+        accept: { 'application/json': ['.json'] }
+      }],
+      suggestedName: 'config.json'
+    });
+    
+    const file = await fileHandle.getFile();
+    const configText = await file.text();
+    const config = JSON.parse(configText);
+    
+    // Store handle for later write operations
+    window.configFileHandle = fileHandle;
+    
+    return config;
+  } catch (error) {
+    console.error('User cancelled or error:', error);
+    return null;
+  }
+}
+
+// Save config to user-selected file
+async function saveConfig(config) {
+  try {
+    // Use stored handle if available, otherwise prompt
+    let fileHandle = window.configFileHandle;
+    
+    if (!fileHandle) {
+      fileHandle = await window.showSaveFilePicker({
+        types: [{
+          description: 'JSON Config',
+          accept: { 'application/json': ['.json'] }
+        }],
+        suggestedName: 'config.json'
+      });
+    }
+    
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(config, null, 2));
+    await writable.close();
+    
+    return true;
+  } catch (error) {
+    console.error('Save failed:', error);
+    return false;
+  }
+}
+
+// Firmware installation would require manual instructions
+function showFirmwareInstructions() {
+  alert(`
+To install firmware:
+1. Download firmware files from this page
+2. Open Finder (Mac) or File Explorer (Windows)
+3. Navigate to your CIRCUITPY or MIDICAPTAIN volume
+4. Copy these files to the volume:
+   - code.py
+   - boot.py
+   - config.json
+   - (folders: core/, devices/, fonts/, lib/)
+5. Safely eject the device
+6. Device will restart with new firmware
+  `);
+}
+```
+
+---
+
+### Comparison: File System Access API vs Tauri
+
+| Feature | Tauri App | File System Access API (Web) |
+|---------|-----------|------------------------------|
+| **Installation** | One-time installer (~10MB) | Just visit URL |
+| **Device Detection** | ✅ Automatic volume monitoring | ❌ None — manual selection only |
+| **Config Load** | ✅ Automatic — finds config.json | ⚠️ Manual — user picks file every time* |
+| **Config Save** | ✅ Automatic — writes to device | ⚠️ Manual — user picks location* |
+| **Firmware Install** | ✅ Integrated — copies all files | ❌ Manual — user follows instructions |
+| **Browser Support** | N/A (native app) | Chrome/Edge only (no Firefox/Safari) |
+| **Platform Support** | macOS, Windows, Linux | Chrome on any OS |
+| **Offline Use** | ✅ Yes | ⚠️ Only with PWA + service worker |
+| **User Experience** | ✅ Seamless | ⚠️ Tedious (many clicks each session) |
+| **Development Effort** | 60% complete | 3-4 weeks + hosting setup |
+
+\* *There's a proposal for "File Handles Persistence API" that would let web apps remember file handles across sessions, but it's not yet standardized or widely implemented.*
+
+---
+
+### Updated Recommendation
+
+Even with the simplified requirement of USB storage-only access:
+
+#### Primary Recommendation: Continue with Tauri
+
+**Reasoning:**
+1. **Superior UX** — Automatic device detection and file operations beat manual file selection every time
+2. **Already 60% complete** — significant investment made
+3. **Broader browser support** — works regardless of browser choice (it's a native app)
+4. **Complete feature set** — can support firmware installation, profile management, automatic updates
+5. **No hosting costs** — distribute as installer, no server needed
+
+#### Alternative: File System Access API (If Web is Required)
+
+**If you must have a web-based solution:**
+1. Build static web app with File System Access API
+2. Accept manual file selection for every session
+3. Provide clear instructions for firmware installation
+4. Host on HTTPS domain (GitHub Pages, Netlify, Vercel, etc.)
+5. Only support Chrome/Edge browsers
+
+**Estimated effort:** 3-4 weeks development + ongoing hosting
+
+**User experience will be significantly degraded:**
+- User must manually navigate to device volume each time
+- No automatic detection when device connects
+- Firmware installation is manual process with written instructions
+- Chrome/Edge only (excludes ~40% of users)
+
+#### Best of Both Worlds: Tauri App + Web Companion
+
+If you want to serve both audiences:
+1. **Primary:** Tauri app for best experience (power users, frequent use)
+2. **Secondary:** Web app for quick edits (casual users, one-time changes)
+
+This gives users choice while recognizing that most regular users will prefer the Tauri app's superior UX.
+
+---
+
+### Conclusion on Simplified Requirements
+
+**The requirement simplification helps, but not enough.** WebUSB still blocks USB Mass Storage. The File System Access API *can* access files on USB volumes, but requires manual user interaction for every operation.
+
+**The core trade-off remains:**
+- **Tauri:** Best UX, requires one-time ~10MB installation
+- **Web + File System Access API:** No installation, but tedious manual file operations and Chrome-only
+
+For a professional tool that users will interact with regularly (configuring a performance device), the Tauri app provides the superior experience. The web approach might work for very casual users who rarely change configs, but those users would likely be willing to install a small app for a better experience.
+
+**Recommendation stands: Continue with Tauri.**
