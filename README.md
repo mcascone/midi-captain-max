@@ -1,16 +1,16 @@
-# MIDI Captain Custom Firmware
-
 [![CI](https://github.com/MC-Music-Workshop/midi-captain-max/actions/workflows/ci.yml/badge.svg)](https://github.com/MC-Music-Workshop/midi-captain-max/actions/workflows/ci.yml)
 
-**Bidirectional, config-driven CircuitPython firmware for Paint Audio MIDI Captain foot controllers.**
+# MIDI Captain MAX Custom Firmware
 
-> ⚠️ **Beta Release** — Core features working, more coming soon.
+**Bidirectional, config-driven CircuitPython firmware for Paint Audio MIDI Captain foot controllers.**
 
 ## What It Does
 
 This firmware transforms your MIDI Captain into a **bidirectional MIDI controller** where your host software (DAW, plugin host) can control the device's LEDs and display, not just receive button presses.
 
-**Key Features:**
+Momentary and toggle mode are currently supported. [See here for all open features and issues](https://github.com/MC-Music-Workshop/midi-captain-max/issues).
+
+## Key Features
 - 🔄 **Bidirectional MIDI** — Host sends CC to update LEDs/display state
 - ⚙️ **Config-driven** — Customize button labels, CC numbers, colors via JSON
 - 🎨 **Visual feedback** — LEDs and LCD reflect actual host state
@@ -23,38 +23,28 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 |--------|--------|
 | MIDI Captain STD10 (10-switch) | ✅ Fully working |
 | MIDI Captain Mini6 (6-switch) | ✅ Fully working |
+| 4, 2, 1-button variations | ❔ need hardware |
 
-## Quick Start
+# Installation
 
-### Requirements
-- Paint Audio MIDI Captain (STD10)
-- CircuitPython 7.3.1+ installed on device
-- All required CircuitPython libraries are included in `lib/`
-
-### Installation
-
-1. Download the firmware zip from [Releases](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
-2. Connect your MIDI Captain via USB (hold Button 1 while powering on)
-3. Copy all files and folders from the zip to the device drive (CIRCUITPY or MIDICAPTAIN)
-4. Unplug and replug USB to restart
+1. [Download the latest firmware.zip and appropriate GUI Config Editor](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
+3. Connect your MIDI Captain via USB (hold Button 1 while powering on)
+4. Copy all files and folders from the zip to the device drive (CIRCUITPY or MIDICAPTAIN)
+5. On mini6, rename `config-mini6.json` to `config.json`, overwriting the existing one.
+6. Power off/on or unplug and replug USB to restart
 
 ## Configuration
 
 ### Config Editor App (Recommended)
 
-The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration easy:
-
-**Download for your platform:**
-- **macOS:** `MIDI-Captain-MAX-Config-Editor-[version].dmg`
-- **Windows:** `MIDI-Captain-MAX-Config-Editor-[version].msi` or `MIDI-Captain-MAX-Config-Editor-[version]-setup.exe`
+The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration easy!
 
 Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
 
 ## Installation
 
-### macOS
+### MacOS
 1. Open the DMG and drag the app to your Applications folder
-
 
 ### Windows
 1. Run the MSI installer or setup.exe
@@ -73,8 +63,7 @@ Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi
 
 - 🖱️ **Visual editing** — No JSON syntax to learn
 - ✅ **Real-time validation** — Catch errors before saving
-- 🎨 **Color picker** — Visual color selection
-- 💾 **Auto-save** — Changes saved automatically to device
+- 🎨 **Color picker** — Visual color selection 
 - 🔍 **Device detection** — Automatically detects connected MIDI Captain
 
 ## Manual Configuration
@@ -98,11 +87,12 @@ You can also edit `config.json` directly on the device:
 }
 ```
 
-| Field | Description |
-|-------|-------------|
+| Field | Description | Default |
+|-------|-------------| ---------|
 | `label` | Text shown on LCD (max ~6 chars) |
 | `cc` | MIDI CC number sent on press (0-127) |
 | `color` | RGB color for LED when ON `[R, G, B]` |
+| `off_mode` | LED is `off` or `dim` when in OFF state | `off`
 
 ## MIDI Protocol
 
@@ -116,9 +106,9 @@ You can also edit `config.json` directly on the device:
 | Expression 2 | CC 13 (0-127) |
 
 ### Host → Device (LED/state control)
-Send CC 20-29 with value 0 or 127 to set button state:
+Send CC to the switch on its CC Number with value 0 or 127 to set button state:
 - `CC 20, value 127` → Button 1 turns ON (LED lights up)
-- `CC 20, value 0` → Button 1 turns OFF (LED off)
+- `CC 20, value 0` → Button 1 turns OFF (LED off/dim)
 
 ## Use Cases
 
