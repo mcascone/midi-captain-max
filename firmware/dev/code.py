@@ -682,7 +682,7 @@ def handle_expression():
                 exp1_last = val1
                 midi.send(ControlChange(CC_EXP1, val1, channel=EXP1_CHANNEL))
                 lbl = exp1_config.get("label", "EXP1")
-                print(f"[{lbl}] CC{CC_EXP1}={val1}")
+                print(f"[{lbl}] Ch{EXP1_CHANNEL+1} CC{CC_EXP1}={val1}")
                 # Update display
                 if exp1_label:
                     exp1_label.text = f"{lbl}: {val1:3d}"
@@ -709,7 +709,7 @@ def handle_expression():
                 exp2_last = val2
                 midi.send(ControlChange(CC_EXP2, val2, channel=EXP2_CHANNEL))
                 lbl = exp2_config.get("label", "EXP2")
-                print(f"[{lbl}] CC{CC_EXP2}={val2}")
+                print(f"[{lbl}] Ch{EXP2_CHANNEL+1} CC{CC_EXP2}={val2}")
                 # Update display
                 if exp2_label:
                     exp2_label.text = f"{lbl}: {val2:3d}"
@@ -731,15 +731,16 @@ init_leds()
 # Show CC mapping info
 if HAS_ENCODER:
     if ENC_STEPS and ENC_STEPS > 1:
-        print(f"Encoder: CC{CC_ENCODER} ({ENC_STEPS} slots, outputs 0-{ENC_STEPS-1})")
+        print(f"Encoder: Ch{ENC_CHANNEL+1} CC{CC_ENCODER} ({ENC_STEPS} slots, outputs 0-{ENC_STEPS-1})")
     else:
-        print(f"Encoder: CC{CC_ENCODER} (range {ENC_MIN}-{ENC_MAX}, init={ENC_INITIAL})")
-    print(f"Encoder Push: CC{CC_ENCODER_PUSH} ({ENC_PUSH_MODE})")
+        print(f"Encoder: Ch{ENC_CHANNEL+1} CC{CC_ENCODER} (range {ENC_MIN}-{ENC_MAX}, init={ENC_INITIAL})")
+    print(f"Encoder Push: Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH} ({ENC_PUSH_MODE})")
 if HAS_EXPRESSION:
-    print(f"Expression 1: CC{CC_EXP1}")
-    print(f"Expression 2: CC{CC_EXP2}")
+    print(f"Expression 1: Ch{EXP1_CHANNEL+1} CC{CC_EXP1}")
+    print(f"Expression 2: Ch{EXP2_CHANNEL+1} CC{CC_EXP2}")
 for i, btn in enumerate(buttons):
-    print(f"Button {i+1}: CC{btn.get('cc', 20+i)} ({btn.get('label', '')})")
+    btn_channel = btn.get("channel", 0)
+    print(f"Button {i+1}: Ch{btn_channel+1} CC{btn.get('cc', 20+i)} ({btn.get('label', '')})")
 
 print("\nRunning...")
 
