@@ -47,6 +47,12 @@ pub struct ButtonConfig {
     pub mode: ButtonMode,
     #[serde(default, skip_serializing_if = "is_default_off_mode")]
     pub off_mode: OffMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc_on: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc_off: Option<u8>,
 }
 
 fn is_default_off_mode(mode: &OffMode) -> bool {
@@ -61,6 +67,8 @@ pub struct EncoderPush {
     pub label: String,
     #[serde(default)]
     pub mode: ButtonMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<u8>,
 }
 
 /// Rotary encoder configuration (STD10 only)
@@ -77,6 +85,8 @@ pub struct EncoderConfig {
     pub initial: u8,
     pub steps: Option<u8>,
     pub push: Option<EncoderPush>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<u8>,
 }
 
 fn default_max() -> u8 {
@@ -109,6 +119,8 @@ pub struct ExpressionConfig {
     pub polarity: Polarity,
     #[serde(default = "default_threshold")]
     pub threshold: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<u8>,
 }
 
 fn default_threshold() -> u8 {
@@ -136,6 +148,8 @@ pub enum DeviceType {
 pub struct MidiCaptainConfig {
     #[serde(default)]
     pub device: DeviceType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub global_channel: Option<u8>,
     pub buttons: Vec<ButtonConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoder: Option<EncoderConfig>,
@@ -147,6 +161,13 @@ impl MidiCaptainConfig {
     /// Validate the configuration
     pub fn validate(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
+
+        // Validate global channel (0-15)
+        if let Some(ch) = self.global_channel {
+            if ch > 15 {
+                errors.push(format!("Global channel {} exceeds 15 (MIDI channels are 0-15)", ch));
+            }
+        }
 
         // Check button count matches device
         let expected_buttons = match self.device {
@@ -163,7 +184,7 @@ impl MidiCaptainConfig {
             ));
         }
 
-        // Validate CC numbers (0-127)
+        // Validate CC numbers (0-127) and button-specific fields
         for (i, button) in self.buttons.iter().enumerate() {
             if button.cc > 127 {
                 errors.push(format!("Button {} CC {} exceeds 127", i + 1, button.cc));
@@ -174,6 +195,21 @@ impl MidiCaptainConfig {
                     i + 1,
                     button.label
                 ));
+            }
+            if let Some(ch) = button.channel {
+                if ch > 15 {
+                    errors.push(format!("Button {} channel {} exceeds 15", i + 1, ch));
+                }
+            }
+            if let Some(val) = button.cc_on {
+                if val > 127 {
+                    errors.push(format!("Button {} cc_on {} exceeds 127", i + 1, val));
+                }
+            }
+            if let Some(val) = button.cc_off {
+                if val > 127 {
+                    errors.push(format!("Button {} cc_off {} exceeds 127", i + 1, val));
+                }
             }
         }
 
@@ -195,12 +231,22 @@ impl MidiCaptainConfig {
             if enc.initial < enc.min || enc.initial > enc.max {
                 errors.push(format!("Encoder initial ({}) must be between min ({}) and max ({})", enc.initial, enc.min, enc.max));
             }
+            if let Some(ch) = enc.channel {
+                if ch > 15 {
+                    errors.push(format!("Encoder channel {} exceeds 15", ch));
+                }
+            }
             if let Some(ref push) = enc.push {
                 if push.cc > 127 {
                     errors.push(format!("Encoder push CC {} exceeds 127", push.cc));
                 }
                 if push.label.len() > 8 {
                     errors.push(format!("Encoder push label '{}' exceeds 8 chars", push.label));
+                }
+                if let Some(ch) = push.channel {
+                    if ch > 15 {
+                        errors.push(format!("Encoder push channel {} exceeds 15", ch));
+                    }
                 }
             }
         }
@@ -220,6 +266,11 @@ impl MidiCaptainConfig {
             if exp.exp1.max < exp.exp1.min {
                 errors.push(format!("EXP1 max ({}) must be >= min ({})", exp.exp1.max, exp.exp1.min));
             }
+            if let Some(ch) = exp.exp1.channel {
+                if ch > 15 {
+                    errors.push(format!("EXP1 channel {} exceeds 15", ch));
+                }
+            }
             if exp.exp2.cc > 127 {
                 errors.push(format!("EXP2 CC {} exceeds 127", exp.exp2.cc));
             }
@@ -228,6 +279,11 @@ impl MidiCaptainConfig {
             }
             if exp.exp2.max < exp.exp2.min {
                 errors.push(format!("EXP2 max ({}) must be >= min ({})", exp.exp2.max, exp.exp2.min));
+            }
+            if let Some(ch) = exp.exp2.channel {
+                if ch > 15 {
+                    errors.push(format!("EXP2 channel {} exceeds 15", ch));
+                }
             }
         }
 
