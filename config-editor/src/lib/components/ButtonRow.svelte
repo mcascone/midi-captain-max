@@ -7,10 +7,11 @@
     button: ButtonConfig;
     index: number;
     disabled?: boolean;
+    globalChannel?: number;
     onUpdate: (field: string, value: any) => void;
   }
   
-  let { button, index, disabled = false, onUpdate }: Props = $props();
+  let { button, index, disabled = false, globalChannel = 0, onUpdate }: Props = $props();
   
   const basePath = `buttons[${index}]`;
   
@@ -38,8 +39,35 @@
     onUpdate('off_mode', target.value as OffMode);
   }
   
+  function handleChannelChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const value = target.value === '' ? undefined : parseInt(target.value);
+    onUpdate('channel', value);
+  }
+  
+  function handleCCOnChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const value = target.value === '' ? undefined : parseInt(target.value);
+    onUpdate('cc_on', value);
+  }
+  
+  function handleCCOffChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const value = target.value === '' ? undefined : parseInt(target.value);
+    onUpdate('cc_off', value);
+  }
+  
   let labelError = $derived($validationErrors.get(`${basePath}.label`));
   let ccError = $derived($validationErrors.get(`${basePath}.cc`));
+  let channelError = $derived($validationErrors.get(`${basePath}.channel`));
+  let ccOnError = $derived($validationErrors.get(`${basePath}.cc_on`));
+  let ccOffError = $derived($validationErrors.get(`${basePath}.cc_off`));
+  
+  // Display effective channel (button channel or global channel)
+  let effectiveChannel = $derived(
+    button.channel !== undefined ? button.channel : globalChannel
+  );
+
 </script>
 
 <div class="button-row" class:disabled>
@@ -75,6 +103,61 @@
     />
     {#if ccError}
       <span class="error-text">{ccError}</span>
+    {/if}
+  </div>
+  
+  <div class="field">
+    <label class="field-label">Channel:</label>
+    <input 
+      type="number" 
+      class="input-channel"
+      class:error={!!channelError}
+      value={button.channel !== undefined ? button.channel : ''}
+      onblur={handleChannelChange}
+      disabled={disabled}
+      min="0"
+      max="15"
+      placeholder={effectiveChannel.toString()}
+      title={button.channel !== undefined ? `MIDI Ch ${button.channel + 1}` : `Using global: ${effectiveChannel + 1}`}
+    />
+    {#if channelError}
+      <span class="error-text">{channelError}</span>
+    {/if}
+  </div>
+  
+  <div class="field">
+    <label class="field-label">ON:</label>
+    <input 
+      type="number" 
+      class="input-cc-value"
+      class:error={!!ccOnError}
+      value={button.cc_on !== undefined ? button.cc_on : ''}
+      onblur={handleCCOnChange}
+      disabled={disabled}
+      min="0"
+      max="127"
+      placeholder="127"
+    />
+    {#if ccOnError}
+      <span class="error-text">{ccOnError}</span>
+    {/if}
+  </div>
+  
+  <div class="field">
+    <label class="field-label">OFF:</label>
+    <input 
+      type="number" 
+      class="input-cc-value"
+      class:error={!!ccOffError}
+      value={button.cc_off !== undefined ? button.cc_off : ''}
+      onblur={handleCCOffChange}
+      disabled={disabled}
+      min="0"
+      max="127"
+      placeholder="0"
+    />
+    {#if ccOffError}
+      <span class="error-text">{ccOffError}</span>
     {/if}
   </div>
   
@@ -123,12 +206,13 @@
   .button-row {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
+    gap: 0.5rem;
     padding: 0.5rem;
     border: 1px solid #e5e5e5;
     border-radius: 4px;
     margin-bottom: 0.5rem;
     position: relative;
+    flex-wrap: wrap;
   }
   
   .button-row.disabled {
@@ -166,6 +250,22 @@
   }
   
   .input-cc {
+    width: 60px;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.875rem;
+  }
+  
+  .input-channel {
+    width: 60px;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.875rem;
+  }
+  
+  .input-cc-value {
     width: 60px;
     padding: 0.375rem 0.5rem;
     border: 1px solid #ccc;
