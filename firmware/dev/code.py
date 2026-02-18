@@ -350,6 +350,8 @@ ENC_INITIAL = enc_config.get("initial", 64)
 ENC_ENABLED = enc_config.get("enabled", True) and HAS_ENCODER
 ENC_PUSH_ENABLED = enc_push_config.get("enabled", True) and HAS_ENCODER
 ENC_PUSH_MODE = enc_push_config.get("mode", "momentary")
+ENC_CHANNEL = enc_config.get("channel", 0)
+ENC_PUSH_CHANNEL = enc_push_config.get("channel", 0)
 
 # Stepped mode: steps = number of discrete output values (slots)
 # e.g., steps=5 means output CC values 0,1,2,3,4
@@ -363,6 +365,8 @@ exp2_config = exp_config.get("exp2", {"enabled": True, "cc": 13, "label": "EXP2"
 
 CC_EXP1 = exp1_config.get("cc", 12)
 CC_EXP2 = exp2_config.get("cc", 13)
+EXP1_CHANNEL = exp1_config.get("channel", 0)
+EXP2_CHANNEL = exp2_config.get("channel", 0)
 
 # =============================================================================
 # State
@@ -537,11 +541,18 @@ def handle_midi():
     if msg and isinstance(msg, ControlChange):
         cc = msg.control
         val = msg.value
-        print(f"[MIDI RX] CC{cc}={val}")
+        # ControlChange objects have a .channel attribute (0-15 = MIDI Ch 1-16)
+        # If channel is None, it means it was sent on the default channel
+        msg_channel = getattr(msg, 'channel', 0)
+        if msg_channel is None:
+            msg_channel = 0
+        print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
 
-        # Check if this CC matches any button
+        # Check if this CC matches any button (must match both CC number and channel)
         for i, btn_config in enumerate(buttons):
-            if btn_config.get("cc") == cc:
+            btn_cc = btn_config.get("cc")
+            btn_channel = btn_config.get("channel", 0)
+            if btn_cc == cc and btn_channel == msg_channel:
                 on = val > 63
                 set_button_state(i + 1, on)
                 status_label.text = f"RX CC{cc}={val}"
@@ -564,21 +575,24 @@ def handle_switches():
             btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
             cc = btn_config.get("cc", 20 + idx)
             mode = btn_config.get("mode", "toggle")  # "toggle" or "momentary"
+            channel = btn_config.get("channel", 0)  # 0 = MIDI Channel 1
+            cc_on = btn_config.get("cc_on", 127)
+            cc_off = btn_config.get("cc_off", 0)
 
             if mode == "momentary":
-                # Momentary: 127 on press, 0 on release
-                val = 127 if pressed else 0
+                # Momentary: cc_on on press, cc_off on release
+                val = cc_on if pressed else cc_off
                 set_button_state(btn_num, pressed)
-                midi.send(ControlChange(cc, val))
-                print(f"[MIDI TX] CC{cc}={val} (switch {btn_num}, momentary)")
+                midi.send(ControlChange(cc, val, channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, momentary)")
                 status_label.text = f"TX CC{cc}={val}"
             elif pressed:
                 # Toggle: only act on press, flip state
                 new_state = not button_states[idx]
                 set_button_state(btn_num, new_state)
-                val = 127 if new_state else 0
-                midi.send(ControlChange(cc, val))
-                print(f"[MIDI TX] CC{cc}={val} (switch {btn_num}, toggle)")
+                val = cc_on if new_state else cc_off
+                midi.send(ControlChange(cc, val, channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
                 status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
 
 
@@ -597,12 +611,12 @@ def handle_encoder_button():
             if pressed:
                 encoder_push_state = not encoder_push_state
                 cc_val = 127 if encoder_push_state else 0
-                midi.send(ControlChange(CC_ENCODER_PUSH, cc_val))
+                midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
                 status_label.text = f"TX CC{CC_ENCODER_PUSH}={'ON' if encoder_push_state else 'OFF'}"
         else:
             # Momentary mode: send on press and release
             cc_val = 127 if pressed else 0
-            midi.send(ControlChange(CC_ENCODER_PUSH, cc_val))
+            midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
             status_label.text = f"TX CC{CC_ENCODER_PUSH}={cc_val}"
 
 
@@ -630,11 +644,11 @@ def handle_encoder():
             if new_slot != encoder_slot:
                 encoder_slot = new_slot
                 # Output CC is the slot number (0 to steps-1)
-                midi.send(ControlChange(CC_ENCODER, encoder_slot))
+                midi.send(ControlChange(CC_ENCODER, encoder_slot, channel=ENC_CHANNEL))
                 status_label.text = f"ENC slot {encoder_slot}"
         else:
             # Normal mode: send every change
-            midi.send(ControlChange(CC_ENCODER, encoder_value))
+            midi.send(ControlChange(CC_ENCODER, encoder_value, channel=ENC_CHANNEL))
             status_label.text = f"ENC={encoder_value}"
 
 
@@ -666,7 +680,7 @@ def handle_expression():
             threshold = exp1_config.get("threshold", 2)
             if abs(val1 - exp1_last) >= threshold:
                 exp1_last = val1
-                midi.send(ControlChange(CC_EXP1, val1))
+                midi.send(ControlChange(CC_EXP1, val1, channel=EXP1_CHANNEL))
                 lbl = exp1_config.get("label", "EXP1")
                 print(f"[{lbl}] CC{CC_EXP1}={val1}")
                 # Update display
@@ -693,7 +707,7 @@ def handle_expression():
             threshold = exp2_config.get("threshold", 2)
             if abs(val2 - exp2_last) >= threshold:
                 exp2_last = val2
-                midi.send(ControlChange(CC_EXP2, val2))
+                midi.send(ControlChange(CC_EXP2, val2, channel=EXP2_CHANNEL))
                 lbl = exp2_config.get("label", "EXP2")
                 print(f"[{lbl}] CC{CC_EXP2}={val2}")
                 # Update display

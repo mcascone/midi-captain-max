@@ -128,6 +128,9 @@ class TestValidateButton:
         assert btn["color"] == "white"
         assert btn["mode"] == "toggle"
         assert btn["off_mode"] == "dim"
+        assert btn["channel"] == 0  # Default MIDI channel 1
+        assert btn["cc_on"] == 127
+        assert btn["cc_off"] == 0
     
     def test_preserves_existing_fields(self):
         """Keeps existing values."""
@@ -143,6 +146,22 @@ class TestValidateButton:
         
         assert btn["label"] == "8"  # 1-indexed
         assert btn["cc"] == 27  # 20 + 7
+    
+    def test_global_channel_inheritance(self):
+        """Button uses global channel when not specified."""
+        btn = validate_button({}, index=0, global_channel=5)
+        assert btn["channel"] == 5
+    
+    def test_button_channel_override(self):
+        """Button can override global channel."""
+        btn = validate_button({"channel": 10}, index=0, global_channel=5)
+        assert btn["channel"] == 10
+    
+    def test_custom_cc_values(self):
+        """Button can specify custom cc_on and cc_off values."""
+        btn = validate_button({"cc_on": 100, "cc_off": 20}, index=0)
+        assert btn["cc_on"] == 100
+        assert btn["cc_off"] == 20
 
 
 class TestValidateConfig:
@@ -167,6 +186,29 @@ class TestValidateConfig:
         
         assert cfg["encoder"] == {"cc": 11}
         assert cfg["custom"] == "value"
+    
+    def test_global_channel_default(self):
+        """Global channel defaults to 0 (MIDI Ch 1)."""
+        cfg = validate_config({"buttons": []}, button_count=2)
+        assert cfg["global_channel"] == 0
+    
+    def test_global_channel_explicit(self):
+        """Can set explicit global channel."""
+        cfg = validate_config({"buttons": [], "global_channel": 7}, button_count=2)
+        assert cfg["global_channel"] == 7
+    
+    def test_global_channel_clamped(self):
+        """Global channel is clamped to 0-15."""
+        cfg = validate_config({"buttons": [], "global_channel": 99}, button_count=1)
+        assert cfg["global_channel"] == 0  # Invalid, should clamp to default
+        
+        cfg = validate_config({"buttons": [], "global_channel": -5}, button_count=1)
+        assert cfg["global_channel"] == 0
+    
+    def test_buttons_inherit_global_channel(self):
+        """Buttons inherit global channel when not specified."""
+        cfg = validate_config({"buttons": [{}], "global_channel": 3}, button_count=1)
+        assert cfg["buttons"][0]["channel"] == 3
 
 
 class TestEncoderConfig:
@@ -182,6 +224,8 @@ class TestEncoderConfig:
         assert enc["max"] == 127
         assert enc["initial"] == 64
         assert enc["push"]["cc"] == 14
+        assert enc["channel"] == 0  # Default channel
+        assert enc["push"]["channel"] == 0
     
     def test_overrides_defaults(self):
         """Config values override defaults."""
@@ -197,3 +241,17 @@ class TestEncoderConfig:
         assert enc["steps"] == 5
         assert enc["push"]["cc"] == 77
         assert enc["push"]["mode"] == "toggle"
+    
+    def test_encoder_inherits_global_channel(self):
+        """Encoder inherits global channel when not specified."""
+        enc = get_encoder_config({"global_channel": 8})
+        assert enc["channel"] == 8
+        assert enc["push"]["channel"] == 8
+    
+    def test_encoder_channel_override(self):
+        """Encoder can override global channel."""
+        enc = get_encoder_config({
+            "global_channel": 5,
+            "encoder": {"channel": 12}
+        })
+        assert enc["channel"] == 12

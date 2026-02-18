@@ -44,22 +44,32 @@ def _default_config(button_count):
     }
 
 
-def validate_button(btn, index=0):
+def validate_button(btn, index=0, global_channel=None):
     """Validate a button config dict, filling in defaults.
     
     Args:
         btn: Button config dict
         index: Button index (for default CC calculation)
+        global_channel: Global MIDI channel (0-15), used if button doesn't specify channel
         
     Returns:
         Validated button config with all required fields
     """
+    # Channel: per-button override or global channel or default to 0 (MIDI Ch 1)
+    if global_channel is not None:
+        default_channel = global_channel
+    else:
+        default_channel = 0
+    
     return {
         "label": btn.get("label", str(index + 1)),
         "cc": btn.get("cc", 20 + index),
         "color": btn.get("color", "white"),
         "mode": btn.get("mode", "toggle"),
         "off_mode": btn.get("off_mode", "dim"),
+        "channel": btn.get("channel", default_channel),
+        "cc_on": btn.get("cc_on", 127),
+        "cc_off": btn.get("cc_off", 0),
     }
 
 
@@ -75,19 +85,26 @@ def validate_config(cfg, button_count=10):
     """
     buttons = cfg.get("buttons", [])
     
+    # Get global channel (0-15 = MIDI Ch 1-16), default to 0
+    global_channel = cfg.get("global_channel", 0)
+    # Clamp to valid range
+    if not isinstance(global_channel, int) or global_channel < 0 or global_channel > 15:
+        global_channel = 0
+    
     # Extend buttons array if needed
     while len(buttons) < button_count:
         buttons.append({})
     
-    # Validate each button
+    # Validate each button with global channel context
     validated_buttons = [
-        validate_button(btn, i) for i, btn in enumerate(buttons[:button_count])
+        validate_button(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
     ]
     
     result = {}
     for k, v in cfg.items():
         result[k] = v
     result["buttons"] = validated_buttons
+    result["global_channel"] = global_channel
     return result
 
 
@@ -102,6 +119,7 @@ def get_encoder_config(cfg):
     """
     enc = cfg.get("encoder", {})
     push = enc.get("push", {})
+    global_channel = cfg.get("global_channel", 0)
     
     return {
         "enabled": enc.get("enabled", True),
@@ -111,11 +129,13 @@ def get_encoder_config(cfg):
         "max": enc.get("max", 127),
         "initial": enc.get("initial", 64),
         "steps": enc.get("steps", None),
+        "channel": enc.get("channel", global_channel),
         "push": {
             "enabled": push.get("enabled", True),
             "cc": push.get("cc", 14),
             "label": push.get("label", "PUSH"),
             "mode": push.get("mode", "momentary"),
+            "channel": push.get("channel", global_channel),
         },
     }
 
@@ -132,6 +152,7 @@ def get_expression_config(cfg):
     exp = cfg.get("expression", {})
     exp1 = exp.get("exp1", {})
     exp2 = exp.get("exp2", {})
+    global_channel = cfg.get("global_channel", 0)
 
     return {
         "exp1": {
@@ -142,6 +163,7 @@ def get_expression_config(cfg):
             "max": exp1.get("max", 127),
             "polarity": exp1.get("polarity", "normal"),
             "threshold": exp1.get("threshold", 2),
+            "channel": exp1.get("channel", global_channel),
         },
         "exp2": {
             "enabled": exp2.get("enabled", True),
@@ -151,6 +173,7 @@ def get_expression_config(cfg):
             "max": exp2.get("max", 127),
             "polarity": exp2.get("polarity", "normal"),
             "threshold": exp2.get("threshold", 2),
+            "channel": exp2.get("channel", global_channel),
         },
     }
 
