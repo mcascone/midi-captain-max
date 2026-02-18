@@ -264,10 +264,26 @@ All 3 distribution paths must include the same set of files and write the `VERSI
 ```
 
 ### Desktop Testing
+
+#### Unit Tests (Fast)
 - **pytest** with CircuitPython hardware mocks in `tests/mocks/`
 - Mocks cover: `board`, `digitalio`, `neopixel`, `displayio`, `busio`, `rotaryio`, `analogio`, `usb_midi`, `terminalio`
 - Tests: `test_button_state.py`, `test_config.py`, `test_colors.py`, `test_neopixel_mock.py`, `test_switch_mock.py`
-- Run: `pytest` from project root
+- Run: `python3 -m pytest` from project root
+
+#### Emulator Tests (Integration)
+- **rp2040js-circuitpython** emulator runs actual CircuitPython firmware
+- Tests full firmware boot, config loading, device detection
+- Limitations: No visual NeoPixel/display rendering (verify via console logs)
+- Setup: `./emulator/setup.sh` (one-time)
+- Run: `./emulator/test.sh` (automated) or `./emulator/run.sh` (interactive)
+- Docs: [docs/emulator-setup.md](docs/emulator-setup.md)
+- CI: `.github/workflows/emulator-test.yml` (manual/weekly)
+
+**Testing Levels**:
+1. **Unit tests** (fast) — Test individual functions/classes with mocks
+2. **Emulator tests** (medium) — Test full firmware integration without hardware
+3. **Hardware tests** (final) — Deploy to device, verify LEDs/display/MIDI
 
 ---
 
@@ -324,6 +340,7 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 - [x] Mini6 device module (`devices/mini6.py`)
 - [x] Auto-detect device type at runtime
 - [x] CI/CD: Build firmware zip on every push, release on tag
+- [x] Emulator testing setup (rp2040js-circuitpython)
 - [ ] Complete JSON config schema
 
 ### Future
@@ -357,8 +374,13 @@ Track features, bugs, and future work via **GitHub Issues** and **Projects**.
 | `tools/build-gumroad-zip.sh` | Build Gumroad distribution zip |
 | `docs/hardware-reference.md` | Verified hardware specs, auto-detection docs |
 | `docs/screen-cheatsheet.md` | Serial console (screen) usage guide |
+| `docs/emulator-setup.md` | Emulator setup guide (rp2040js-circuitpython) |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
+| `emulator/setup.sh` | Download and configure emulator (one-time) |
+| `emulator/run.sh` | Run firmware interactively in emulator |
+| `emulator/test.sh` | Automated emulator tests |
 | `.github/workflows/ci.yml` | CI: lint, build firmware zip |
+| `.github/workflows/emulator-test.yml` | Emulator integration tests (manual/weekly) |
 | `.github/workflows/release.yml` | Create GitHub Release on version tag |
 
 ---
