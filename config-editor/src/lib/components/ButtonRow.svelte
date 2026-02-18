@@ -88,24 +88,7 @@
       <span class="error-text">{labelError}</span>
     {/if}
   </div>
-  
-  <div class="field">
-    <label class="field-label">CC:</label>
-    <input 
-      type="number" 
-      class="input-cc"
-      class:error={!!ccError}
-      value={button.cc}
-      onblur={handleCCChange}
-      disabled={disabled}
-      min="0"
-      max="127"
-    />
-    {#if ccError}
-      <span class="error-text">{ccError}</span>
-    {/if}
-  </div>
-  
+
   <div class="field">
     <label class="field-label">Channel:</label>
     <input 
@@ -126,7 +109,24 @@
   </div>
   
   <div class="field">
-    <label class="field-label">ON:</label>
+    <label class="field-label">CC:</label>
+    <input 
+      type="number" 
+      class="input-cc"
+      class:error={!!ccError}
+      value={button.cc}
+      onblur={handleCCChange}
+      disabled={disabled}
+      min="0"
+      max="127"
+    />
+    {#if ccError}
+      <span class="error-text">{ccError}</span>
+    {/if}
+  </div>
+  
+  <div class="field">
+    <label class="field-label">ON Value:</label>
     <input 
       type="number" 
       class="input-cc-value"
@@ -144,7 +144,7 @@
   </div>
   
   <div class="field">
-    <label class="field-label">OFF:</label>
+    <label class="field-label">OFF Value:</label>
     <input 
       type="number" 
       class="input-cc-value"
@@ -162,7 +162,7 @@
   </div>
   
   <div class="field">
-    <label class="field-label">Color:</label>
+    <label class="field-label">LED Color:</label>
     <ColorSelect 
       value={button.color} 
       onchange={handleColorChange}
@@ -170,7 +170,7 @@
   </div>
   
   <div class="field">
-    <label class="field-label">Mode:</label>
+    <label class="field-label">Switch Mode:</label>
     <select 
       class="select"
       value={button.mode || 'toggle'}
@@ -183,7 +183,7 @@
   </div>
   
   <div class="field">
-    <label class="field-label">Off:</label>
+    <label class="field-label">LED Off Mode:</label>
     <select 
       class="select"
       value={button.off_mode || 'dim'}
