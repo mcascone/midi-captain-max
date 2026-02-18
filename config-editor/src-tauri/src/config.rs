@@ -162,10 +162,10 @@ impl MidiCaptainConfig {
     pub fn validate(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
 
-        // Validate global channel (0-15)
+        // Validate global channel (0-15 internally, display as 1-16)
         if let Some(ch) = self.global_channel {
             if ch > 15 {
-                errors.push(format!("Global channel {} exceeds 15 (MIDI channels are 0-15)", ch));
+                errors.push(format!("Global channel value {} is invalid (must be 1-16, stored as 0-15)", ch + 1));
             }
         }
 
@@ -198,7 +198,7 @@ impl MidiCaptainConfig {
             }
             if let Some(ch) = button.channel {
                 if ch > 15 {
-                    errors.push(format!("Button {} channel {} exceeds 15", i + 1, ch));
+                    errors.push(format!("Button {} channel {} is invalid (must be 1-16)", i + 1, ch + 1));
                 }
             }
             if let Some(val) = button.cc_on {
@@ -233,7 +233,7 @@ impl MidiCaptainConfig {
             }
             if let Some(ch) = enc.channel {
                 if ch > 15 {
-                    errors.push(format!("Encoder channel {} exceeds 15", ch));
+                    errors.push(format!("Encoder channel {} is invalid (must be 1-16)", ch + 1));
                 }
             }
             if let Some(ref push) = enc.push {
@@ -245,7 +245,7 @@ impl MidiCaptainConfig {
                 }
                 if let Some(ch) = push.channel {
                     if ch > 15 {
-                        errors.push(format!("Encoder push channel {} exceeds 15", ch));
+                        errors.push(format!("Encoder push channel {} is invalid (must be 1-16)", ch + 1));
                     }
                 }
             }
@@ -268,7 +268,7 @@ impl MidiCaptainConfig {
             }
             if let Some(ch) = exp.exp1.channel {
                 if ch > 15 {
-                    errors.push(format!("EXP1 channel {} exceeds 15", ch));
+                    errors.push(format!("EXP1 channel {} is invalid (must be 1-16)", ch + 1));
                 }
             }
             if exp.exp2.cc > 127 {
@@ -282,7 +282,7 @@ impl MidiCaptainConfig {
             }
             if let Some(ch) = exp.exp2.channel {
                 if ch > 15 {
-                    errors.push(format!("EXP2 channel {} exceeds 15", ch));
+                    errors.push(format!("EXP2 channel {} is invalid (must be 1-16)", ch + 1));
                 }
             }
         }

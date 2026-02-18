@@ -41,8 +41,13 @@
   
   function handleChannelChange(e: Event) {
     const target = e.target as HTMLInputElement;
-    const value = target.value === '' ? undefined : parseInt(target.value);
-    onUpdate('channel', value);
+    if (target.value === '') {
+      onUpdate('channel', undefined);
+    } else {
+      const value = parseInt(target.value);
+      // Convert from 1-16 display to 0-15 storage
+      onUpdate('channel', value - 1);
+    }
   }
   
   function handleCCOnChange(e: Event) {
@@ -63,9 +68,14 @@
   let ccOnError = $derived($validationErrors.get(`${basePath}.cc_on`));
   let ccOffError = $derived($validationErrors.get(`${basePath}.cc_off`));
   
-  // Display effective channel (button channel or global channel)
+  // Display effective channel as 1-16 (stored internally as 0-15)
   let effectiveChannel = $derived(
-    button.channel !== undefined ? button.channel : globalChannel
+    button.channel !== undefined ? button.channel + 1 : globalChannel + 1
+  );
+  
+  // Display button channel as 1-16 if set (stored as 0-15)
+  let displayChannel = $derived(
+    button.channel !== undefined ? button.channel + 1 : undefined
   );
 
 </script>
@@ -95,13 +105,13 @@
       type="number" 
       class="input-channel"
       class:error={!!channelError}
-      value={button.channel !== undefined ? button.channel : ''}
+      value={displayChannel !== undefined ? displayChannel : ''}
       onblur={handleChannelChange}
       disabled={disabled}
-      min="0"
-      max="15"
+      min="1"
+      max="16"
       placeholder={effectiveChannel.toString()}
-      title={button.channel !== undefined ? `MIDI Ch ${button.channel + 1}` : `Using global: ${effectiveChannel + 1}`}
+      title={button.channel !== undefined ? `MIDI Ch ${effectiveChannel}` : `Using global: ${effectiveChannel}`}
     />
     {#if channelError}
       <span class="error-text">{channelError}</span>

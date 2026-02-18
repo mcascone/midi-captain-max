@@ -15,7 +15,7 @@ export interface ButtonConfig {
   color: ButtonColor;
   mode?: ButtonMode;
   off_mode?: OffMode;
-  channel?: number;  // 0-15 = MIDI Channel 1-16
+  channel?: number;  // Stored as 0-15, displayed as 1-16
   cc_on?: number;    // CC value when button is ON (default: 127)
   cc_off?: number;   // CC value when button is OFF (default: 0)
 }
@@ -25,7 +25,7 @@ export interface EncoderPush {
   cc: number;
   label: string;
   mode?: ButtonMode;
-  channel?: number;  // 0-15 = MIDI Channel 1-16
+  channel?: number;  // Stored as 0-15, displayed as 1-16
 }
 
 export interface EncoderConfig {
@@ -36,7 +36,7 @@ export interface EncoderConfig {
   max?: number;
   initial?: number;
   steps?: number | null;
-  channel?: number;  // 0-15 = MIDI Channel 1-16
+  channel?: number;  // Stored as 0-15, displayed as 1-16
   push?: EncoderPush;
 }
 
@@ -48,7 +48,7 @@ export interface ExpressionConfig {
   max?: number;
   polarity?: Polarity;
   threshold?: number;
-  channel?: number;  // 0-15 = MIDI Channel 1-16
+  channel?: number;  // Stored as 0-15, displayed as 1-16
 }
 
 export interface ExpressionPedals {
@@ -64,7 +64,7 @@ export interface DisplayConfig {
 
 export interface MidiCaptainConfig {
   device?: DeviceType;
-  global_channel?: number;  // 0-15 = MIDI Channel 1-16, applies to all buttons by default
+  global_channel?: number;  // Stored as 0-15, displayed as 1-16
   buttons: ButtonConfig[];
   encoder?: EncoderConfig;
   expression?: ExpressionPedals;

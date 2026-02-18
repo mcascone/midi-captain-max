@@ -11,12 +11,13 @@
   function handleGlobalChannelChange(e: Event) {
     const target = e.target as HTMLInputElement;
     const value = parseInt(target.value);
-    // Clamp to valid MIDI channel range (0-15)
-    const clamped = Math.max(0, Math.min(15, value));
-    updateField('global_channel', clamped);
+    // Clamp to valid MIDI channel range (1-16), store as 0-15
+    const clamped = Math.max(1, Math.min(16, value));
+    updateField('global_channel', clamped - 1);
   }
   
-  let globalChannel = $derived($config.global_channel ?? 0);
+  // Display channel as 1-16 (stored internally as 0-15)
+  let globalChannel = $derived(($config.global_channel ?? 0) + 1);
 
 </script>
 
@@ -52,13 +53,12 @@
           class="input-number"
           value={globalChannel}
           onblur={handleGlobalChannelChange}
-          min="0"
-          max="15"
+          min="1"
+          max="16"
         />
-        <span class="channel-display">= MIDI Ch {globalChannel + 1}</span>
       </div>
       <p class="help-text">
-        Default MIDI channel for all buttons (0-15 = MIDI Ch 1-16).
+        Default MIDI channel for all buttons (1-16).
         Individual buttons can override this setting.
       </p>
     </div>
