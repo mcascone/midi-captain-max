@@ -39,6 +39,10 @@ Momentary and toggle mode are currently supported. [See here for all open featur
 
 The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration easy!
 
+**Download for your platform:**
+- **macOS:** `MIDI-Captain-MAX-Config-Editor-[version].dmg`
+- **Windows:** `MIDI-Captain-MAX-Config-Editor-[version].msi` or `MIDI-Captain-MAX-Config-Editor-[version]-setup.exe`
+
 Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
 
 ## Installation
