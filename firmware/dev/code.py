@@ -352,6 +352,8 @@ ENC_PUSH_ENABLED = enc_push_config.get("enabled", True) and HAS_ENCODER
 ENC_PUSH_MODE = enc_push_config.get("mode", "momentary")
 ENC_CHANNEL = enc_config.get("channel", 0)
 ENC_PUSH_CHANNEL = enc_push_config.get("channel", 0)
+ENC_PUSH_CC_ON = enc_push_config.get("cc_on", 127)
+ENC_PUSH_CC_OFF = enc_push_config.get("cc_off", 0)
 
 # Stepped mode: steps = number of discrete output values (slots)
 # e.g., steps=5 means output CC values 0,1,2,3,4
@@ -610,12 +612,12 @@ def handle_encoder_button():
             # Toggle mode: flip state on press only
             if pressed:
                 encoder_push_state = not encoder_push_state
-                cc_val = 127 if encoder_push_state else 0
+                cc_val = ENC_PUSH_CC_ON if encoder_push_state else ENC_PUSH_CC_OFF
                 midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
                 status_label.text = f"TX CC{CC_ENCODER_PUSH}={'ON' if encoder_push_state else 'OFF'}"
         else:
             # Momentary mode: send on press and release
-            cc_val = 127 if pressed else 0
+            cc_val = ENC_PUSH_CC_ON if pressed else ENC_PUSH_CC_OFF
             midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
             status_label.text = f"TX CC{CC_ENCODER_PUSH}={cc_val}"
 

@@ -136,6 +136,8 @@ def get_encoder_config(cfg):
             "label": push.get("label", "PUSH"),
             "mode": push.get("mode", "momentary"),
             "channel": push.get("channel", global_channel),
+            "cc_on": push.get("cc_on", 127),
+            "cc_off": push.get("cc_off", 0),
         },
     }
 

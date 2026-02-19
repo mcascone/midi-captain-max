@@ -11,11 +11,17 @@
   
   function handleField(path: string, e: Event) {
     const target = e.target as HTMLInputElement | HTMLSelectElement;
-    const value = target.type === 'checkbox' 
-      ? (target as HTMLInputElement).checked
-      : target.type === 'number'
-      ? parseInt(target.value)
-      : target.value;
+    let value: any;
+    
+    if (target.type === 'checkbox') {
+      value = (target as HTMLInputElement).checked;
+    } else if (target.type === 'number') {
+      // For number inputs, handle empty string as undefined
+      const numValue = parseInt(target.value);
+      value = target.value === '' ? undefined : numValue;
+    } else {
+      value = target.value;
+    }
     
     updateField(`encoder.${path}`, value);
   }
@@ -213,6 +219,32 @@
               <option value="toggle">Toggle</option>
               <option value="momentary">Momentary</option>
             </select>
+          </div>
+          
+          <div class="field-row">
+            <label>ON Value:</label>
+            <input 
+              type="number" 
+              value={encoder.push.cc_on !== undefined ? encoder.push.cc_on : ''}
+              onblur={(e) => handleField('push.cc_on', e)}
+              min="0"
+              max="127"
+              placeholder="127"
+              disabled={isDisabled}
+            />
+          </div>
+          
+          <div class="field-row">
+            <label>OFF Value:</label>
+            <input 
+              type="number" 
+              value={encoder.push.cc_off !== undefined ? encoder.push.cc_off : ''}
+              onblur={(e) => handleField('push.cc_off', e)}
+              min="0"
+              max="127"
+              placeholder="0"
+              disabled={isDisabled}
+            />
           </div>
         {/if}
       {/if}

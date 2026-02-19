@@ -255,3 +255,22 @@ class TestEncoderConfig:
             "encoder": {"channel": 12}
         })
         assert enc["channel"] == 12
+    
+    def test_encoder_push_cc_values(self):
+        """Encoder push can have custom cc_on and cc_off values."""
+        enc = get_encoder_config({
+            "encoder": {
+                "push": {
+                    "cc_on": 100,
+                    "cc_off": 20
+                }
+            }
+        })
+        assert enc["push"]["cc_on"] == 100
+        assert enc["push"]["cc_off"] == 20
+    
+    def test_encoder_push_cc_values_defaults(self):
+        """Encoder push defaults to cc_on=127 and cc_off=0."""
+        enc = get_encoder_config({"encoder": {"push": {}}})
+        assert enc["push"]["cc_on"] == 127
+        assert enc["push"]["cc_off"] == 0

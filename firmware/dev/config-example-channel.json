@@ -50,7 +50,9 @@
       "cc": 14,
       "label": "PUSH",
       "mode": "momentary",
-      "channel": 0
+      "channel": 0,
+      "cc_on": 127,
+      "cc_off": 0
     }
   },
   "expression": {

@@ -69,6 +69,10 @@ pub struct EncoderPush {
     pub mode: ButtonMode,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub channel: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc_on: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc_off: Option<u8>,
 }
 
 /// Rotary encoder configuration (STD10 only)
@@ -246,6 +250,16 @@ impl MidiCaptainConfig {
                 if let Some(ch) = push.channel {
                     if ch > 15 {
                         errors.push(format!("Encoder push channel {} is invalid (must be 1-16)", ch + 1));
+                    }
+                }
+                if let Some(val) = push.cc_on {
+                    if val > 127 {
+                        errors.push(format!("Encoder push cc_on {} exceeds 127", val));
+                    }
+                }
+                if let Some(val) = push.cc_off {
+                    if val > 127 {
+                        errors.push(format!("Encoder push cc_off {} exceeds 127", val));
                     }
                 }
             }

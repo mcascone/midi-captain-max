@@ -26,6 +26,8 @@ export interface EncoderPush {
   label: string;
   mode?: ButtonMode;
   channel?: number;  // Stored as 0-15, displayed as 1-16
+  cc_on?: number;    // CC value when button is ON (default: 127)
+  cc_off?: number;   // CC value when button is OFF (default: 0)
 }
 
 export interface EncoderConfig {
