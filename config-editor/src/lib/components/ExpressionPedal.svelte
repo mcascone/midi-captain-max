@@ -2,9 +2,13 @@
   import type { ExpressionConfig } from '$lib/types';
   import { config } from '$lib/formStore';
   
-  export let pedal: ExpressionConfig;
-  export let name: string;
-  export let onUpdate: (field: string, value: any) => void;
+  interface Props {
+    pedal: ExpressionConfig;
+    name: string;
+    onUpdate: (field: string, value: any) => void;
+  }
+  
+  let { pedal, name, onUpdate }: Props = $props();
   
   let globalChannel = $derived($config.global_channel ?? 0);
   
