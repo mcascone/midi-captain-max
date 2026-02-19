@@ -72,18 +72,7 @@
             on:blur={(e) => onUpdate('label', (e.target as HTMLInputElement).value)}
           />
         </label>
-        
-        <label>
-          <span class="field-label">CC:</span>
-          <input 
-            type="number" 
-            value={pedal.cc}
-            min="0"
-            max="127"
-            on:blur={(e) => handleNumberInput('cc', e)}
-          />
-        </label>
-        
+
         <label>
           <span class="field-label">Channel:</span>
           <input 
@@ -94,6 +83,17 @@
             placeholder={effectiveChannel.toString()}
             title={pedal.channel !== undefined ? `MIDI Ch ${effectiveChannel}` : `Using global: ${effectiveChannel}`}
             on:blur={handleChannelChange}
+          />
+        </label>
+
+        <label>
+          <span class="field-label">CC:</span>
+          <input 
+            type="number" 
+            value={pedal.cc}
+            min="0"
+            max="127"
+            on:blur={(e) => handleNumberInput('cc', e)}
           />
         </label>
         

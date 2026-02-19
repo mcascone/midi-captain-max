@@ -72,6 +72,31 @@
       
       {#if encoder.enabled}
         <div class="field-row">
+          <label>Label:</label>
+          <input 
+            type="text" 
+            value={encoder.label}
+            onblur={(e) => handleField('label', e)}
+            maxlength="6"
+            disabled={isDisabled}
+          />
+        </div>
+
+        <div class="field-row">
+          <label>Channel:</label>
+          <input 
+            type="number" 
+            value={displayChannel !== undefined ? displayChannel : ''}
+            onblur={(e) => handleChannelChange('channel', e)}
+            min="1"
+            max="16"
+            placeholder={effectiveChannel.toString()}
+            title={encoder.channel !== undefined ? `MIDI Ch ${effectiveChannel}` : `Using global: ${effectiveChannel}`}
+            disabled={isDisabled}
+          />
+        </div>
+
+        <div class="field-row">
           <label>CC:</label>
           <input 
             type="number" 
@@ -86,32 +111,7 @@
             <span class="error-text">{ccError}</span>
           {/if}
         </div>
-        
-        <div class="field-row">
-          <label>Label:</label>
-          <input 
-            type="text" 
-            value={encoder.label}
-            onblur={(e) => handleField('label', e)}
-            maxlength="6"
-            disabled={isDisabled}
-          />
-        </div>
-        
-        <div class="field-row">
-          <label>Channel:</label>
-          <input 
-            type="number" 
-            value={displayChannel !== undefined ? displayChannel : ''}
-            onblur={(e) => handleChannelChange('channel', e)}
-            min="1"
-            max="16"
-            placeholder={effectiveChannel.toString()}
-            title={encoder.channel !== undefined ? `MIDI Ch ${effectiveChannel}` : `Using global: ${effectiveChannel}`}
-            disabled={isDisabled}
-          />
-        </div>
-        
+
         <div class="field-row">
           <label>Min:</label>
           <input 
@@ -164,6 +164,30 @@
         
         {#if encoder.push?.enabled}
           <div class="field-row">
+            <label>Label:</label>
+            <input 
+              type="text" 
+              value={encoder.push.label}
+              onblur={(e) => handleField('push.label', e)}
+              maxlength="6"
+              disabled={isDisabled}
+            />
+          </div>
+          <div class="field-row">
+            <label>Channel:</label>
+            <input 
+              type="number" 
+              value={displayPushChannel !== undefined ? displayPushChannel : ''}
+              onblur={(e) => handleChannelChange('push.channel', e)}
+              min="1"
+              max="16"
+              placeholder={effectivePushChannel.toString()}
+              title={encoder.push.channel !== undefined ? `MIDI Ch ${effectivePushChannel}` : `Using global: ${effectivePushChannel}`}
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div class="field-row">
             <label>CC:</label>
             <input 
               type="number" 
@@ -180,17 +204,6 @@
           </div>
           
           <div class="field-row">
-            <label>Label:</label>
-            <input 
-              type="text" 
-              value={encoder.push.label}
-              onblur={(e) => handleField('push.label', e)}
-              maxlength="6"
-              disabled={isDisabled}
-            />
-          </div>
-          
-          <div class="field-row">
             <label>Mode:</label>
             <select 
               value={encoder.push.mode || 'momentary'}
@@ -200,20 +213,6 @@
               <option value="toggle">Toggle</option>
               <option value="momentary">Momentary</option>
             </select>
-          </div>
-          
-          <div class="field-row">
-            <label>Channel:</label>
-            <input 
-              type="number" 
-              value={displayPushChannel !== undefined ? displayPushChannel : ''}
-              onblur={(e) => handleChannelChange('push.channel', e)}
-              min="1"
-              max="16"
-              placeholder={effectivePushChannel.toString()}
-              title={encoder.push.channel !== undefined ? `MIDI Ch ${effectivePushChannel}` : `Using global: ${effectivePushChannel}`}
-              disabled={isDisabled}
-            />
           </div>
         {/if}
       {/if}
