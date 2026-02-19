@@ -1,9 +1,12 @@
 <script lang="ts">
   import type { ExpressionConfig } from '$lib/types';
+  import { config } from '$lib/formStore';
   
   export let pedal: ExpressionConfig;
   export let name: string;
   export let onUpdate: (field: string, value: any) => void;
+  
+  let globalChannel = $derived($config.global_channel ?? 0);
   
   function handleCheckbox(e: Event) {
     const target = e.target as HTMLInputElement;
@@ -16,10 +19,29 @@
     onUpdate(field, value);
   }
   
+  function handleChannelChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (target.value === '') {
+      onUpdate('channel', undefined);
+    } else {
+      const value = parseInt(target.value);
+      // Convert from 1-16 display to 0-15 storage
+      onUpdate('channel', value - 1);
+    }
+  }
+  
   function handleSelect(field: string, e: Event) {
     const target = e.target as HTMLSelectElement;
     onUpdate(field, target.value);
   }
+  
+  // Display channel as 1-16 (stored as 0-15)
+  let displayChannel = $derived(
+    pedal.channel !== undefined ? pedal.channel + 1 : undefined
+  );
+  let effectiveChannel = $derived(
+    pedal.channel !== undefined ? pedal.channel + 1 : globalChannel + 1
+  );
 </script>
 
 <div class="pedal-config">
@@ -55,6 +77,19 @@
             min="0"
             max="127"
             on:blur={(e) => handleNumberInput('cc', e)}
+          />
+        </label>
+        
+        <label>
+          <span class="field-label">Channel:</span>
+          <input 
+            type="number" 
+            value={displayChannel !== undefined ? displayChannel : ''}
+            min="1"
+            max="16"
+            placeholder={effectiveChannel.toString()}
+            title={pedal.channel !== undefined ? `MIDI Ch ${effectiveChannel}` : `Using global: ${effectiveChannel}`}
+            on:blur={handleChannelChange}
           />
         </label>
         

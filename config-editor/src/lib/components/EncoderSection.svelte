@@ -7,6 +7,7 @@
   let encoder = $derived($config.encoder);
   let isDisabled = $derived(deviceType === 'mini6');
   let message = $derived(isDisabled ? 'Disabled on Mini6' : undefined);
+  let globalChannel = $derived($config.global_channel ?? 0);
   
   function handleField(path: string, e: Event) {
     const target = e.target as HTMLInputElement | HTMLSelectElement;
@@ -18,6 +19,32 @@
     
     updateField(`encoder.${path}`, value);
   }
+  
+  function handleChannelChange(path: string, e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (target.value === '') {
+      updateField(`encoder.${path}`, undefined);
+    } else {
+      const value = parseInt(target.value);
+      // Convert from 1-16 display to 0-15 storage
+      updateField(`encoder.${path}`, value - 1);
+    }
+  }
+  
+  // Display channel as 1-16 (stored as 0-15)
+  let displayChannel = $derived(
+    encoder?.channel !== undefined ? encoder.channel + 1 : undefined
+  );
+  let effectiveChannel = $derived(
+    encoder?.channel !== undefined ? encoder.channel + 1 : globalChannel + 1
+  );
+  
+  let displayPushChannel = $derived(
+    encoder?.push?.channel !== undefined ? encoder.push.channel + 1 : undefined
+  );
+  let effectivePushChannel = $derived(
+    encoder?.push?.channel !== undefined ? encoder.push.channel + 1 : globalChannel + 1
+  );
   
   let ccError = $derived($validationErrors.get('encoder.cc'));
   let pushCCError = $derived($validationErrors.get('encoder.push.cc'));
@@ -67,6 +94,20 @@
             value={encoder.label}
             onblur={(e) => handleField('label', e)}
             maxlength="6"
+            disabled={isDisabled}
+          />
+        </div>
+        
+        <div class="field-row">
+          <label>Channel:</label>
+          <input 
+            type="number" 
+            value={displayChannel !== undefined ? displayChannel : ''}
+            onblur={(e) => handleChannelChange('channel', e)}
+            min="1"
+            max="16"
+            placeholder={effectiveChannel.toString()}
+            title={encoder.channel !== undefined ? `MIDI Ch ${effectiveChannel}` : `Using global: ${effectiveChannel}`}
             disabled={isDisabled}
           />
         </div>
@@ -159,6 +200,20 @@
               <option value="toggle">Toggle</option>
               <option value="momentary">Momentary</option>
             </select>
+          </div>
+          
+          <div class="field-row">
+            <label>Channel:</label>
+            <input 
+              type="number" 
+              value={displayPushChannel !== undefined ? displayPushChannel : ''}
+              onblur={(e) => handleChannelChange('push.channel', e)}
+              min="1"
+              max="16"
+              placeholder={effectivePushChannel.toString()}
+              title={encoder.push.channel !== undefined ? `MIDI Ch ${effectivePushChannel}` : `Using global: ${effectivePushChannel}`}
+              disabled={isDisabled}
+            />
           </div>
         {/if}
       {/if}
