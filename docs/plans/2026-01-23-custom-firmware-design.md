@@ -367,7 +367,7 @@ Create a simple Python script using `mido` to:
 | Helmut's documentation | `docs/a midi foot controller...pdf` |
 | Helmut's GP script | `docs/GLOBAL RACKSPACE Script...gpscript` |
 | PySwitch repo | https://github.com/Tunetown/PySwitch |
-| Hardware findings | `docs/midicaptain_reverse_engineering_handoff.txt` |
+| Hardware findings | `docs/midicaptain_reverse_engineering_handoff.md` |
 | Device abstraction | `firmware/dev/devices/std10.py` |
 
 ---

@@ -5,6 +5,7 @@
   
   let deviceType = $derived($config.device);
   let buttons = $derived($config.buttons);
+  let globalChannel = $derived($config.global_channel ?? 0);
   let visibleCount = $derived(buttons.length);
   
   function handleButtonUpdate(index: number, field: string, value: any) {
@@ -20,6 +21,7 @@
         {button}
         {index}
         disabled={isDisabled}
+        globalChannel={globalChannel}
         onUpdate={(field, value) => handleButtonUpdate(index, field, value)}
       />
     {/each}

@@ -5,7 +5,7 @@ on:
     branches: 
       - "**"
     paths-ignore:
-      - ./**/*.md
+      - "**/*.md"
       - docs/**
 
   workflow_dispatch:
