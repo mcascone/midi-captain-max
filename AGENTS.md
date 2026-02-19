@@ -212,7 +212,7 @@ CircuitPython 7.3.1 does NOT support all CPython syntax. These features pass `py
 ## Hardware Reference
 
 Hardware pin mappings are documented in [docs/hardware-reference.md](docs/hardware-reference.md).
-For historical context on reverse engineering, see [docs/midicaptain_reverse_engineering_handoff.txt](docs/midicaptain_reverse_engineering_handoff.txt).
+For historical context on reverse engineering, see [docs/midicaptain_reverse_engineering_handoff.md](docs/midicaptain_reverse_engineering_handoff.md).
 
 ### STD10 (10-switch)
 - 30 NeoPixels (10 switches × 3 LEDs) on GP7
@@ -245,7 +245,7 @@ Device-specific constants live in `firmware/dev/devices/`:
 
 ### On-Device Testing
 - Copy code to MIDICAPTAIN volume, observe behavior via serial console
-- Use `screen` with auto-reconnect loop for serial monitoring
+- Use `screen` with auto-reconnect loop for serial monitoring. See docs/screen-cheatsheet.md for usage tips.
 - Experiments in `firmware/dev/experiments/` for isolated testing
 
 ### Deployment
@@ -284,7 +284,6 @@ All 3 distribution paths must include the same set of files and write the `VERSI
 **Team ID:** `9WNXKEF4SM`
 
 See [docs/macos-code-signing.md](docs/macos-code-signing.md) for full setup guide.
-
 
 ### GPG Signing Key for Linux distributions
 
@@ -335,7 +334,7 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 ### Phase 3: GUI Config Editor
 - [x] GUI Config editor app
 
-### Future:
+### Future
 - [ ] Windows Signing Cert
 - [ ] Support for 1/2/4-switch variants
 - [ ] Custom display layouts
@@ -378,3 +377,15 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 - Prefer working code over lengthy explanations
 - When proposing changes, provide complete, runnable implementations
 - Document decisions and trade-offs in commit messages or docs
+
+## Pull Request Guidelines
+
+- When making a PR, include a clear description of the change, the rationale, and any relevant context
+- Reference related issues or design docs
+- Ensure all CI checks pass before requesting review
+- Reviewers should focus on correctness, readability, and maintainability
+- Once a PR Title and description are fully filled out, don't change them — they serve as the source of truth for the change history and rationale. If you need to clarify or update information, add notes or comments to the existing description rather than rewriting it. This preserves the original context and decision-making process for future reference.
+- Do not include details on changes made during iteration in the PR description. The description should reflect the final state of the code after all iterations, not the process of getting there. This keeps the change history clean and focused on the end result rather than the development process. That being said, any important discoveries or decisions made during iteration that are relevant to understanding the final code should be documented in the PR description or in linked design docs, but not as a step-by-step account of the iteration process.
+
+### Pull Request Examples
+- Read the file docs/PR_Examples/example1.md for an example of a well-structured PR description that provides clear context, rationale, and references to design documents. This style should be followed for all PRs to ensure clarity and maintainability of the project history.

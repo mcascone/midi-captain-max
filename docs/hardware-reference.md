@@ -4,7 +4,7 @@
 > **Verified On:** STD10 hardware with CircuitPython 7.3.1
 
 This document contains verified hardware specifications for Paint Audio MIDI Captain devices.
-For historical context on how these were discovered, see [midicaptain_reverse_engineering_handoff.txt](midicaptain_reverse_engineering_handoff.txt).
+For historical context on how these were discovered, see [midicaptain_reverse_engineering_handoff.md](midicaptain_reverse_engineering_handoff.md).
 
 ---
 
