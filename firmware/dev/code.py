@@ -614,11 +614,13 @@ def handle_encoder_button():
                 encoder_push_state = not encoder_push_state
                 cc_val = ENC_PUSH_CC_ON if encoder_push_state else ENC_PUSH_CC_OFF
                 midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
+                print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, toggle)")
                 status_label.text = f"TX CC{CC_ENCODER_PUSH}={'ON' if encoder_push_state else 'OFF'}"
         else:
             # Momentary mode: send on press and release
             cc_val = ENC_PUSH_CC_ON if pressed else ENC_PUSH_CC_OFF
             midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
+            print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, momentary)")
             status_label.text = f"TX CC{CC_ENCODER_PUSH}={cc_val}"
 
 
@@ -647,10 +649,12 @@ def handle_encoder():
                 encoder_slot = new_slot
                 # Output CC is the slot number (0 to steps-1)
                 midi.send(ControlChange(CC_ENCODER, encoder_slot, channel=ENC_CHANNEL))
+                print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_slot} (slot)")
                 status_label.text = f"ENC slot {encoder_slot}"
         else:
             # Normal mode: send every change
             midi.send(ControlChange(CC_ENCODER, encoder_value, channel=ENC_CHANNEL))
+            print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_value}")
             status_label.text = f"ENC={encoder_value}"
 
 
