@@ -4,11 +4,15 @@
 
 **Bidirectional, config-driven CircuitPython firmware for Paint Audio MIDI Captain foot controllers.**
 
+Includes a **GUI Config Editor**!
+
+<img width="1312" height="912" alt="MCM-config-editor" src="https://github.com/user-attachments/assets/5e4c0b73-074b-4895-8861-d95aea7f1426" />
+
 ## What It Does
 
 This firmware transforms your MIDI Captain into a **bidirectional MIDI controller** where your host software (DAW, plugin host) can control the device's LEDs and display, not just receive button presses.
 
-Momentary and toggle mode are currently supported. [See here for all open features and issues](https://github.com/MC-Music-Workshop/midi-captain-max/issues).
+Momentary and toggle modes are currently supported. Many more issues are coming! [See here for all open features and issues](https://github.com/MC-Music-Workshop/midi-captain-max/issues).
 
 ## Key Features
 - 🔄 **Bidirectional MIDI** — Host sends CC to update LEDs/display state
