@@ -15,8 +15,8 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 Momentary and toggle modes are currently supported. Many more issues are coming! [See here for all open features and issues](https://github.com/MC-Music-Workshop/midi-captain-max/issues).
 
 ## Key Features
-- 🔄 **Bidirectional MIDI** — Host sends CC to update LEDs/display state
-- ⚙️ **Config-driven** — Customize button labels, CC numbers, colors via JSON
+- 🔄 **Bidirectional MIDI** — Host can update LEDs/display state
+- ⚙️ **Config-driven** — Customize button labels, CC numbers, colors with the GUI Config Editor.
 - 🎨 **Visual feedback** — LEDs and LCD reflect actual host state
 - 🎛️ **Full input support** — Footswitches, rotary encoder, expression pedals
 - 🎸 **Stage-ready** — No unexpected resets, no crashes, no surprises
