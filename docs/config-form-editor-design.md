@@ -1,14 +1,14 @@
 # Config Form Editor Design
 
-**Date:** 2026-02-09  
-**Status:** Approved for implementation  
-**Related:** [Config Editor Implementation Plan](2026-02-02-config-editor.md)
+**Created:** 2026-02-09
+**Status:** Implemented
+**Related:** [Config Editor Implementation Plan](plans/2026-02-02-config-editor.md)
 
 ---
 
 ## Overview
 
-Replace the JSON text editor in the config-editor app with a **visual form editor** featuring proper UI controls (dropdowns, toggles, text fields), undo/redo, validation, and device-specific field handling.
+Visual form editor replacing the raw JSON editor. Features proper UI controls (dropdowns, toggles, text fields), undo/redo, validation, and device-specific field handling.
 
 **Key Goals:**
 - Form-first UX (hide JSON complexity from users)
@@ -25,7 +25,7 @@ Replace the JSON text editor in the config-editor app with a **visual form edito
 
 **Choice:** Pure form UI replaces JSON editor
 - Visual editor is the primary interface
-- "View JSON" export button for power users
+- "View JSON" modal for power users
 - No split-pane or hybrid view
 
 **Rationale:** Cleaner, more professional experience. JSON editing is for debugging only.
@@ -43,7 +43,7 @@ Replace the JSON text editor in the config-editor app with a **visual form edito
 ▼ Display
 ```
 
-**Rationale:** 
+**Rationale:**
 - Visual separation of concerns
 - Can collapse irrelevant sections
 - Matches plugin UI conventions
@@ -54,7 +54,7 @@ Replace the JSON text editor in the config-editor app with a **visual form edito
 
 **Choice:** Each button row shows all fields horizontally
 ```
-Button 1:  [TSC     ] CC:[20  ] Color:[●Green ▼] Mode:[Toggle  ▼] Off:[Dim ▼]
+Button 1:  [TSC     ] Ch:[1 ] CC:[20  ] ON:[127] OFF:[0] Color:[●Green ▼] Mode:[Toggle  ▼] Off:[Dim ▼]
 ```
 
 **Rationale:**
@@ -107,28 +107,32 @@ Mini6 mode:
 **Single source of truth:**
 ```typescript
 interface FormState {
-  config: MidiCaptainConfig;           // Current values
-  history: MidiCaptainConfig[];        // Past states for undo
-  historyIndex: number;                // Position in history
+  config: MidiCaptainConfig;             // Current values
+  history: MidiCaptainConfig[];          // Past states for undo (max 50)
+  historyIndex: number;                  // Position in history
   validationErrors: Map<string, string>; // field path → error
-  isDirty: boolean;                    // Unsaved changes flag
-  _hiddenButtons?: ButtonConfig[];     // Buttons 7-10 when Mini6
-  _hiddenEncoder?: EncoderConfig;      // Encoder config when Mini6
+  isDirty: boolean;                      // Unsaved changes flag
+  _hiddenButtons?: ButtonConfig[];       // Buttons 7-10 when Mini6
+  _hiddenEncoder?: EncoderConfig;        // Encoder config when Mini6
 }
 ```
 
+**Derived stores:**
+- `config` — current config
+- `isDirty` — unsaved changes flag
+- `validationErrors` — error map
+- `canUndo` / `canRedo` — history state
+
 **Core actions:**
-- `loadConfig(config)` - Initialize from device
-- `updateField(path, value)` - Single field change (creates history checkpoint)
+- `loadConfig(config)` - Initialize from device, clears history
+- `updateField(path, value)` - Single field change (creates history checkpoint, debounced 500ms)
 - `setDevice(type)` - Device switch with data preservation
 - `undo()` / `redo()` - History navigation
 - `validate()` - Run all validation rules
-- `serialize()` - Convert to JSON for saving
 
 **History checkpoints:**
 - Every field change (debounced 500ms to batch rapid typing)
 - Device type switch
-- Copy/paste operations (future)
 
 ---
 
@@ -143,12 +147,16 @@ interface FormState {
 **Sections:**
 ```
 DeviceSection.svelte
-  └─ <select> for device type
+  ├─ <select> for device type
+  └─ <input type="number"> global MIDI channel
 
 ButtonsSection.svelte
   └─ ButtonRow.svelte (×6 or ×10)
       ├─ <input type="text"> label (max 6 chars)
+      ├─ <input type="number"> channel (1-16, stored as 0-15)
       ├─ <input type="number"> CC (0-127)
+      ├─ <input type="number"> ON value (cc_on, default 127)
+      ├─ <input type="number"> OFF value (cc_off, default 0)
       ├─ ColorSelect.svelte (custom dropdown)
       ├─ <select> mode (toggle/momentary)
       └─ <select> off_mode (dim/off)
@@ -156,22 +164,23 @@ ButtonsSection.svelte
 EncoderSection.svelte
   ├─ Device check: gray out if Mini6
   ├─ <input type="checkbox"> enabled
-  ├─ <input type="number"> CC, min, max, initial
-  └─ EncoderPush fields (nested)
+  ├─ <input type="number"> CC, min, max, initial, channel
+  └─ EncoderPush fields (nested): CC, ON value, OFF value, mode, channel
 
 ExpressionSection.svelte
   └─ ExpressionPedal.svelte (×2: exp1, exp2)
       ├─ <input type="checkbox"> enabled
-      ├─ <input type="number"> CC, min, max, threshold
+      ├─ <input type="number"> CC, min, max, threshold, channel
       └─ <select> polarity (normal/inverted)
 
 DisplaySection.svelte
-  └─ <select> text sizes (small/medium/large)
+  └─ <select> text sizes (small/medium/large) ×3
 ```
 
-**Custom components:**
-- `ColorSelect.svelte` - Only custom component (native `<select>` doesn't support color swatches)
-- Everything else uses native HTML elements with CSS styling
+**Utility components:**
+- `Accordion.svelte` - Reusable collapsible section with optional disabled state
+- `ColorSelect.svelte` - Custom color picker (native `<select>` doesn't support swatches)
+- `JsonEditor.svelte` - CodeMirror JSON viewer, used in "View JSON" modal
 
 **Rationale:** Avoid over-componentization. Native elements are simpler and more accessible.
 
@@ -183,8 +192,8 @@ DisplaySection.svelte
 
 | Field | Rules |
 |-------|-------|
-| Label | Required, max 6 chars, no special chars |
-| CC number | Required, integer 0-127, unique across all controls |
+| Label | Required, max 6 chars, alphanumeric/spaces/hyphens only |
+| CC number | Required, integer 0-127 |
 | Color | Must be valid enum (enforced by `<select>`) |
 | Mode | Must be toggle/momentary (enforced by `<select>`) |
 | Min/Max | Integer 0-127, min < max |
@@ -192,7 +201,6 @@ DisplaySection.svelte
 
 ### Form-Level Validation (runs before save)
 
-- No duplicate CC numbers across active controls
 - Device-specific checks:
   - Mini6: buttons.length ≤ 6
   - Mini6: encoder disabled (or missing)
@@ -206,7 +214,6 @@ DisplaySection.svelte
 - **Save button states:**
   - Valid: "Save to Device"
   - Invalid: "Fix 3 errors to save" (button disabled)
-- **Duplicate CC conflicts:** Both conflicting fields highlighted with error showing which other field conflicts
 
 ---
 
@@ -251,7 +258,7 @@ No new history entry (just pointer movement)
 ```
 User clicks "Save" → formStore.validate()
   ↓ All valid?
-YES: Serialize → writeConfigRaw() → Clear dirty flag + history
+YES: writeConfigRaw() → Clear dirty flag + history
 NO: Show errors, disable save button
 ```
 
@@ -282,12 +289,12 @@ Push to history, re-validate, components update
 
 ### Button Row Styling
 ```
-Button 1:  [TSC     ] CC:[20  ] Color:[●Green ▼] Mode:[Toggle  ▼] Off:[Dim ▼]
-           └─6 chars  └─0-127   └─visual swatch └─native select  └─optional
+Button 1:  [TSC     ] Ch:[1] CC:[20] ON:[127] OFF:[0] Color:[●Green ▼] Mode:[Toggle ▼] Off:[Dim ▼]
+           └─6 chars        └─0-127  └─0-127  └─0-127  └─visual swatch
 ```
 - Fixed-width label input (prevents layout shift)
 - Inline field labels ("CC:", "Color:", etc.)
-- Optional fields show "—" placeholder when default
+- Optional fields show placeholder when default
 
 ### Device-Specific Visibility
 - **Mini6:** Buttons 7-10 grayed with overlay "Not available on Mini6"
@@ -303,28 +310,11 @@ Button 1:  [TSC     ] CC:[20  ] Color:[●Green ▼] Mode:[Toggle  ▼] Off:[Dim
 
 ### Error States
 - Invalid field: Red border + error text below
-- Duplicate CC: Both fields highlighted
 - Form-level: Yellow banner at top with issue list
 
 ---
 
-## Implementation Phases
-
-| Phase | Components | Estimate |
-|-------|-----------|----------|
-| 1. Form Store | State management, undo/redo, device preservation | 2-3h |
-| 2. Validation | Field + form-level validation rules | 2h |
-| 3. Base UI | ConfigForm shell, accordion, keyboard shortcuts | 2h |
-| 4. Button Section | ButtonRow, ColorSelect, device visibility | 3h |
-| 5. Encoder/Expression | EncoderSection, ExpressionSection | 2h |
-| 6. Display & Polish | DisplaySection, error UI, styling | 2h |
-| 7. Integration | Replace JsonEditor, testing | 2-3h |
-
-**Total: 15-18 hours**
-
----
-
-## Future Enhancements (Post-MVP)
+## Future Enhancements
 
 - LCD preview pane (show what display will look like)
 - Copy/paste button configs
@@ -332,9 +322,4 @@ Button 1:  [TSC     ] CC:[20  ] Color:[●Green ▼] Mode:[Toggle  ▼] Off:[Dim
 - Drag-and-drop button reordering
 - Bulk edit mode (change CC numbers by offset)
 - Import from OEM SuperMode configs
-
----
-
-## Open Questions
-
-None - design approved for implementation.
+- Multiple messages per button press (requires firmware + schema changes)
