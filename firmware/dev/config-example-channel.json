@@ -1,5 +1,6 @@
 {
   "device": "std10",
+  "usb_drive_name": "MIDICAPTAIN",
   "global_channel": 0,
   "display": {
     "button_text_size": "medium",

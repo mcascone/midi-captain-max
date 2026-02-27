@@ -5,6 +5,24 @@ Prerequisites:
   - CircuitPython 7.x installed on your device
   - Device connected via USB and mounted as CIRCUITPY or MIDICAPTAIN
 
+Custom USB Drive Name (Optional)
+------------------------------------------------
+
+  You can customize the mounted drive name by editing config.json:
+  
+    {
+      "device": "std10",
+      "usb_drive_name": "MYCAPTAIN",
+      ...
+    }
+  
+  The drive name must be:
+    - Maximum 11 characters
+    - Alphanumeric + underscores only
+    - Will be auto-converted to uppercase
+  
+  The name persists across power cycles and USB disconnects.
+
 Recommended: Use deploy.sh (macOS/Linux)
 ------------------------------------------------
 

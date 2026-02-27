@@ -351,11 +351,11 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 | Path | Purpose |
 |------|---------|
 | `firmware/dev/code.py` | **Active**: Unified firmware with config, display, bidirectional MIDI |
-| `firmware/dev/boot.py` | Disables autoreload for stage reliability |
-| `firmware/dev/config.json` | STD10 default config (button labels, CC numbers, colors) |
+| `firmware/dev/boot.py` | Disables autoreload for stage reliability, applies custom USB drive name |
+| `firmware/dev/config.json` | STD10 default config (button labels, CC numbers, colors, drive name) |
 | `firmware/dev/config-mini6.json` | Mini6 template config (copy to device as config.json) |
 | `firmware/dev/VERSION` | Firmware version (generated, gitignored) |
-| `firmware/dev/core/config.py` | Config loading and validation |
+| `firmware/dev/core/config.py` | Config loading and validation (including USB drive name) |
 | `firmware/dev/core/button.py` | Switch and ButtonState classes |
 | `firmware/dev/core/colors.py` | Color palette and utilities |
 | `firmware/dev/devices/std10.py` | STD10 hardware constants |
@@ -364,6 +364,7 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 | `tools/deploy.sh` | Dev deploy to device (rsync, VERSION, device detection) |
 | `tools/build-gumroad-zip.sh` | Build Gumroad distribution zip |
 | `docs/hardware-reference.md` | Verified hardware specs, auto-detection docs |
+| `docs/custom-drive-names.md` | Guide for customizing USB drive names |
 | `docs/screen-cheatsheet.md` | Serial console (screen) usage guide |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
 | `.github/workflows/ci.yml` | CI: lint, build firmware zip |

@@ -39,6 +39,25 @@ Momentary and toggle modes are currently supported. Many more issues are coming!
 
 ## Configuration
 
+### Custom USB Drive Name
+
+If you have multiple MIDI Captain devices, you can give each one a unique name! Edit the `usb_drive_name` field in `config.json`:
+
+```json
+{
+  "device": "std10",
+  "usb_drive_name": "MYCAPTAIN",
+  ...
+}
+```
+
+**Requirements:**
+- Maximum 11 characters
+- Letters, numbers, and underscores only
+- Will be automatically converted to uppercase
+
+The name persists across power cycles and USB disconnects. Change it anytime by editing config.json and restarting the device.
+
 ### Config Editor App (Recommended)
 
 The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration easy!
