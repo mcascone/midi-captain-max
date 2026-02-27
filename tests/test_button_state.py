@@ -122,3 +122,90 @@ class TestButtonStateMidiReceive:
         # Local press toggles back on
         btn.on_press()
         assert btn.state == True
+
+
+class TestButtonStateKeytimes:
+    """Tests for keytimes (multi-press cycling)."""
+    
+    def test_keytimes_default_is_one(self):
+        """Button defaults to keytimes=1 (no cycling)."""
+        btn = ButtonState(cc=20)
+        assert btn.keytimes == 1
+        assert btn.current_keytime == 1
+    
+    def test_keytimes_clamps_to_valid_range(self):
+        """Keytimes is clamped to 1-9."""
+        btn_low = ButtonState(cc=20, keytimes=0)
+        assert btn_low.keytimes == 1
+        
+        btn_high = ButtonState(cc=20, keytimes=15)
+        assert btn_high.keytimes == 9
+    
+    def test_keytimes_cycles_through_states(self):
+        """Button cycles through keytime states on repeated presses."""
+        btn = ButtonState(cc=20, mode="toggle", keytimes=3)
+        
+        # Initial state
+        assert btn.get_keytime() == 1
+        
+        # First press -> keytime 2
+        btn.on_press()
+        assert btn.get_keytime() == 2
+        assert btn.state == True
+        
+        # Second press -> keytime 3
+        btn.on_press()
+        assert btn.get_keytime() == 3
+        assert btn.state == True
+        
+        # Third press -> cycles back to keytime 1
+        btn.on_press()
+        assert btn.get_keytime() == 1
+        assert btn.state == True
+    
+    def test_keytimes_with_momentary_mode(self):
+        """Keytimes work with momentary mode."""
+        btn = ButtonState(cc=20, mode="momentary", keytimes=2)
+        
+        assert btn.get_keytime() == 1
+        
+        # Press advances keytime
+        btn.on_press()
+        assert btn.get_keytime() == 2
+        assert btn.state == True
+        
+        # Release doesn't affect keytime
+        btn.on_release()
+        assert btn.get_keytime() == 2
+        assert btn.state == False
+        
+        # Next press cycles back to 1
+        btn.on_press()
+        assert btn.get_keytime() == 1
+    
+    def test_reset_keytime(self):
+        """reset_keytime() returns to state 1."""
+        btn = ButtonState(cc=20, keytimes=5)
+        
+        # Advance to state 3
+        btn.on_press()
+        btn.on_press()
+        assert btn.get_keytime() == 3
+        
+        # Reset
+        btn.reset_keytime()
+        assert btn.get_keytime() == 1
+        assert btn.state == False
+    
+    def test_keytimes_one_behaves_as_standard_toggle(self):
+        """keytimes=1 maintains standard toggle behavior."""
+        btn = ButtonState(cc=20, mode="toggle", keytimes=1)
+        
+        # Standard toggle on/off
+        btn.on_press()
+        assert btn.state == True
+        assert btn.get_keytime() == 1
+        
+        btn.on_press()
+        assert btn.state == False
+        assert btn.get_keytime() == 1

@@ -61,7 +61,13 @@ def validate_button(btn, index=0, global_channel=None):
     else:
         default_channel = 0
     
-    return {
+    # Keytimes: default to 1 (no cycling), clamp to 1-9
+    keytimes = btn.get("keytimes", 1)
+    if not isinstance(keytimes, int):
+        keytimes = 1
+    keytimes = max(1, min(9, keytimes))
+    
+    validated = {
         "label": btn.get("label", str(index + 1)),
         "cc": btn.get("cc", 20 + index),
         "color": btn.get("color", "white"),
@@ -70,7 +76,17 @@ def validate_button(btn, index=0, global_channel=None):
         "channel": btn.get("channel", default_channel),
         "cc_on": btn.get("cc_on", 127),
         "cc_off": btn.get("cc_off", 0),
+        "keytimes": keytimes,
     }
+    
+    # For keytimes > 1, support per-state configuration
+    if keytimes > 1:
+        # Optional: states array with per-state overrides
+        states = btn.get("states", [])
+        if isinstance(states, list) and len(states) > 0:
+            validated["states"] = states
+    
+    return validated
 
 
 def validate_config(cfg, button_count=10):

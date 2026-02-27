@@ -162,6 +162,46 @@ class TestValidateButton:
         btn = validate_button({"cc_on": 100, "cc_off": 20}, index=0)
         assert btn["cc_on"] == 100
         assert btn["cc_off"] == 20
+    
+    def test_keytimes_default(self):
+        """Button defaults to keytimes=1 when not specified."""
+        btn = validate_button({}, index=0)
+        assert btn["keytimes"] == 1
+    
+    def test_keytimes_explicit_value(self):
+        """Button can specify keytimes value."""
+        btn = validate_button({"keytimes": 3}, index=0)
+        assert btn["keytimes"] == 3
+    
+    def test_keytimes_clamped_to_valid_range(self):
+        """Keytimes is clamped to 1-9."""
+        btn_low = validate_button({"keytimes": 0}, index=0)
+        assert btn_low["keytimes"] == 1
+        
+        btn_high = validate_button({"keytimes": 15}, index=0)
+        assert btn_high["keytimes"] == 9
+        
+        btn_valid = validate_button({"keytimes": 5}, index=0)
+        assert btn_valid["keytimes"] == 5
+    
+    def test_keytimes_invalid_type_defaults_to_one(self):
+        """Non-integer keytimes defaults to 1."""
+        btn = validate_button({"keytimes": "invalid"}, index=0)
+        assert btn["keytimes"] == 1
+    
+    def test_keytimes_with_states(self):
+        """Button with keytimes > 1 can have states array."""
+        btn = validate_button({
+            "keytimes": 3,
+            "states": [
+                {"cc_on": 64, "color": "red"},
+                {"cc_on": 96, "color": "blue"},
+                {"cc_on": 127, "color": "green"}
+            ]
+        }, index=0)
+        assert btn["keytimes"] == 3
+        assert "states" in btn
+        assert len(btn["states"]) == 3
 
 
 class TestValidateConfig:
