@@ -10,6 +10,25 @@ This document provides instructions for manually testing the custom USB drive na
 
 ## Test Scenarios
 
+### Test 0: USB Disable (Critical Bug Fix)
+
+**Goal:** Verify USB drive is properly hidden when switch 1 is NOT held during boot.
+
+**Background:** Previous versions had a bug where USB drive always mounted. This test verifies the fix.
+
+1. Power on device **WITHOUT** holding Switch 1
+2. **Expected:** 
+   - No USB drive appears on computer
+   - Device operates normally for MIDI
+3. Check serial console (if available):
+   - Should see: `🔒 USB drive disabled (hold switch 1 during boot to enable)`
+4. Power off, then power on WITH Switch 1 held
+5. **Expected:** Drive appears (confirms switch is working)
+6. Power off, then power on WITHOUT Switch 1
+7. **Expected:** Drive hidden again (confirms disable works consistently)
+
+**⚠️ CRITICAL:** If this test fails, the USB disable fix did not work. Report immediately.
+
 ### Test 1: Default Name (Baseline)
 
 **Goal:** Verify the default name "MIDICAPTAIN" appears when no custom name is set.
@@ -145,6 +164,7 @@ Date: ___________
 Device: STD10 / Mini6
 Firmware Version: ___________
 
+Test 0 (USB Disable): PASS / FAIL ⚠️ CRITICAL
 Test 1 (Default): PASS / FAIL
 Test 2 (Custom): PASS / FAIL
 Test 3 (Persistence): PASS / FAIL
@@ -181,11 +201,13 @@ _________________________________
 
 ## Success Criteria
 
+✅ **Test 0 (USB Disable) MUST pass** - Critical bug fix verification
 ✅ All 10 tests pass
 ✅ Device boots reliably in all scenarios
 ✅ Custom names persist across power cycles
 ✅ Invalid names fall back gracefully
-✅ Performance mode still works (USB disabled)
+✅ Performance mode works correctly (USB disabled)
+✅ USB shows/hides based on switch 1 state
 
 ## Reporting Results
 

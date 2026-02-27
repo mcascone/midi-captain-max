@@ -59,6 +59,20 @@ switch_1.pull = digitalio.Pull.UP
 # Read switch state (LOW = pressed with pull-up)
 enable_usb_drive = not switch_1.value
 
+# CRITICAL: disable_usb_drive() must be called BEFORE any USB initialization.
+# This means we must check the disable condition FIRST, before any remount() calls.
+if not enable_usb_drive:
+    # Performance mode - hide USB drive completely
+    # Drive won't appear on computer, preventing remount issues
+    try:
+        storage.disable_usb_drive()
+        print("🔒 USB drive disabled (hold switch 1 during boot to enable)")
+    except Exception as e:
+        # If disable fails, log and continue
+        print(f"⚠️  USB disable failed: {e}")
+
+# Now, if USB is enabled, configure the drive label
+# This runs AFTER disable_usb_drive() check, so USB is only initialized when needed
 if enable_usb_drive:
     # USB enabled - apply custom drive name and make read-write
     print(f"🔓 USB DRIVE ENABLED as '{usb_drive_name}'")
@@ -69,15 +83,6 @@ if enable_usb_drive:
     except Exception as e:
         # If remount fails, log but continue
         print(f"⚠️  Drive label warning: {e}")
-else:
-    # Performance mode - hide USB drive completely
-    # Drive won't appear on computer, preventing remount issues
-    try:
-        storage.disable_usb_drive()
-        print("🔒 USB drive disabled (hold switch 1 during boot to enable)")
-    except Exception as e:
-        # If disable fails, continue anyway
-        print(f"⚠️  USB disable warning: {e}")
 
 # Clean up - switch will be available again in code.py
 switch_1.deinit()
