@@ -381,8 +381,9 @@ pc_flash_timers = [0] * BUTTON_COUNT  # Timer for PC button LED flash (0 = off)
 encoder_value = ENC_INITIAL  # Internal value 0-127
 encoder_slot = -1  # Current slot (set on first change)
 
-# PC flash duration (in main loop iterations, approx 100ms with 10ms delay)
-PC_FLASH_DURATION = 10  # ~100ms
+# PC flash duration (in main loop iterations)
+# Approximate timing depends on loop execution speed (typically ~10ms per iteration)
+PC_FLASH_DURATION = 10  # ~100ms at typical loop speed
 
 # =============================================================================
 # Display Setup
@@ -544,17 +545,26 @@ def clamp_pc_value(value):
 
 
 def flash_pc_button(button_idx):
-    """Flash LED for PC button press (1-indexed)."""
+    """Flash LED for PC button press.
+    
+    Args:
+        button_idx: 1-indexed button number (matches set_button_state convention)
+    """
     set_button_state(button_idx, True)
     pc_flash_timers[button_idx - 1] = PC_FLASH_DURATION
 
 
 def update_pc_flash_timers():
-    """Update PC button flash timers and turn off LEDs when expired."""
+    """Update PC button flash timers and turn off LEDs when expired.
+    
+    Called in main loop to decrement flash timers and turn off LEDs
+    after PC_FLASH_DURATION iterations.
+    """
     for i in range(BUTTON_COUNT):
         if pc_flash_timers[i] > 0:
             pc_flash_timers[i] -= 1
             if pc_flash_timers[i] == 0:
+                # Convert 0-indexed i to 1-indexed button number
                 set_button_state(i + 1, False)
 
 
@@ -596,6 +606,8 @@ def handle_midi():
             print(f"[MIDI RX] Ch{msg_channel+1} PC{program}")
             
             # Update PC values for buttons with pc_inc/pc_dec on this channel
+            # Note: O(n) lookup is acceptable for current device sizes (6-10 buttons)
+            # Future optimization: maintain channel->button index mapping if needed
             for i, btn_config in enumerate(buttons):
                 btn_type = btn_config.get("type", "cc")
                 btn_channel = btn_config.get("channel", 0)
