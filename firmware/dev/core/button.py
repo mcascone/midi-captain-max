@@ -48,19 +48,23 @@ class ButtonState:
     """Tracks toggle state and mode for a button.
     
     Supports toggle and momentary modes with bidirectional sync.
+    Also supports keytimes (multi-press cycling through states).
     """
     
-    def __init__(self, cc, mode="toggle", initial_state=False):
+    def __init__(self, cc, mode="toggle", initial_state=False, keytimes=1):
         """Initialize button state.
         
         Args:
             cc: MIDI CC number for this button
             mode: "toggle" or "momentary"
             initial_state: Initial on/off state
+            keytimes: Number of states to cycle through (1-99), default 1 (no cycling)
         """
         self.cc = cc
         self.mode = mode
         self._state = initial_state
+        self.keytimes = max(1, min(99, keytimes))  # Clamp to 1-99
+        self.current_keytime = 1  # Current position in keytime cycle (1-indexed)
     
     @property
     def state(self):
@@ -75,15 +79,27 @@ class ButtonState:
     def on_press(self):
         """Handle button press.
         
+        For keytimes > 1: advances to next keytime state (cycling back to 1 after max).
+        
         Returns:
             Tuple of (state_changed: bool, new_state: bool, midi_value: int)
         """
         if self.mode == "momentary":
             self._state = True
+            # For keytimes with momentary, advance state on press
+            if self.keytimes > 1:
+                self.current_keytime = (self.current_keytime % self.keytimes) + 1
             return True, True, 127
         else:  # toggle
-            self._state = not self._state
-            return True, self._state, 127 if self._state else 0
+            # For keytimes, advance to next state
+            if self.keytimes > 1:
+                self.current_keytime = (self.current_keytime % self.keytimes) + 1
+                self._state = True  # Always "on" when cycling keytimes
+                return True, True, 127
+            else:
+                # Standard toggle behavior
+                self._state = not self._state
+                return True, self._state, 127 if self._state else 0
     
     def on_release(self):
         """Handle button release.
@@ -109,3 +125,16 @@ class ButtonState:
         """
         self._state = value > 63
         return self._state
+    
+    def get_keytime(self):
+        """Get current keytime index (1-indexed).
+        
+        Returns:
+            Current keytime position (1 to keytimes)
+        """
+        return self.current_keytime
+    
+    def reset_keytime(self):
+        """Reset keytime cycle back to position 1."""
+        self.current_keytime = 1
+        self._state = False
