@@ -233,12 +233,8 @@ def validate_usb_drive_name(name):
     name = name.upper().strip()
     
     # Filter to valid characters (alphanumeric + underscore)
-    valid_chars = []
-    for c in name:
-        if c.isalnum() or c == "_":
-            valid_chars.append(c)
-    
-    name = "".join(valid_chars)
+    # Using generator expression for memory efficiency on embedded hardware
+    name = "".join(c for c in name if c.isalnum() or c == "_")
     
     # Truncate to 11 characters
     if len(name) > 11:

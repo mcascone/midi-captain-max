@@ -37,6 +37,8 @@ supervisor.disable_autoreload()
 usb_drive_name = "MIDICAPTAIN"  # Default fallback
 try:
     # Import config module to read drive name
+    # boot.py runs before normal module search paths are established,
+    # so we need to explicitly add /core to sys.path
     import sys
     sys.path.insert(0, "/core")
     from config import load_config, get_usb_drive_name

@@ -57,6 +57,7 @@ def test_validate_usb_drive_name_empty_fallback():
 def test_validate_usb_drive_name_whitespace():
     """Test whitespace is stripped and spaces removed."""
     assert validate_usb_drive_name("  MYDEVICE  ") == "MYDEVICE"
+    # Internal spaces are also removed (test on line 68 verifies this)
     assert validate_usb_drive_name(" MY DEVICE ") == "MYDEVICE"
 
 
