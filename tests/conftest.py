@@ -44,6 +44,8 @@ def install_mocks():
     sys.modules["adafruit_st7789"] = StubModule()
     sys.modules["adafruit_midi"] = StubModule()
     sys.modules["adafruit_midi.control_change"] = StubModule()
+    sys.modules["adafruit_midi.note_on"] = StubModule()
+    sys.modules["adafruit_midi.note_off"] = StubModule()
 
 
 # Install mocks at import time (before tests run)

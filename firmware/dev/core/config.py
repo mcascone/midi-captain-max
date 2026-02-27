@@ -61,8 +61,13 @@ def validate_button(btn, index=0, global_channel=None):
     else:
         default_channel = 0
     
-    return {
+    msg_type = btn.get("type", "cc")
+    if msg_type not in ("cc", "note"):
+        msg_type = "cc"
+
+    result = {
         "label": btn.get("label", str(index + 1)),
+        "type": msg_type,
         "cc": btn.get("cc", 20 + index),
         "color": btn.get("color", "white"),
         "mode": btn.get("mode", "toggle"),
@@ -71,6 +76,14 @@ def validate_button(btn, index=0, global_channel=None):
         "cc_on": btn.get("cc_on", 127),
         "cc_off": btn.get("cc_off", 0),
     }
+
+    # Add note-specific fields when type is "note"
+    if msg_type == "note":
+        result["note"] = btn.get("note", 60)
+        result["velocity_on"] = btn.get("velocity_on", 127)
+        result["velocity_off"] = btn.get("velocity_off", 0)
+
+    return result
 
 
 def validate_config(cfg, button_count=10):

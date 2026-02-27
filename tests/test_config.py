@@ -164,6 +164,65 @@ class TestValidateButton:
         assert btn["cc_off"] == 20
 
 
+class TestButtonTypeNote:
+    """Test note message type configuration."""
+
+    def test_default_type_is_cc(self):
+        """Buttons default to CC type for backward compatibility."""
+        btn = validate_button({}, index=0)
+        assert btn["type"] == "cc"
+
+    def test_note_type_preserved(self):
+        """Can specify note type."""
+        btn = validate_button({"type": "note", "note": 60}, index=0)
+        assert btn["type"] == "note"
+        assert btn["note"] == 60
+
+    def test_note_type_defaults(self):
+        """Note type fills in default note and velocity values."""
+        btn = validate_button({"type": "note"}, index=0)
+        assert btn["type"] == "note"
+        assert btn["note"] == 60
+        assert btn["velocity_on"] == 127
+        assert btn["velocity_off"] == 0
+
+    def test_note_type_custom_velocity(self):
+        """Note type preserves custom velocity values."""
+        btn = validate_button({"type": "note", "note": 48, "velocity_on": 100, "velocity_off": 10}, index=0)
+        assert btn["note"] == 48
+        assert btn["velocity_on"] == 100
+        assert btn["velocity_off"] == 10
+
+    def test_cc_type_no_note_fields(self):
+        """CC type buttons don't include note-specific fields."""
+        btn = validate_button({"type": "cc"}, index=0)
+        assert btn["type"] == "cc"
+        assert "note" not in btn
+        assert "velocity_on" not in btn
+        assert "velocity_off" not in btn
+
+    def test_invalid_type_defaults_to_cc(self):
+        """Invalid type value falls back to CC."""
+        btn = validate_button({"type": "invalid"}, index=0)
+        assert btn["type"] == "cc"
+
+    def test_note_type_still_has_cc_field(self):
+        """Note type buttons still carry the cc field (for backward compat)."""
+        btn = validate_button({"type": "note", "cc": 25, "note": 72}, index=0)
+        assert btn["cc"] == 25
+        assert btn["note"] == 72
+
+    def test_note_type_inherits_global_channel(self):
+        """Note type buttons inherit global channel."""
+        btn = validate_button({"type": "note"}, index=0, global_channel=5)
+        assert btn["channel"] == 5
+
+    def test_existing_config_without_type_is_cc(self):
+        """Existing configs without type field default to CC (backward compat)."""
+        btn = validate_button({"label": "MUTE", "cc": 20, "color": "red"}, index=0)
+        assert btn["type"] == "cc"
+
+
 class TestValidateConfig:
     """Test validate_config function from core/config.py."""
     

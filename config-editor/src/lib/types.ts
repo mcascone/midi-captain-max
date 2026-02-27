@@ -6,6 +6,7 @@ export type ButtonColor =
 
 export type ButtonMode = 'toggle' | 'momentary';
 export type OffMode = 'dim' | 'off';
+export type MessageType = 'cc' | 'note';
 export type Polarity = 'normal' | 'inverted';
 export type DeviceType = 'std10' | 'mini6';
 
@@ -13,11 +14,15 @@ export interface ButtonConfig {
   label: string;
   cc: number;
   color: ButtonColor;
+  type?: MessageType;       // Message type: 'cc' (default) or 'note'
   mode?: ButtonMode;
   off_mode?: OffMode;
-  channel?: number;  // Stored as 0-15, displayed as 1-16
-  cc_on?: number;    // CC value when button is ON (default: 127)
-  cc_off?: number;   // CC value when button is OFF (default: 0)
+  channel?: number;         // Stored as 0-15, displayed as 1-16
+  cc_on?: number;           // CC value when button is ON (default: 127)
+  cc_off?: number;          // CC value when button is OFF (default: 0)
+  note?: number;            // MIDI note number 0-127 (for type='note')
+  velocity_on?: number;     // Note velocity when ON (default: 127)
+  velocity_off?: number;    // Note velocity when OFF (default: 0)
 }
 
 export interface EncoderPush {

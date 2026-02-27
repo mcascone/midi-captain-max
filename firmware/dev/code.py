@@ -35,6 +35,8 @@ import terminalio
 from adafruit_st7789 import ST7789
 import adafruit_midi
 from adafruit_midi.control_change import ControlChange
+from adafruit_midi.note_on import NoteOn
+from adafruit_midi.note_off import NoteOff
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
@@ -540,24 +542,60 @@ def init_leds():
 def handle_midi():
     """Handle incoming MIDI messages."""
     msg = midi.receive()
-    if msg and isinstance(msg, ControlChange):
+    if msg is None:
+        return
+
+    msg_channel = getattr(msg, 'channel', 0)
+    if msg_channel is None:
+        msg_channel = 0
+
+    if isinstance(msg, ControlChange):
         cc = msg.control
         val = msg.value
-        # ControlChange objects have a .channel attribute (0-15 = MIDI Ch 1-16)
-        # If channel is None, it means it was sent on the default channel
-        msg_channel = getattr(msg, 'channel', 0)
-        if msg_channel is None:
-            msg_channel = 0
         print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
 
-        # Check if this CC matches any button (must match both CC number and channel)
+        # Check if this CC matches any CC-type button
         for i, btn_config in enumerate(buttons):
+            if btn_config.get("type", "cc") != "cc":
+                continue
             btn_cc = btn_config.get("cc")
             btn_channel = btn_config.get("channel", 0)
             if btn_cc == cc and btn_channel == msg_channel:
                 on = val > 63
                 set_button_state(i + 1, on)
                 status_label.text = f"RX CC{cc}={val}"
+                break
+
+    elif isinstance(msg, NoteOn):
+        note = msg.note
+        vel = msg.velocity
+        print(f"[MIDI RX] Ch{msg_channel+1} NoteOn {note} vel={vel}")
+
+        # Check if this note matches any note-type button
+        for i, btn_config in enumerate(buttons):
+            if btn_config.get("type") != "note":
+                continue
+            btn_note = btn_config.get("note", 60)
+            btn_channel = btn_config.get("channel", 0)
+            if btn_note == note and btn_channel == msg_channel:
+                on = vel > 0
+                set_button_state(i + 1, on)
+                status_label.text = f"RX Note{note} v={vel}"
+                break
+
+    elif isinstance(msg, NoteOff):
+        note = msg.note
+        print(f"[MIDI RX] Ch{msg_channel+1} NoteOff {note}")
+
+        # Check if this note matches any note-type button
+        for i, btn_config in enumerate(buttons):
+            if btn_config.get("type") != "note":
+                continue
+            btn_note = btn_config.get("note", 60)
+            btn_channel = btn_config.get("channel", 0)
+            if btn_note == note and btn_channel == msg_channel:
+                set_button_state(i + 1, False)
+                status_label.text = f"RX Note{note} OFF"
                 break
 
 
@@ -575,27 +613,55 @@ def handle_switches():
             btn_num = i if HAS_ENCODER else i + 1
             idx = btn_num - 1
             btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
-            cc = btn_config.get("cc", 20 + idx)
+            msg_type = btn_config.get("type", "cc")
             mode = btn_config.get("mode", "toggle")  # "toggle" or "momentary"
             channel = btn_config.get("channel", 0)  # 0 = MIDI Channel 1
-            cc_on = btn_config.get("cc_on", 127)
-            cc_off = btn_config.get("cc_off", 0)
 
-            if mode == "momentary":
-                # Momentary: cc_on on press, cc_off on release
-                val = cc_on if pressed else cc_off
-                set_button_state(btn_num, pressed)
-                midi.send(ControlChange(cc, val, channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, momentary)")
-                status_label.text = f"TX CC{cc}={val}"
-            elif pressed:
-                # Toggle: only act on press, flip state
-                new_state = not button_states[idx]
-                set_button_state(btn_num, new_state)
-                val = cc_on if new_state else cc_off
-                midi.send(ControlChange(cc, val, channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
-                status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+            if msg_type == "note":
+                note = btn_config.get("note", 60)
+                vel_on = btn_config.get("velocity_on", 127)
+                vel_off = btn_config.get("velocity_off", 0)
+
+                if mode == "momentary":
+                    set_button_state(btn_num, pressed)
+                    if pressed:
+                        midi.send(NoteOn(note, vel_on, channel=channel))
+                        print(f"[MIDI TX] Ch{channel+1} NoteOn {note} vel={vel_on} (switch {btn_num}, momentary)")
+                        status_label.text = f"TX Note{note} ON"
+                    else:
+                        midi.send(NoteOff(note, vel_off, channel=channel))
+                        print(f"[MIDI TX] Ch{channel+1} NoteOff {note} (switch {btn_num}, momentary)")
+                        status_label.text = f"TX Note{note} OFF"
+                elif pressed:
+                    new_state = not button_states[idx]
+                    set_button_state(btn_num, new_state)
+                    if new_state:
+                        midi.send(NoteOn(note, vel_on, channel=channel))
+                        print(f"[MIDI TX] Ch{channel+1} NoteOn {note} vel={vel_on} (switch {btn_num}, toggle)")
+                        status_label.text = f"TX Note{note} ON"
+                    else:
+                        midi.send(NoteOff(note, vel_off, channel=channel))
+                        print(f"[MIDI TX] Ch{channel+1} NoteOff {note} (switch {btn_num}, toggle)")
+                        status_label.text = f"TX Note{note} OFF"
+            else:
+                # Default: Control Change
+                cc = btn_config.get("cc", 20 + idx)
+                cc_on = btn_config.get("cc_on", 127)
+                cc_off = btn_config.get("cc_off", 0)
+
+                if mode == "momentary":
+                    val = cc_on if pressed else cc_off
+                    set_button_state(btn_num, pressed)
+                    midi.send(ControlChange(cc, val, channel=channel))
+                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, momentary)")
+                    status_label.text = f"TX CC{cc}={val}"
+                elif pressed:
+                    new_state = not button_states[idx]
+                    set_button_state(btn_num, new_state)
+                    val = cc_on if new_state else cc_off
+                    midi.send(ControlChange(cc, val, channel=channel))
+                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
+                    status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
 
 
 def handle_encoder_button():

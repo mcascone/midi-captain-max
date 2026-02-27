@@ -33,6 +33,26 @@ export const validators = {
     return null;
   },
 
+  note: (value: number): string | null => {
+    if (value < 0 || value > 127) {
+      return 'Note must be between 0 and 127';
+    }
+    if (!Number.isInteger(value)) {
+      return 'Note must be an integer';
+    }
+    return null;
+  },
+
+  velocity: (value: number): string | null => {
+    if (value < 0 || value > 127) {
+      return 'Velocity must be between 0 and 127';
+    }
+    if (!Number.isInteger(value)) {
+      return 'Velocity must be an integer';
+    }
+    return null;
+  },
+
   range: (min: number, max: number): string | null => {
     if (min >= max) {
       return 'Min must be less than max';
@@ -47,6 +67,35 @@ export const validators = {
     return null;
   },
 };
+
+export function findDuplicateNotes(config: MidiCaptainConfig): Map<string, string> {
+  const errors = new Map<string, string>();
+  const noteMap = new Map<string, string[]>();
+
+  config.buttons.forEach((btn, idx) => {
+    if (btn.type === 'note' && btn.note !== undefined) {
+      const ch = btn.channel ?? config.global_channel ?? 0;
+      const key = `${btn.note}:${ch}`;
+      const path = `buttons[${idx}].note`;
+      if (!noteMap.has(key)) {
+        noteMap.set(key, []);
+      }
+      noteMap.get(key)!.push(path);
+    }
+  });
+
+  noteMap.forEach((paths, key) => {
+    if (paths.length > 1) {
+      const [note, ch] = key.split(':');
+      paths.forEach(path => {
+        const others = paths.filter(p => p !== path).join(', ');
+        errors.set(path, `Note ${note} (Ch ${parseInt(ch) + 1}) is also used by: ${others}`);
+      });
+    }
+  });
+
+  return errors;
+}
 
 export function validateConfig(config: MidiCaptainConfig): ValidationResult {
   const errors = new Map<string, string>();
@@ -72,9 +121,32 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       errors.set(`buttons[${idx}].label`, labelError);
     }
 
-    const ccError = validators.cc(btn.cc);
-    if (ccError) {
-      errors.set(`buttons[${idx}].cc`, ccError);
+    if (btn.type === 'note') {
+      // Validate note-specific fields
+      if (btn.note !== undefined) {
+        const noteError = validators.note(btn.note);
+        if (noteError) {
+          errors.set(`buttons[${idx}].note`, noteError);
+        }
+      }
+      if (btn.velocity_on !== undefined) {
+        const velError = validators.velocity(btn.velocity_on);
+        if (velError) {
+          errors.set(`buttons[${idx}].velocity_on`, velError);
+        }
+      }
+      if (btn.velocity_off !== undefined) {
+        const velError = validators.velocity(btn.velocity_off);
+        if (velError) {
+          errors.set(`buttons[${idx}].velocity_off`, velError);
+        }
+      }
+    } else {
+      // Validate CC fields (default)
+      const ccError = validators.cc(btn.cc);
+      if (ccError) {
+        errors.set(`buttons[${idx}].cc`, ccError);
+      }
     }
   });
 
@@ -107,6 +179,12 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       errors.set('expression.exp2.cc', ccError);
     }
   }
+
+  // Check for duplicate notes (same note + same channel)
+  const duplicateNotes = findDuplicateNotes(config);
+  duplicateNotes.forEach((error, path) => {
+    errors.set(path, error);
+  });
 
   return {
     isValid: errors.size === 0,

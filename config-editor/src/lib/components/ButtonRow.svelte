@@ -1,8 +1,8 @@
 <script lang="ts">
   import ColorSelect from './ColorSelect.svelte';
-  import type { ButtonConfig, ButtonColor, ButtonMode, OffMode } from '$lib/types';
+  import type { ButtonConfig, ButtonColor, ButtonMode, OffMode, MessageType } from '$lib/types';
   import { validationErrors } from '$lib/formStore';
-  
+
   interface Props {
     button: ButtonConfig;
     index: number;
@@ -10,35 +10,47 @@
     globalChannel?: number;
     onUpdate: (field: string, value: any) => void;
   }
-  
+
   let { button, index, disabled = false, globalChannel = 0, onUpdate }: Props = $props();
-  
+
   const basePath = `buttons[${index}]`;
-  
+
+  let isNote = $derived((button.type ?? 'cc') === 'note');
+
   function handleLabelChange(e: Event) {
     const target = e.target as HTMLInputElement;
     onUpdate('label', target.value);
   }
-  
+
+  function handleTypeChange(e: Event) {
+    const target = e.target as HTMLSelectElement;
+    onUpdate('type', target.value as MessageType);
+  }
+
   function handleCCChange(e: Event) {
     const target = e.target as HTMLInputElement;
     onUpdate('cc', parseInt(target.value));
   }
-  
+
+  function handleNoteChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    onUpdate('note', parseInt(target.value));
+  }
+
   function handleColorChange(color: ButtonColor) {
     onUpdate('color', color);
   }
-  
+
   function handleModeChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     onUpdate('mode', target.value as ButtonMode);
   }
-  
+
   function handleOffModeChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     onUpdate('off_mode', target.value as OffMode);
   }
-  
+
   function handleChannelChange(e: Event) {
     const target = e.target as HTMLInputElement;
     if (target.value === '') {
@@ -49,30 +61,45 @@
       onUpdate('channel', value - 1);
     }
   }
-  
+
   function handleCCOnChange(e: Event) {
     const target = e.target as HTMLInputElement;
     const value = target.value === '' ? undefined : parseInt(target.value);
     onUpdate('cc_on', value);
   }
-  
+
   function handleCCOffChange(e: Event) {
     const target = e.target as HTMLInputElement;
     const value = target.value === '' ? undefined : parseInt(target.value);
     onUpdate('cc_off', value);
   }
-  
+
+  function handleVelocityOnChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const value = target.value === '' ? undefined : parseInt(target.value);
+    onUpdate('velocity_on', value);
+  }
+
+  function handleVelocityOffChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const value = target.value === '' ? undefined : parseInt(target.value);
+    onUpdate('velocity_off', value);
+  }
+
   let labelError = $derived($validationErrors.get(`${basePath}.label`));
   let ccError = $derived($validationErrors.get(`${basePath}.cc`));
+  let noteError = $derived($validationErrors.get(`${basePath}.note`));
   let channelError = $derived($validationErrors.get(`${basePath}.channel`));
   let ccOnError = $derived($validationErrors.get(`${basePath}.cc_on`));
   let ccOffError = $derived($validationErrors.get(`${basePath}.cc_off`));
-  
+  let velocityOnError = $derived($validationErrors.get(`${basePath}.velocity_on`));
+  let velocityOffError = $derived($validationErrors.get(`${basePath}.velocity_off`));
+
   // Display effective channel as 1-16 (stored internally as 0-15)
   let effectiveChannel = $derived(
     button.channel !== undefined ? button.channel + 1 : globalChannel + 1
   );
-  
+
   // Display button channel as 1-16 if set (stored as 0-15)
   let displayChannel = $derived(
     button.channel !== undefined ? button.channel + 1 : undefined
@@ -82,10 +109,10 @@
 
 <div class="button-row" class:disabled>
   <span class="button-num">Button {index + 1}:</span>
-  
+
   <div class="field">
-    <input 
-      type="text" 
+    <input
+      type="text"
       class="input-label"
       class:error={!!labelError}
       value={button.label}
@@ -100,9 +127,22 @@
   </div>
 
   <div class="field">
+    <label class="field-label">Type:</label>
+    <select
+      class="select"
+      value={button.type || 'cc'}
+      onchange={handleTypeChange}
+      disabled={disabled}
+    >
+      <option value="cc">CC</option>
+      <option value="note">Note</option>
+    </select>
+  </div>
+
+  <div class="field">
     <label class="field-label">Channel:</label>
-    <input 
-      type="number" 
+    <input
+      type="number"
       class="input-channel"
       class:error={!!channelError}
       value={displayChannel !== undefined ? displayChannel : ''}
@@ -117,71 +157,126 @@
       <span class="error-text">{channelError}</span>
     {/if}
   </div>
-  
-  <div class="field">
-    <label class="field-label">CC:</label>
-    <input 
-      type="number" 
-      class="input-cc"
-      class:error={!!ccError}
-      value={button.cc}
-      onblur={handleCCChange}
-      disabled={disabled}
-      min="0"
-      max="127"
-    />
-    {#if ccError}
-      <span class="error-text">{ccError}</span>
-    {/if}
-  </div>
-  
-  <div class="field">
-    <label class="field-label">ON Value:</label>
-    <input 
-      type="number" 
-      class="input-cc-value"
-      class:error={!!ccOnError}
-      value={button.cc_on !== undefined ? button.cc_on : ''}
-      onblur={handleCCOnChange}
-      disabled={disabled}
-      min="0"
-      max="127"
-      placeholder="127"
-    />
-    {#if ccOnError}
-      <span class="error-text">{ccOnError}</span>
-    {/if}
-  </div>
-  
-  <div class="field">
-    <label class="field-label">OFF Value:</label>
-    <input 
-      type="number" 
-      class="input-cc-value"
-      class:error={!!ccOffError}
-      value={button.cc_off !== undefined ? button.cc_off : ''}
-      onblur={handleCCOffChange}
-      disabled={disabled}
-      min="0"
-      max="127"
-      placeholder="0"
-    />
-    {#if ccOffError}
-      <span class="error-text">{ccOffError}</span>
-    {/if}
-  </div>
-  
+
+  {#if isNote}
+    <div class="field">
+      <label class="field-label">Note:</label>
+      <input
+        type="number"
+        class="input-cc"
+        class:error={!!noteError}
+        value={button.note !== undefined ? button.note : 60}
+        onblur={handleNoteChange}
+        disabled={disabled}
+        min="0"
+        max="127"
+      />
+      {#if noteError}
+        <span class="error-text">{noteError}</span>
+      {/if}
+    </div>
+
+    <div class="field">
+      <label class="field-label">Velocity ON:</label>
+      <input
+        type="number"
+        class="input-cc-value"
+        class:error={!!velocityOnError}
+        value={button.velocity_on !== undefined ? button.velocity_on : ''}
+        onblur={handleVelocityOnChange}
+        disabled={disabled}
+        min="0"
+        max="127"
+        placeholder="127"
+      />
+      {#if velocityOnError}
+        <span class="error-text">{velocityOnError}</span>
+      {/if}
+    </div>
+
+    <div class="field">
+      <label class="field-label">Velocity OFF:</label>
+      <input
+        type="number"
+        class="input-cc-value"
+        class:error={!!velocityOffError}
+        value={button.velocity_off !== undefined ? button.velocity_off : ''}
+        onblur={handleVelocityOffChange}
+        disabled={disabled}
+        min="0"
+        max="127"
+        placeholder="0"
+      />
+      {#if velocityOffError}
+        <span class="error-text">{velocityOffError}</span>
+      {/if}
+    </div>
+  {:else}
+    <div class="field">
+      <label class="field-label">CC:</label>
+      <input
+        type="number"
+        class="input-cc"
+        class:error={!!ccError}
+        value={button.cc}
+        onblur={handleCCChange}
+        disabled={disabled}
+        min="0"
+        max="127"
+      />
+      {#if ccError}
+        <span class="error-text">{ccError}</span>
+      {/if}
+    </div>
+
+    <div class="field">
+      <label class="field-label">ON Value:</label>
+      <input
+        type="number"
+        class="input-cc-value"
+        class:error={!!ccOnError}
+        value={button.cc_on !== undefined ? button.cc_on : ''}
+        onblur={handleCCOnChange}
+        disabled={disabled}
+        min="0"
+        max="127"
+        placeholder="127"
+      />
+      {#if ccOnError}
+        <span class="error-text">{ccOnError}</span>
+      {/if}
+    </div>
+
+    <div class="field">
+      <label class="field-label">OFF Value:</label>
+      <input
+        type="number"
+        class="input-cc-value"
+        class:error={!!ccOffError}
+        value={button.cc_off !== undefined ? button.cc_off : ''}
+        onblur={handleCCOffChange}
+        disabled={disabled}
+        min="0"
+        max="127"
+        placeholder="0"
+      />
+      {#if ccOffError}
+        <span class="error-text">{ccOffError}</span>
+      {/if}
+    </div>
+  {/if}
+
   <div class="field">
     <label class="field-label">LED Color:</label>
-    <ColorSelect 
-      value={button.color} 
+    <ColorSelect
+      value={button.color}
       onchange={handleColorChange}
     />
   </div>
-  
+
   <div class="field">
     <label class="field-label">Switch Mode:</label>
-    <select 
+    <select
       class="select"
       value={button.mode || 'toggle'}
       onchange={handleModeChange}
@@ -191,10 +286,10 @@
       <option value="momentary">Momentary</option>
     </select>
   </div>
-  
+
   <div class="field">
     <label class="field-label">LED Off Mode:</label>
-    <select 
+    <select
       class="select"
       value={button.off_mode || 'dim'}
       onchange={handleOffModeChange}
@@ -204,7 +299,7 @@
       <option value="off">Off</option>
     </select>
   </div>
-  
+
   {#if disabled}
     <div class="disabled-overlay">
       Not available on Mini6
@@ -224,19 +319,19 @@
     position: relative;
     flex-wrap: wrap;
   }
-  
+
   .button-row.disabled {
     opacity: 0.6;
     background: #f9f9f9;
   }
-  
+
   .button-num {
     font-weight: 500;
     color: #666;
     min-width: 80px;
     padding-top: 0.4rem;
   }
-  
+
   .field {
     display: flex;
     align-items: center;
@@ -244,13 +339,13 @@
     flex-direction: column;
     position: relative;
   }
-  
+
   .field-label {
     font-size: 0.75rem;
     color: #666;
     align-self: flex-start;
   }
-  
+
   .input-label {
     width: 80px;
     padding: 0.375rem 0.5rem;
@@ -258,7 +353,7 @@
     border-radius: 4px;
     font-size: 0.875rem;
   }
-  
+
   .input-cc {
     width: 60px;
     padding: 0.375rem 0.5rem;
@@ -266,7 +361,7 @@
     border-radius: 4px;
     font-size: 0.875rem;
   }
-  
+
   .input-channel {
     width: 60px;
     padding: 0.375rem 0.5rem;
@@ -274,7 +369,7 @@
     border-radius: 4px;
     font-size: 0.875rem;
   }
-  
+
   .input-cc-value {
     width: 60px;
     padding: 0.375rem 0.5rem;
@@ -282,7 +377,7 @@
     border-radius: 4px;
     font-size: 0.875rem;
   }
-  
+
   .select {
     padding: 0.375rem 0.5rem;
     border: 1px solid #ccc;
@@ -290,11 +385,11 @@
     font-size: 0.875rem;
     background: white;
   }
-  
+
   input.error {
     border-color: #dc3545;
   }
-  
+
   .error-text {
     position: absolute;
     top: 100%;
@@ -304,7 +399,7 @@
     white-space: nowrap;
     margin-top: 2px;
   }
-  
+
   .disabled-overlay {
     position: absolute;
     top: 0;
