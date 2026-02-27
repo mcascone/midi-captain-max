@@ -55,7 +55,7 @@ class ButtonState:
         """Initialize button state.
         
         Args:
-            cc: MIDI CC number for this button (or list of CCs for keytimes)
+            cc: MIDI CC number for this button
             mode: "toggle" or "momentary"
             initial_state: Initial on/off state
             keytimes: Number of states to cycle through (1-9), default 1 (no cycling)

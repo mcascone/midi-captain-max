@@ -507,6 +507,40 @@ display.show(main_group)
 # =============================================================================
 
 
+def get_button_state_config(btn_config, keytime_index):
+    """Get configuration for button at specific keytime state.
+    
+    Args:
+        btn_config: Button configuration dict
+        keytime_index: Current keytime position (1-indexed)
+        
+    Returns:
+        Dict with cc, cc_on, cc_off, and color for this state
+    """
+    states = btn_config.get("states", [])
+    
+    # Get per-state overrides if available
+    if states and 0 < keytime_index <= len(states):
+        state_config = states[keytime_index - 1]
+        cc = state_config.get("cc", btn_config.get("cc", 20))
+        cc_on = state_config.get("cc_on", btn_config.get("cc_on", 127))
+        cc_off = state_config.get("cc_off", btn_config.get("cc_off", 0))
+        color = get_color(state_config.get("color", btn_config.get("color", "white")))
+    else:
+        # Fallback to base button config
+        cc = btn_config.get("cc", 20)
+        cc_on = btn_config.get("cc_on", 127)
+        cc_off = btn_config.get("cc_off", 0)
+        color = get_color(btn_config.get("color", "white"))
+    
+    return {
+        "cc": cc,
+        "cc_on": cc_on,
+        "cc_off": cc_off,
+        "color": color
+    }
+
+
 def get_button_color(btn_config, keytime_index):
     """Get color for button at specific keytime state.
     
@@ -517,15 +551,7 @@ def get_button_color(btn_config, keytime_index):
     Returns:
         RGB tuple for the color
     """
-    # Check if button has per-state colors in states array
-    states = btn_config.get("states", [])
-    if states and 0 < keytime_index <= len(states):
-        state_config = states[keytime_index - 1]
-        if "color" in state_config:
-            return get_color(state_config["color"])
-    
-    # Fallback to main button color
-    return get_color(btn_config.get("color", "white"))
+    return get_button_state_config(btn_config, keytime_index)["color"]
 
 
 def set_button_state(switch_idx, on):
@@ -616,41 +642,35 @@ def handle_switches():
             btn_state = button_states[idx]
             btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
             
-            # Get per-keytime config if available
-            keytime = btn_state.get_keytime()
-            states = btn_config.get("states", [])
-            
-            # Get CC number and values (per-keytime override or base config)
-            if states and 0 < keytime <= len(states):
-                state_config = states[keytime - 1]
-                cc = state_config.get("cc", btn_config.get("cc", 20 + idx))
-                cc_on = state_config.get("cc_on", btn_config.get("cc_on", 127))
-                cc_off = state_config.get("cc_off", btn_config.get("cc_off", 0))
-            else:
-                cc = btn_config.get("cc", 20 + idx)
-                cc_on = btn_config.get("cc_on", 127)
-                cc_off = btn_config.get("cc_off", 0)
-            
+            # Get per-keytime config (CC, values, color)
+            state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+            cc = state_cfg["cc"]
+            cc_on = state_cfg["cc_on"]
+            cc_off = state_cfg["cc_off"]
             channel = btn_config.get("channel", 0)  # 0 = MIDI Channel 1
 
             if pressed:
                 # On press: use ButtonState to handle state transition
                 state_changed, new_state, midi_val = btn_state.on_press()
                 
-                # For keytimes, always send on value when cycling
-                if btn_state.keytimes > 1 and state_changed:
-                    set_button_state(btn_num, True)  # Always on when cycling
-                    midi.send(ControlChange(cc, cc_on, channel=channel))
-                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={cc_on} (switch {btn_num}, keytime {btn_state.get_keytime()})")
-                    status_label.text = f"TX CC{cc}={cc_on} ({btn_state.get_keytime()})"
-                elif state_changed:
-                    # Standard toggle or momentary press
-                    val = cc_on if new_state else cc_off
-                    set_button_state(btn_num, new_state)
+                if state_changed:
+                    # Determine value to send
+                    if btn_state.keytimes > 1:
+                        # Keytimes: always send cc_on when cycling
+                        val = cc_on
+                        set_button_state(btn_num, True)
+                        status_msg = f"TX CC{cc}={val} ({btn_state.get_keytime()})"
+                    else:
+                        # Standard toggle/momentary
+                        val = cc_on if new_state else cc_off
+                        set_button_state(btn_num, new_state)
+                        status_msg = f"TX CC{cc}={val}"
+                    
+                    # Send MIDI and update display
                     midi.send(ControlChange(cc, val, channel=channel))
                     mode = btn_config.get("mode", "toggle")
                     print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, {mode})")
-                    status_label.text = f"TX CC{cc}={val}"
+                    status_label.text = status_msg
             else:
                 # On release: check if we need to send release message (momentary mode)
                 state_changed, new_state, midi_val = btn_state.on_release()
