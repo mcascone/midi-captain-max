@@ -54,6 +54,12 @@ def validate_button(btn, index=0, global_channel=None):
         
     Returns:
         Validated button config with all required fields
+        
+    Button Types:
+        - "cc": Control Change message (default)
+        - "pc": Program Change message
+        - "pc_inc": Increment Program Change by step value
+        - "pc_dec": Decrement Program Change by step value
     """
     # Channel: per-button override or global channel or default to 0 (MIDI Ch 1)
     if global_channel is not None:
@@ -61,16 +67,33 @@ def validate_button(btn, index=0, global_channel=None):
     else:
         default_channel = 0
     
-    return {
+    # Determine message type
+    msg_type = btn.get("type", "cc")
+    
+    # Base config common to all types
+    validated = {
         "label": btn.get("label", str(index + 1)),
-        "cc": btn.get("cc", 20 + index),
         "color": btn.get("color", "white"),
         "mode": btn.get("mode", "toggle"),
         "off_mode": btn.get("off_mode", "dim"),
         "channel": btn.get("channel", default_channel),
-        "cc_on": btn.get("cc_on", 127),
-        "cc_off": btn.get("cc_off", 0),
+        "type": msg_type,
     }
+    
+    # Type-specific fields
+    if msg_type == "cc":
+        # Control Change fields
+        validated["cc"] = btn.get("cc", 20 + index)
+        validated["cc_on"] = btn.get("cc_on", 127)
+        validated["cc_off"] = btn.get("cc_off", 0)
+    elif msg_type == "pc":
+        # Program Change fields
+        validated["program"] = btn.get("program", 0)
+    elif msg_type in ("pc_inc", "pc_dec"):
+        # PC increment/decrement fields
+        validated["pc_step"] = btn.get("pc_step", 1)
+    
+    return validated
 
 
 def validate_config(cfg, button_count=10):

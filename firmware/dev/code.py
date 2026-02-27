@@ -35,6 +35,7 @@ import terminalio
 from adafruit_st7789 import ST7789
 import adafruit_midi
 from adafruit_midi.control_change import ControlChange
+from adafruit_midi.program_change import ProgramChange
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
@@ -375,6 +376,7 @@ EXP2_CHANNEL = exp2_config.get("channel", 0)
 # =============================================================================
 
 button_states = [False] * BUTTON_COUNT  # Toggle state for each button
+pc_values = [0] * BUTTON_COUNT  # Current PC value for each button (0-127)
 encoder_value = ENC_INITIAL  # Internal value 0-127
 encoder_slot = -1  # Current slot (set on first change)
 
@@ -540,25 +542,44 @@ def init_leds():
 def handle_midi():
     """Handle incoming MIDI messages."""
     msg = midi.receive()
-    if msg and isinstance(msg, ControlChange):
-        cc = msg.control
-        val = msg.value
-        # ControlChange objects have a .channel attribute (0-15 = MIDI Ch 1-16)
-        # If channel is None, it means it was sent on the default channel
-        msg_channel = getattr(msg, 'channel', 0)
-        if msg_channel is None:
-            msg_channel = 0
-        print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
+    if msg:
+        if isinstance(msg, ControlChange):
+            cc = msg.control
+            val = msg.value
+            # ControlChange objects have a .channel attribute (0-15 = MIDI Ch 1-16)
+            # If channel is None, it means it was sent on the default channel
+            msg_channel = getattr(msg, 'channel', 0)
+            if msg_channel is None:
+                msg_channel = 0
+            print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
 
-        # Check if this CC matches any button (must match both CC number and channel)
-        for i, btn_config in enumerate(buttons):
-            btn_cc = btn_config.get("cc")
-            btn_channel = btn_config.get("channel", 0)
-            if btn_cc == cc and btn_channel == msg_channel:
-                on = val > 63
-                set_button_state(i + 1, on)
-                status_label.text = f"RX CC{cc}={val}"
-                break
+            # Check if this CC matches any button (must match both CC number and channel)
+            for i, btn_config in enumerate(buttons):
+                btn_type = btn_config.get("type", "cc")
+                btn_cc = btn_config.get("cc")
+                btn_channel = btn_config.get("channel", 0)
+                if btn_type == "cc" and btn_cc == cc and btn_channel == msg_channel:
+                    on = val > 63
+                    set_button_state(i + 1, on)
+                    status_label.text = f"RX CC{cc}={val}"
+                    break
+        
+        elif isinstance(msg, ProgramChange):
+            program = msg.patch
+            msg_channel = getattr(msg, 'channel', 0)
+            if msg_channel is None:
+                msg_channel = 0
+            print(f"[MIDI RX] Ch{msg_channel+1} PC{program}")
+            
+            # Update PC values for buttons with pc_inc/pc_dec on this channel
+            for i, btn_config in enumerate(buttons):
+                btn_type = btn_config.get("type", "cc")
+                btn_channel = btn_config.get("channel", 0)
+                if btn_type in ("pc_inc", "pc_dec") and btn_channel == msg_channel:
+                    pc_values[i] = program
+                    print(f"[MIDI RX] Updated button {i+1} PC value to {program}")
+            
+            status_label.text = f"RX PC{program}"
 
 
 def handle_switches():
@@ -574,28 +595,63 @@ def handle_switches():
             # Convert to 1-indexed button number
             btn_num = i if HAS_ENCODER else i + 1
             idx = btn_num - 1
-            btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
-            cc = btn_config.get("cc", 20 + idx)
+            btn_config = buttons[idx] if idx < len(buttons) else {"type": "cc", "cc": 20 + idx}
+            
+            msg_type = btn_config.get("type", "cc")
             mode = btn_config.get("mode", "toggle")  # "toggle" or "momentary"
             channel = btn_config.get("channel", 0)  # 0 = MIDI Channel 1
-            cc_on = btn_config.get("cc_on", 127)
-            cc_off = btn_config.get("cc_off", 0)
 
-            if mode == "momentary":
-                # Momentary: cc_on on press, cc_off on release
-                val = cc_on if pressed else cc_off
-                set_button_state(btn_num, pressed)
-                midi.send(ControlChange(cc, val, channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, momentary)")
-                status_label.text = f"TX CC{cc}={val}"
-            elif pressed:
-                # Toggle: only act on press, flip state
-                new_state = not button_states[idx]
-                set_button_state(btn_num, new_state)
-                val = cc_on if new_state else cc_off
-                midi.send(ControlChange(cc, val, channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
-                status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+            # Handle different message types
+            if msg_type == "cc":
+                # Control Change message
+                cc = btn_config.get("cc", 20 + idx)
+                cc_on = btn_config.get("cc_on", 127)
+                cc_off = btn_config.get("cc_off", 0)
+
+                if mode == "momentary":
+                    # Momentary: cc_on on press, cc_off on release
+                    val = cc_on if pressed else cc_off
+                    set_button_state(btn_num, pressed)
+                    midi.send(ControlChange(cc, val, channel=channel))
+                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, momentary)")
+                    status_label.text = f"TX CC{cc}={val}"
+                elif pressed:
+                    # Toggle: only act on press, flip state
+                    new_state = not button_states[idx]
+                    set_button_state(btn_num, new_state)
+                    val = cc_on if new_state else cc_off
+                    midi.send(ControlChange(cc, val, channel=channel))
+                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
+                    status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+            
+            elif msg_type == "pc" and pressed:
+                # Program Change message (only on press)
+                program = btn_config.get("program", 0)
+                midi.send(ProgramChange(program, channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
+                status_label.text = f"TX PC{program}"
+                # Light up button briefly for visual feedback
+                set_button_state(btn_num, True)
+            
+            elif msg_type == "pc_inc" and pressed:
+                # Increment Program Change
+                step = btn_config.get("pc_step", 1)
+                pc_values[idx] = min(127, pc_values[idx] + step)
+                midi.send(ProgramChange(pc_values[idx], channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} PC{pc_values[idx]} (switch {btn_num}, inc)")
+                status_label.text = f"TX PC{pc_values[idx]}"
+                # Light up button briefly for visual feedback
+                set_button_state(btn_num, True)
+            
+            elif msg_type == "pc_dec" and pressed:
+                # Decrement Program Change
+                step = btn_config.get("pc_step", 1)
+                pc_values[idx] = max(0, pc_values[idx] - step)
+                midi.send(ProgramChange(pc_values[idx], channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} PC{pc_values[idx]} (switch {btn_num}, dec)")
+                status_label.text = f"TX PC{pc_values[idx]}"
+                # Light up button briefly for visual feedback
+                set_button_state(btn_num, True)
 
 
 def handle_encoder_button():
