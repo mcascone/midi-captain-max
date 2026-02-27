@@ -79,12 +79,30 @@ def validate_button(btn, index=0, global_channel=None):
         "keytimes": keytimes,
     }
     
-    # For keytimes > 1, support per-state configuration
+    # For keytimes > 1, validate and pass through states array
     if keytimes > 1:
-        # Optional: states array with per-state overrides
         states = btn.get("states", [])
-        if isinstance(states, list) and len(states) > 0:
-            validated["states"] = states
+        if isinstance(states, list):
+            # Validate each state entry
+            validated_states = []
+            for state in states:
+                if isinstance(state, dict):
+                    validated_state = {}
+                    # Copy through recognized fields with validation
+                    if "cc" in state:
+                        validated_state["cc"] = state["cc"]
+                    if "cc_on" in state:
+                        validated_state["cc_on"] = state["cc_on"]
+                    if "cc_off" in state:
+                        validated_state["cc_off"] = state["cc_off"]
+                    if "color" in state:
+                        validated_state["color"] = state["color"]
+                    if "label" in state:
+                        validated_state["label"] = state["label"]
+                    validated_states.append(validated_state)
+            
+            if validated_states:
+                validated["states"] = validated_states
     
     return validated
 

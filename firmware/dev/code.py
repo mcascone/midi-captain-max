@@ -39,7 +39,7 @@ from adafruit_midi.control_change import ControlChange
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
 from core.config import load_config as _load_config_from_file, get_display_config
-from core.button import Switch
+from core.button import Switch, ButtonState
 
 # =============================================================================
 # Font Size Configuration
@@ -374,10 +374,7 @@ EXP2_CHANNEL = exp2_config.get("channel", 0)
 # State
 # =============================================================================
 
-# Import ButtonState for per-button state management with keytimes support
-from core.button import ButtonState
-
-# Initialize ButtonState objects for each button
+# Initialize ButtonState objects for each button with keytimes support
 button_states = []
 for i in range(BUTTON_COUNT):
     btn_config = buttons[i] if i < len(buttons) else {}
