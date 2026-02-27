@@ -1,0 +1,144 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                PR #51 (PC Messages) vs PR #50 (Keytimes)                  ║
+║                         CONFLICT ANALYSIS                                  ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MAIN BRANCH (v1.4.2-beta.2)                                             │
+│ ───────────────────────────────────────────────────────────────────────│
+│  firmware/dev/code.py:                                                   │
+│    button_states = [False] * BUTTON_COUNT    ← Simple boolean list      │
+│                                                                          │
+│  firmware/dev/core/config.py:                                           │
+│    validate_button() returns:                                           │
+│      - label, cc, color, mode, off_mode                                 │
+│      - channel, cc_on, cc_off                                           │
+│                                                                          │
+│  firmware/dev/core/button.py:                                           │
+│    ButtonState(cc, mode, initial_state)                                 │
+│      - Simple toggle/momentary tracking                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+                    ▼                               ▼
+        ┌───────────────────────┐     ┌───────────────────────┐
+        │  PR #51: PC Messages  │     │  PR #50: Keytimes     │
+        │  ─────────────────────│     │  ─────────────────────│
+        │  +376 lines           │     │  +454 lines           │
+        │  -43 lines            │     │  -32 lines            │
+        │  5 files changed      │     │  8 files changed      │
+        └───────────────────────┘     └───────────────────────┘
+                    │                               │
+                    │                               │
+        ┌───────────▼───────────┐     ┌───────────▼───────────┐
+        │ Changes in code.py:   │     │ Changes in code.py:   │
+        │                       │     │                       │
+        │ + pc_values[]         │     │ ⚠️  REPLACES          │
+        │ + pc_flash_timers[]   │     │    button_states      │
+        │ Keeps boolean list    │     │    with ButtonState   │
+        │                       │     │    objects            │
+        │ + Type dispatch:      │     │                       │
+        │   - CC messages       │     │ + get_button_state_   │
+        │   - PC messages       │     │   config()            │
+        │   - PC inc/dec        │     │ + get_button_color()  │
+        │                       │     │                       │
+        │ + LED flash for PC    │     │ + Keytime cycling     │
+        └───────────────────────┘     └───────────────────────┘
+                    │                               │
+        ┌───────────▼───────────┐     ┌───────────▼───────────┐
+        │ Changes in config.py: │     │ Changes in config.py: │
+        │                       │     │                       │
+        │ + "type" field        │     │ + "keytimes" field    │
+        │   - "cc" (default)    │     │   - 1-99 (default 1)  │
+        │   - "pc"              │     │                       │
+        │   - "pc_inc"          │     │ + "states" array      │
+        │   - "pc_dec"          │     │   - Per-state cc_on   │
+        │                       │     │   - Per-state color   │
+        │ + Type-specific:      │     │   - Per-state label   │
+        │   - program (PC)      │     │                       │
+        │   - pc_step (inc/dec) │     │ + Validation/clamping │
+        └───────────────────────┘     └───────────────────────┘
+                    │                               │
+        ┌───────────▼───────────┐     ┌───────────▼───────────┐
+        │ Changes in button.py: │     │ Changes in button.py: │
+        │                       │     │                       │
+        │ (No changes)          │     │ + keytimes tracking   │
+        │                       │     │ + current_keytime     │
+        │                       │     │ + get_keytime()       │
+        │                       │     │ + reset_keytime()     │
+        │                       │     │ + Cycling logic       │
+        └───────────────────────┘     └───────────────────────┘
+                    │                               │
+                    │      ⚠️  CONFLICTS ⚠️          │
+                    └───────────┬───────────────────┘
+                                │
+                                ▼
+        ┌───────────────────────────────────────────────────┐
+        │  CONFLICT POINTS:                                 │
+        │                                                   │
+        │  1. button_states structure (CRITICAL)            │
+        │     #51: Adds arrays, keeps boolean list          │
+        │     #50: Replaces with ButtonState objects        │
+        │     ❌ INCOMPATIBLE                               │
+        │                                                   │
+        │  2. validate_button() (MAJOR)                     │
+        │     #51: Adds type, program, pc_step             │
+        │     #50: Adds keytimes, states                   │
+        │     ⚠️  Must merge both sets of fields           │
+        │                                                   │
+        │  3. handle_switches() (MODERATE)                  │
+        │     #51: Type-based message dispatch             │
+        │     #50: Keytime-aware state extraction          │
+        │     ⚠️  Must combine both logics                 │
+        └───────────────────────────────────────────────────┘
+                                │
+                                ▼
+        ┌───────────────────────────────────────────────────┐
+        │  RESOLUTION: Merge #50 First, Adapt #51          │
+        │  ───────────────────────────────────────────────│
+        │                                                   │
+        │  Step 1: Merge #50 → Main                        │
+        │    ✓ ButtonState objects established             │
+        │    ✓ Keytimes working                            │
+        │                                                   │
+        │  Step 2: Adapt #51 on top                        │
+        │    ✓ Extend ButtonState(type, program, pc_step)  │
+        │    ✓ Merge config validation                     │
+        │    ✓ Combine switch handling logic               │
+        │    ✓ Keep pc_values + pc_flash_timers arrays    │
+        │                                                   │
+        │  Result: Unified system                          │
+        │    ✓ CC or PC message types                      │
+        │    ✓ Keytimes for both types                     │
+        │    ✓ Full feature compatibility                  │
+        └───────────────────────────────────────────────────┘
+                                │
+                                ▼
+        ┌───────────────────────────────────────────────────┐
+        │  FINAL STATE (After Integration)                  │
+        │  ───────────────────────────────────────────────│
+        │                                                   │
+        │  ButtonState(cc, mode, keytimes,                 │
+        │              type, program, pc_step)             │
+        │                                                   │
+        │  Config supports:                                │
+        │    - type: "cc", "pc", "pc_inc", "pc_dec"       │
+        │    - keytimes: 1-99                              │
+        │    - states: [{cc_on, color, program, ...}]     │
+        │                                                   │
+        │  Examples:                                       │
+        │    • CC with keytimes (3 reverb levels)          │
+        │    • PC with keytimes (cycle presets)            │
+        │    • PC inc/dec (bank navigation)                │
+        │    • Mixed types in one config                   │
+        └───────────────────────────────────────────────────┘
+
+Legend:
+  ⚠️  = Conflict requiring resolution
+  ✓  = Successfully integrated
+  ❌ = Incompatible (must choose one approach)
+  +  = Added code
+  -  = Removed code
+
+Timeline: ~4 hours to fully integrate after #50 merge
