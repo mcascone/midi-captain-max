@@ -103,7 +103,7 @@ You can also edit `config.json` directly on the device:
 | `color` | RGB color for LED when ON `[R, G, B]` |
 | `off_mode` | LED is `off` or `dim` when in OFF state | `off`
 | `mode` | `toggle` or `momentary` button behavior | `toggle`
-| `keytimes` | Number of states to cycle through (1-9) | `1`
+| `keytimes` | Number of states to cycle through (1-99) | `1`
 | `states` | Array of per-state configs (for keytimes > 1) | `[]`
 
 ### Advanced: Keytimes (Multi-Press Cycling)
@@ -141,7 +141,7 @@ Each state in the `states` array can override:
 #### Notes
 
 - Keytimes defaults to 1 (standard toggle/momentary behavior)
-- Maximum 9 states per button
+- Maximum 99 states per button
 - Works with both toggle and momentary modes
 - When cycling, the button always sends the `cc_on` value for the current state
 

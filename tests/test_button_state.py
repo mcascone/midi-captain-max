@@ -134,12 +134,12 @@ class TestButtonStateKeytimes:
         assert btn.current_keytime == 1
     
     def test_keytimes_clamps_to_valid_range(self):
-        """Keytimes is clamped to 1-9."""
+        """Keytimes is clamped to 1-99."""
         btn_low = ButtonState(cc=20, keytimes=0)
         assert btn_low.keytimes == 1
         
-        btn_high = ButtonState(cc=20, keytimes=15)
-        assert btn_high.keytimes == 9
+        btn_high = ButtonState(cc=20, keytimes=150)
+        assert btn_high.keytimes == 99
     
     def test_keytimes_cycles_through_states(self):
         """Button cycles through keytime states on repeated presses."""

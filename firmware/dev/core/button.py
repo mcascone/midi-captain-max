@@ -58,12 +58,12 @@ class ButtonState:
             cc: MIDI CC number for this button
             mode: "toggle" or "momentary"
             initial_state: Initial on/off state
-            keytimes: Number of states to cycle through (1-9), default 1 (no cycling)
+            keytimes: Number of states to cycle through (1-99), default 1 (no cycling)
         """
         self.cc = cc
         self.mode = mode
         self._state = initial_state
-        self.keytimes = max(1, min(9, keytimes))  # Clamp to 1-9
+        self.keytimes = max(1, min(99, keytimes))  # Clamp to 1-99
         self.current_keytime = 1  # Current position in keytime cycle (1-indexed)
     
     @property

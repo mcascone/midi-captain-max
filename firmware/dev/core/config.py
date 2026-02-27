@@ -61,11 +61,11 @@ def validate_button(btn, index=0, global_channel=None):
     else:
         default_channel = 0
     
-    # Keytimes: default to 1 (no cycling), clamp to 1-9
+    # Keytimes: default to 1 (no cycling), clamp to 1-99
     keytimes = btn.get("keytimes", 1)
     if not isinstance(keytimes, int):
         keytimes = 1
-    keytimes = max(1, min(9, keytimes))
+    keytimes = max(1, min(99, keytimes))
     
     validated = {
         "label": btn.get("label", str(index + 1)),

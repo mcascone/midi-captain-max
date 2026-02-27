@@ -174,12 +174,12 @@ class TestValidateButton:
         assert btn["keytimes"] == 3
     
     def test_keytimes_clamped_to_valid_range(self):
-        """Keytimes is clamped to 1-9."""
+        """Keytimes is clamped to 1-99."""
         btn_low = validate_button({"keytimes": 0}, index=0)
         assert btn_low["keytimes"] == 1
         
-        btn_high = validate_button({"keytimes": 15}, index=0)
-        assert btn_high["keytimes"] == 9
+        btn_high = validate_button({"keytimes": 150}, index=0)
+        assert btn_high["keytimes"] == 99
         
         btn_valid = validate_button({"keytimes": 5}, index=0)
         assert btn_valid["keytimes"] == 5
