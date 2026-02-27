@@ -1,0 +1,55 @@
+{
+  "device": "std10",
+  "display": {
+    "button_text_size": "medium",
+    "status_text_size": "medium",
+    "expression_text_size": "medium"
+  },
+  "buttons": [
+    {"label": "PATCH1", "type": "pc", "program": 0, "color": "green"},
+    {"label": "PATCH2", "type": "pc", "program": 1, "color": "blue"},
+    {"label": "PATCH3", "type": "pc", "program": 2, "color": "yellow"},
+    {"label": "PATCH4", "type": "pc", "program": 3, "color": "magenta"},
+    {"label": "PATCH5", "type": "pc", "program": 4, "color": "white"},
+    {"label": "PC+", "type": "pc_inc", "pc_step": 1, "color": "orange"},
+    {"label": "PC-", "type": "pc_dec", "pc_step": 1, "color": "cyan"},
+    {"label": "CC20", "type": "cc", "cc": 20, "color": "red"},
+    {"label": "CC21", "type": "cc", "cc": 21, "color": "purple"},
+    {"label": "CC22", "type": "cc", "cc": 22, "color": "white", "mode": "momentary"}
+  ],
+  "encoder": {
+    "enabled": true,
+    "cc": 11,
+    "label": "ENC",
+    "min": 0,
+    "max": 127,
+    "initial": 64,
+    "steps": null,
+    "push": {
+      "enabled": true,
+      "cc": 14,
+      "label": "PUSH",
+      "mode": "momentary"
+    }
+  },
+  "expression": {
+    "exp1": {
+      "enabled": true,
+      "cc": 12,
+      "label": "EXP1",
+      "min": 0,
+      "max": 127,
+      "polarity": "normal",
+      "threshold": 2
+    },
+    "exp2": {
+      "enabled": true,
+      "cc": 13,
+      "label": "EXP2",
+      "min": 0,
+      "max": 127,
+      "polarity": "normal",
+      "threshold": 2
+    }
+  }
+}

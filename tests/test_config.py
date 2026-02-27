@@ -124,6 +124,7 @@ class TestValidateButton:
         btn = validate_button({}, index=0)
         
         assert btn["label"] == "1"
+        assert btn["type"] == "cc"  # Default type is CC
         assert btn["cc"] == 20
         assert btn["color"] == "white"
         assert btn["mode"] == "toggle"
@@ -162,6 +163,48 @@ class TestValidateButton:
         btn = validate_button({"cc_on": 100, "cc_off": 20}, index=0)
         assert btn["cc_on"] == 100
         assert btn["cc_off"] == 20
+    
+    def test_pc_message_type(self):
+        """Button can be configured for Program Change messages."""
+        btn = validate_button({"type": "pc", "program": 5}, index=0)
+        assert btn["type"] == "pc"
+        assert btn["program"] == 5
+        assert "cc" not in btn  # PC buttons don't have CC fields
+    
+    def test_pc_message_default_program(self):
+        """PC button defaults to program 0 if not specified."""
+        btn = validate_button({"type": "pc"}, index=0)
+        assert btn["type"] == "pc"
+        assert btn["program"] == 0
+    
+    def test_pc_inc_message_type(self):
+        """Button can be configured for PC increment."""
+        btn = validate_button({"type": "pc_inc", "pc_step": 5}, index=0)
+        assert btn["type"] == "pc_inc"
+        assert btn["pc_step"] == 5
+        assert "cc" not in btn
+    
+    def test_pc_dec_message_type(self):
+        """Button can be configured for PC decrement."""
+        btn = validate_button({"type": "pc_dec", "pc_step": 2}, index=0)
+        assert btn["type"] == "pc_dec"
+        assert btn["pc_step"] == 2
+        assert "cc" not in btn
+    
+    def test_pc_inc_dec_default_step(self):
+        """PC inc/dec defaults to step 1 if not specified."""
+        btn_inc = validate_button({"type": "pc_inc"}, index=0)
+        btn_dec = validate_button({"type": "pc_dec"}, index=0)
+        assert btn_inc["pc_step"] == 1
+        assert btn_dec["pc_step"] == 1
+    
+    def test_cc_type_explicit(self):
+        """Can explicitly specify CC type."""
+        btn = validate_button({"type": "cc", "cc": 50}, index=0)
+        assert btn["type"] == "cc"
+        assert btn["cc"] == 50
+        assert btn["cc_on"] == 127
+        assert btn["cc_off"] == 0
 
 
 class TestValidateConfig:
