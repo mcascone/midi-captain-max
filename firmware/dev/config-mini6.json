@@ -1,5 +1,6 @@
 {
   "device": "mini6",
+  "usb_drive_name": "MIDICAPTAIN",
   "buttons": [
     {"label": "BOOM", "cc": 20, "color": "green"},
     {"label": "MUTE", "cc": 21, "color": "blue"},

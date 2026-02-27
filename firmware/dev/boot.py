@@ -32,6 +32,21 @@ import supervisor
 # CP 7.x uses supervisor.disable_autoreload(), not runtime.autoreload
 supervisor.disable_autoreload()
 
+# Load config to get custom USB drive name
+# This happens early in boot, before USB is fully configured
+usb_drive_name = "MIDICAPTAIN"  # Default fallback
+try:
+    # Import config module to read drive name
+    import sys
+    sys.path.insert(0, "/core")
+    from config import load_config, get_usb_drive_name
+    
+    cfg = load_config("/config.json")
+    usb_drive_name = get_usb_drive_name(cfg)
+except Exception:
+    # If config fails to load, use default name
+    pass
+
 # Check if user is holding switch 1 (GP1) during boot
 # If held LOW, enable USB drive for updates
 # If not held, disable USB drive completely (performance mode)
@@ -43,9 +58,15 @@ switch_1.pull = digitalio.Pull.UP
 enable_usb_drive = not switch_1.value
 
 if enable_usb_drive:
-    # USB enabled - drive will appear on computer for file updates
-    print("🔓 USB DRIVE ENABLED: Release switch and reboot to hide drive")
-    # Leave USB drive enabled (default CircuitPython behavior)
+    # USB enabled - apply custom drive name and make read-write
+    print(f"🔓 USB DRIVE ENABLED as '{usb_drive_name}'")
+    print("   Release switch and reboot to hide drive")
+    try:
+        # Remount with custom label (read-write by default)
+        storage.remount("/", readonly=False, label=usb_drive_name)
+    except Exception as e:
+        # If remount fails, log but continue
+        print(f"⚠️  Drive label warning: {e}")
 else:
     # Performance mode - hide USB drive completely
     # Drive won't appear on computer, preventing remount issues

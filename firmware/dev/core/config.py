@@ -210,3 +210,55 @@ def get_display_config(cfg):
         "status_text_size": status_size,
         "expression_text_size": expression_size,
     }
+
+
+def validate_usb_drive_name(name):
+    """Validate USB drive name for FAT32 compatibility.
+    
+    FAT32 volume labels have strict requirements:
+    - Maximum 11 characters
+    - Uppercase alphanumeric + underscore only
+    - No spaces or special characters
+    
+    Args:
+        name: Proposed drive name string
+        
+    Returns:
+        Valid drive name (sanitized) or "MIDICAPTAIN" if invalid
+    """
+    if not name or not isinstance(name, str):
+        return "MIDICAPTAIN"
+    
+    # Convert to uppercase and strip whitespace
+    name = name.upper().strip()
+    
+    # Filter to valid characters (alphanumeric + underscore)
+    valid_chars = []
+    for c in name:
+        if c.isalnum() or c == "_":
+            valid_chars.append(c)
+    
+    name = "".join(valid_chars)
+    
+    # Truncate to 11 characters
+    if len(name) > 11:
+        name = name[:11]
+    
+    # Must have at least 1 character
+    if len(name) == 0:
+        return "MIDICAPTAIN"
+    
+    return name
+
+
+def get_usb_drive_name(cfg):
+    """Extract and validate USB drive name from config.
+    
+    Args:
+        cfg: Full config dict
+        
+    Returns:
+        Validated USB drive name string
+    """
+    name = cfg.get("usb_drive_name", "MIDICAPTAIN")
+    return validate_usb_drive_name(name)
