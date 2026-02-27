@@ -19,6 +19,7 @@ Momentary and toggle modes are currently supported. Many more issues are coming!
 - ⚙️ **Config-driven** — Customize button labels, CC numbers, colors with the GUI Config Editor.
 - 🎨 **Visual feedback** — LEDs and LCD reflect actual host state
 - 🎛️ **Full input support** — Footswitches, rotary encoder, expression pedals
+- 🔁 **Keytimes** — Multi-press cycling through states (like OEM SuperMode)
 - 🎸 **Stage-ready** — No unexpected resets, no crashes, no surprises
 
 ## Supported Devices
@@ -101,6 +102,48 @@ You can also edit `config.json` directly on the device:
 | `cc` | MIDI CC number sent on press (0-127) |
 | `color` | RGB color for LED when ON `[R, G, B]` |
 | `off_mode` | LED is `off` or `dim` when in OFF state | `off`
+| `mode` | `toggle` or `momentary` button behavior | `toggle`
+| `keytimes` | Number of states to cycle through (1-9) | `1`
+| `states` | Array of per-state configs (for keytimes > 1) | `[]`
+
+### Advanced: Keytimes (Multi-Press Cycling)
+
+**Keytimes** allows a button to cycle through multiple states on repeated presses, similar to the OEM SuperMode firmware. Each state can have different MIDI values and LED colors.
+
+#### Example: 3-State Reverb Button
+
+```json
+{
+  "label": "VERB",
+  "cc": 20,
+  "keytimes": 3,
+  "states": [
+    {"cc_on": 64, "color": "blue"},      // State 1: 50% wet
+    {"cc_on": 96, "color": "cyan"},      // State 2: 75% wet  
+    {"cc_on": 127, "color": "white"}     // State 3: 100% wet
+  ]
+}
+```
+
+- **First press**: Sends CC20=64, LED shows blue
+- **Second press**: Sends CC20=96, LED shows cyan
+- **Third press**: Sends CC20=127, LED shows white
+- **Fourth press**: Cycles back to state 1
+
+#### Per-State Options
+
+Each state in the `states` array can override:
+- `cc_on`: MIDI CC value to send (0-127)
+- `cc_off`: Value when turning off (optional)
+- `color`: LED color for this state
+- `label`: Display label for this state (future)
+
+#### Notes
+
+- Keytimes defaults to 1 (standard toggle/momentary behavior)
+- Maximum 9 states per button
+- Works with both toggle and momentary modes
+- When cycling, the button always sends the `cc_on` value for the current state
 
 ## MIDI Protocol
 
