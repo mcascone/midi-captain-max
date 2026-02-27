@@ -68,7 +68,7 @@ def validate_button(btn, index=0, global_channel=None):
         default_channel = 0
     
     # Determine message type
-    msg_type = btn.get("type", "cc")
+    message_type = btn.get("type", "cc")
     
     # Base config common to all types
     validated = {
@@ -77,19 +77,19 @@ def validate_button(btn, index=0, global_channel=None):
         "mode": btn.get("mode", "toggle"),
         "off_mode": btn.get("off_mode", "dim"),
         "channel": btn.get("channel", default_channel),
-        "type": msg_type,
+        "type": message_type,
     }
     
     # Type-specific fields
-    if msg_type == "cc":
+    if message_type == "cc":
         # Control Change fields
         validated["cc"] = btn.get("cc", 20 + index)
         validated["cc_on"] = btn.get("cc_on", 127)
         validated["cc_off"] = btn.get("cc_off", 0)
-    elif msg_type == "pc":
+    elif message_type == "pc":
         # Program Change fields
         validated["program"] = btn.get("program", 0)
-    elif msg_type in ("pc_inc", "pc_dec"):
+    elif message_type in ("pc_inc", "pc_dec"):
         # PC increment/decrement fields
         validated["pc_step"] = btn.get("pc_step", 1)
     

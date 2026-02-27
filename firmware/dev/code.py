@@ -377,8 +377,12 @@ EXP2_CHANNEL = exp2_config.get("channel", 0)
 
 button_states = [False] * BUTTON_COUNT  # Toggle state for each button
 pc_values = [0] * BUTTON_COUNT  # Current PC value for each button (0-127)
+pc_flash_timers = [0] * BUTTON_COUNT  # Timer for PC button LED flash (0 = off)
 encoder_value = ENC_INITIAL  # Internal value 0-127
 encoder_slot = -1  # Current slot (set on first change)
+
+# PC flash duration (in main loop iterations, approx 100ms with 10ms delay)
+PC_FLASH_DURATION = 10  # ~100ms
 
 # =============================================================================
 # Display Setup
@@ -534,6 +538,26 @@ def init_leds():
         set_button_state(i, False)
 
 
+def clamp_pc_value(value):
+    """Clamp PC value to valid MIDI range (0-127)."""
+    return max(0, min(127, value))
+
+
+def flash_pc_button(button_idx):
+    """Flash LED for PC button press (1-indexed)."""
+    set_button_state(button_idx, True)
+    pc_flash_timers[button_idx - 1] = PC_FLASH_DURATION
+
+
+def update_pc_flash_timers():
+    """Update PC button flash timers and turn off LEDs when expired."""
+    for i in range(BUTTON_COUNT):
+        if pc_flash_timers[i] > 0:
+            pc_flash_timers[i] -= 1
+            if pc_flash_timers[i] == 0:
+                set_button_state(i + 1, False)
+
+
 # =============================================================================
 # Polling Functions
 # =============================================================================
@@ -597,12 +621,12 @@ def handle_switches():
             idx = btn_num - 1
             btn_config = buttons[idx] if idx < len(buttons) else {"type": "cc", "cc": 20 + idx}
             
-            msg_type = btn_config.get("type", "cc")
+            message_type = btn_config.get("type", "cc")
             mode = btn_config.get("mode", "toggle")  # "toggle" or "momentary"
             channel = btn_config.get("channel", 0)  # 0 = MIDI Channel 1
 
             # Handle different message types
-            if msg_type == "cc":
+            if message_type == "cc":
                 # Control Change message
                 cc = btn_config.get("cc", 20 + idx)
                 cc_on = btn_config.get("cc_on", 127)
@@ -624,34 +648,31 @@ def handle_switches():
                     print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
                     status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
             
-            elif msg_type == "pc" and pressed:
+            elif message_type == "pc" and pressed:
                 # Program Change message (only on press)
                 program = btn_config.get("program", 0)
                 midi.send(ProgramChange(program, channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
                 status_label.text = f"TX PC{program}"
-                # Light up button briefly for visual feedback
-                set_button_state(btn_num, True)
+                flash_pc_button(btn_num)
             
-            elif msg_type == "pc_inc" and pressed:
+            elif message_type == "pc_inc" and pressed:
                 # Increment Program Change
                 step = btn_config.get("pc_step", 1)
-                pc_values[idx] = min(127, pc_values[idx] + step)
+                pc_values[idx] = clamp_pc_value(pc_values[idx] + step)
                 midi.send(ProgramChange(pc_values[idx], channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[idx]} (switch {btn_num}, inc)")
                 status_label.text = f"TX PC{pc_values[idx]}"
-                # Light up button briefly for visual feedback
-                set_button_state(btn_num, True)
+                flash_pc_button(btn_num)
             
-            elif msg_type == "pc_dec" and pressed:
+            elif message_type == "pc_dec" and pressed:
                 # Decrement Program Change
                 step = btn_config.get("pc_step", 1)
-                pc_values[idx] = max(0, pc_values[idx] - step)
+                pc_values[idx] = clamp_pc_value(pc_values[idx] - step)
                 midi.send(ProgramChange(pc_values[idx], channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[idx]} (switch {btn_num}, dec)")
                 status_label.text = f"TX PC{pc_values[idx]}"
-                # Light up button briefly for visual feedback
-                set_button_state(btn_num, True)
+                flash_pc_button(btn_num)
 
 
 def handle_encoder_button():
@@ -813,6 +834,7 @@ print("\nRunning...")
 while True:
     handle_midi()
     handle_switches()
+    update_pc_flash_timers()  # Update PC button flash timers
     if HAS_ENCODER:
         handle_encoder_button()
         handle_encoder()
