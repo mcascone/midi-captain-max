@@ -57,11 +57,15 @@ All three PRs modify the same function:
 
 **Solution:** Single unified validation function supporting all fields.
 
-### 3. GUI Config Editor (MAJOR)
+### 3. GUI Config Editor (CRITICAL)
 
-- **#51:** No GUI changes (firmware only)
+- **#51:** ⚠️ Missing GUI support (firmware-only, incomplete)
+  - PC types configurable only via manual JSON editing
+  - Users cannot configure PC through GUI Config Editor
+  - This is a **deficiency requiring resolution**, not acceptable final state
 - **#53:** Updates GUI with type selector for CC/Note
-- **Need:** GUI supporting all 5 types (CC, Note, PC, PC_inc, PC_dec)
+  - Provides infrastructure that can be extended
+- **Required:** GUI supporting all 5 types (CC, Note, PC, PC_inc, PC_dec)
 
 ### 4. ButtonState Structure (CRITICAL)
 

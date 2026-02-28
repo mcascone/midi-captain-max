@@ -71,9 +71,13 @@ New documents for three-way conflict (#50 + #51 + #53):
   - **Need:** Unified system with all 5 types
 
 ### GUI Updates
-- **Was:** No GUI changes in either PR
-- **Now:** PR #53 includes GUI type selector (but only for CC/Note)
-- **Need:** GUI supporting all 5 types
+- **Was:** Neither PR included GUI changes
+- **Now:** PR #53 includes GUI type selector (CC/Note only)
+- **Critical Issue:** PR #51 lacks GUI support entirely
+  - PC types only configurable via manual JSON editing
+  - Users cannot configure PC through GUI Config Editor
+  - This is a deficiency, not acceptable for production
+- **Required:** GUI supporting all 5 types (CC, Note, PC, PC_inc, PC_dec)
 
 ### Coordination Required
 - **Was:** Internal coordination between two Copilot-created PRs
