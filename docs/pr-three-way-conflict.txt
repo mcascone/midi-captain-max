@@ -1,0 +1,185 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║          THREE-WAY CONFLICT: PRs #50, #51, and #53                        ║
+║                    CRITICAL COORDINATION NEEDED                            ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+                            MAIN BRANCH
+                           (v1.4.2-beta.2)
+                                 │
+                                 │
+          ┌──────────────────────┼──────────────────────┐
+          │                      │                      │
+          ▼                      ▼                      ▼
+    ┌──────────┐          ┌──────────┐          ┌──────────┐
+    │  PR #50  │          │  PR #51  │          │  PR #53  │
+    │ Keytimes │          │ PC Msgs  │          │  Notes   │
+    │          │          │          │          │          │
+    │ @Copilot │          │ @Copilot │          │ @jjeff   │
+    │ (intern) │          │ (intern) │          │(external)│
+    └──────────┘          └──────────┘          └──────────┘
+          │                      │                      │
+          │                      │                      │
+    ┌─────▼──────┐        ┌─────▼──────┐        ┌─────▼──────┐
+    │ +keytimes  │        │ +type      │        │ +type      │
+    │ +states[]  │        │  "cc"      │        │  "cc"      │
+    │            │        │  "pc"      │        │  "note"    │
+    │ ButtonState│        │  "pc_inc"  │        │            │
+    │  objects   │        │  "pc_dec"  │        │ +note      │
+    │            │        │            │        │ +velocity  │
+    │ 8 files    │        │ +program   │        │            │
+    │ +454/-32   │        │ +pc_step   │        │ GUI update │
+    │            │        │            │        │            │
+    │ No type    │        │ 5 files    │        │ 10 files   │
+    │ system     │        │ +376/-43   │        │ +517/-257  │
+    └────────────┘        └────────────┘        └────────────┘
+          │                      │                      │
+          │                      │                      │
+          │              ⚠️  COLLISION! ⚠️              │
+          │                      │                      │
+          │         ┌────────────┴────────────┐         │
+          │         │                         │         │
+          │         │   validate_button()     │         │
+          │         │   function modified     │         │
+          │         │   by BOTH #51 AND #53   │         │
+          │         │   with different        │         │
+          │         │   type systems!         │         │
+          │         │                         │         │
+          │         └────────────┬────────────┘         │
+          │                      │                      │
+          └──────────────────────┼──────────────────────┘
+                                 │
+                                 ▼
+                    ┌────────────────────────┐
+                    │   THREE-WAY CONFLICT   │
+                    │                        │
+                    │ 1. validate_button()   │
+                    │    - All 3 PRs modify  │
+                    │    - Incompatible      │
+                    │                        │
+                    │ 2. Type systems clash  │
+                    │    - #51: CC/PC types  │
+                    │    - #53: CC/Note types│
+                    │    - MUST UNIFY        │
+                    │                        │
+                    │ 3. ButtonState init    │
+                    │    - #50: Objects      │
+                    │    - #51: Booleans     │
+                    │    - #53: Booleans     │
+                    │                        │
+                    │ 4. GUI updates         │
+                    │    - #51: None         │
+                    │    - #53: Type selector│
+                    │    - Need: All 5 types │
+                    └────────────────────────┘
+                                 │
+                                 │
+                    ┌────────────▼────────────┐
+                    │   RESOLUTION STRATEGY   │
+                    │   ─────────────────────│
+                    │                        │
+                    │ Phase 1: Merge #50     │
+                    │   ✓ ButtonState base   │
+                    │   ✓ No conflicts       │
+                    │   ✓ Foundation ready   │
+                    │                        │
+                    │ Phase 2: Coordinate!   │
+                    │   ⚠️  Contact @jjeff   │
+                    │   ⚠️  Unified design   │
+                    │   ⚠️  Combine #51+#53  │
+                    │                        │
+                    │ Phase 3: Integration   │
+                    │   ✓ All 5 types        │
+                    │   ✓ Full GUI           │
+                    │   ✓ Complete tests     │
+                    └────────────────────────┘
+                                 │
+                                 │
+                                 ▼
+            ┌────────────────────────────────────┐
+            │     UNIFIED TYPE SYSTEM             │
+            │                                     │
+            │  type: "cc" | "note" | "pc" |      │
+            │        "pc_inc" | "pc_dec"          │
+            │                                     │
+            │  Fields by type:                    │
+            │  ────────────────                   │
+            │                                     │
+            │  cc:       cc, cc_on, cc_off        │
+            │  note:     note, velocity_on/_off   │
+            │  pc:       program                  │
+            │  pc_inc:   pc_step                  │
+            │  pc_dec:   pc_step                  │
+            │                                     │
+            │  All types support:                 │
+            │  - keytimes (1-99)                  │
+            │  - states[] overrides               │
+            │  - toggle/momentary modes           │
+            │  - bidirectional sync               │
+            └────────────────────────────────────┘
+                                 │
+                                 │
+                                 ▼
+                ┌─────────────────────────────────┐
+                │    EXAMPLE: Unified Config      │
+                │    ────────────────────────────│
+                │                                 │
+                │  {                              │
+                │    "buttons": [                 │
+                │      {                          │
+                │        "label": "CC",           │
+                │        "type": "cc",            │
+                │        "cc": 20,                │
+                │        "keytimes": 3            │
+                │      },                         │
+                │      {                          │
+                │        "label": "Note",         │
+                │        "type": "note",          │
+                │        "note": 60,              │
+                │        "keytimes": 1            │
+                │      },                         │
+                │      {                          │
+                │        "label": "Preset",       │
+                │        "type": "pc",            │
+                │        "program": 5,            │
+                │        "keytimes": 1            │
+                │      }                          │
+                │    ]                            │
+                │  }                              │
+                │                                 │
+                │  ✨ All types in one config!   │
+                └─────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ CRITICAL INSIGHT                                                          │
+│                                                                           │
+│ PR #53 from external contributor validates PR #51's design!              │
+│                                                                           │
+│ Both independently chose to add a "type" field for message types.        │
+│ This confirms it's the RIGHT architectural approach.                     │
+│                                                                           │
+│ The difference in type values (PC vs Note) shows they're complementary   │
+│ features that SHOULD be unified, not competing alternatives.             │
+│                                                                           │
+│ This is a GOOD problem to have! Multiple contributors want the same      │
+│ extensibility pattern. We just need to coordinate.                       │
+└───────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ IMMEDIATE ACTIONS                                                         │
+│                                                                           │
+│ 1. Contact @jjeff about PR #53 and this analysis                         │
+│ 2. Share unified type system design                                      │
+│ 3. Decide: Should #53 be updated or create new integration PR?           │
+│ 4. Merge PR #50 to establish ButtonState foundation                      │
+│ 5. Coordinate #51 + #53 integration (either merge or new PR)             │
+│ 6. Update GUI to support all 5 types                                     │
+│ 7. Write comprehensive test suite                                        │
+│ 8. Hardware validation                                                   │
+│                                                                           │
+│ Timeline: ~10-12 hours after coordination                                │
+└───────────────────────────────────────────────────────────────────────────┘
+
+Legend:
+  ⚠️  = Conflict requiring coordination
+  ✓  = Successfully integrated
+  ✨ = New capability unlocked
