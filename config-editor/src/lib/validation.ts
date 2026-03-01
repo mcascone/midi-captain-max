@@ -46,6 +46,32 @@ export const validators = {
     }
     return null;
   },
+
+  note: (value: number): string | null => {
+    if (value === undefined || value === null) return 'Note is required';
+    if (value < 0 || value > 127) return 'Note must be between 0 and 127';
+    if (!Number.isInteger(value)) return 'Note must be an integer';
+    return null;
+  },
+
+  velocity: (value: number): string | null => {
+    if (value < 0 || value > 127) return 'Velocity must be between 0 and 127';
+    if (!Number.isInteger(value)) return 'Velocity must be an integer';
+    return null;
+  },
+
+  program: (value: number): string | null => {
+    if (value === undefined || value === null) return 'Program is required';
+    if (value < 0 || value > 127) return 'Program must be between 0 and 127';
+    if (!Number.isInteger(value)) return 'Program must be an integer';
+    return null;
+  },
+
+  pcStep: (value: number): string | null => {
+    if (value < 1 || value > 127) return 'Step must be between 1 and 127';
+    if (!Number.isInteger(value)) return 'Step must be an integer';
+    return null;
+  },
 };
 
 export function validateConfig(config: MidiCaptainConfig): ValidationResult {
@@ -68,13 +94,38 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
   // Validate all buttons
   config.buttons.forEach((btn, idx) => {
     const labelError = validators.label(btn.label);
-    if (labelError) {
-      errors.set(`buttons[${idx}].label`, labelError);
-    }
-    
-    const ccError = validators.cc(btn.cc);
-    if (ccError) {
-      errors.set(`buttons[${idx}].cc`, ccError);
+    if (labelError) errors.set(`buttons[${idx}].label`, labelError);
+
+    const msgType = btn.type ?? 'cc';
+
+    if (msgType === 'cc') {
+      if (btn.cc !== undefined) {
+        const ccError = validators.cc(btn.cc);
+        if (ccError) errors.set(`buttons[${idx}].cc`, ccError);
+      }
+    } else if (msgType === 'note') {
+      if (btn.note !== undefined) {
+        const noteError = validators.note(btn.note);
+        if (noteError) errors.set(`buttons[${idx}].note`, noteError);
+      }
+      if (btn.velocity_on !== undefined) {
+        const velError = validators.velocity(btn.velocity_on);
+        if (velError) errors.set(`buttons[${idx}].velocity_on`, velError);
+      }
+      if (btn.velocity_off !== undefined) {
+        const velError = validators.velocity(btn.velocity_off);
+        if (velError) errors.set(`buttons[${idx}].velocity_off`, velError);
+      }
+    } else if (msgType === 'pc') {
+      if (btn.program !== undefined) {
+        const progError = validators.program(btn.program);
+        if (progError) errors.set(`buttons[${idx}].program`, progError);
+      }
+    } else if (msgType === 'pc_inc' || msgType === 'pc_dec') {
+      if (btn.pc_step !== undefined) {
+        const stepError = validators.pcStep(btn.pc_step);
+        if (stepError) errors.set(`buttons[${idx}].pc_step`, stepError);
+      }
     }
   });
   
