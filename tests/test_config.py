@@ -204,6 +204,104 @@ class TestValidateButton:
         assert len(btn["states"]) == 3
 
 
+class TestButtonMessageTypes:
+    """Tests for multi-type button message support."""
+
+    def test_default_type_is_cc(self):
+        btn = validate_button({}, index=0)
+        assert btn["type"] == "cc"
+
+    def test_cc_type_explicit(self):
+        btn = validate_button({"type": "cc", "cc": 50}, index=0)
+        assert btn["type"] == "cc"
+        assert btn["cc"] == 50
+        assert btn["cc_on"] == 127
+        assert btn["cc_off"] == 0
+
+    def test_cc_type_no_note_fields(self):
+        btn = validate_button({"type": "cc"}, index=0)
+        assert "note" not in btn
+        assert "velocity_on" not in btn
+        assert "velocity_off" not in btn
+
+    def test_cc_type_no_pc_fields(self):
+        btn = validate_button({"type": "cc"}, index=0)
+        assert "program" not in btn
+        assert "pc_step" not in btn
+
+    def test_note_type(self):
+        btn = validate_button({"type": "note", "note": 60}, index=0)
+        assert btn["type"] == "note"
+        assert btn["note"] == 60
+        assert btn["velocity_on"] == 127
+        assert btn["velocity_off"] == 0
+
+    def test_note_type_defaults(self):
+        btn = validate_button({"type": "note"}, index=0)
+        assert btn["note"] == 60
+        assert btn["velocity_on"] == 127
+        assert btn["velocity_off"] == 0
+
+    def test_note_type_custom_velocity(self):
+        btn = validate_button({"type": "note", "note": 36, "velocity_on": 100, "velocity_off": 0}, index=0)
+        assert btn["velocity_on"] == 100
+        assert btn["velocity_off"] == 0
+
+    def test_note_type_no_cc_fields(self):
+        btn = validate_button({"type": "note"}, index=0)
+        assert "cc" not in btn
+        assert "cc_on" not in btn
+        assert "cc_off" not in btn
+
+    def test_pc_type(self):
+        btn = validate_button({"type": "pc", "program": 5}, index=0)
+        assert btn["type"] == "pc"
+        assert btn["program"] == 5
+
+    def test_pc_type_default_program(self):
+        btn = validate_button({"type": "pc"}, index=0)
+        assert btn["program"] == 0
+
+    def test_pc_type_no_cc_fields(self):
+        btn = validate_button({"type": "pc"}, index=0)
+        assert "cc" not in btn
+        assert "cc_on" not in btn
+        assert "cc_off" not in btn
+
+    def test_pc_inc_type(self):
+        btn = validate_button({"type": "pc_inc", "pc_step": 5}, index=0)
+        assert btn["type"] == "pc_inc"
+        assert btn["pc_step"] == 5
+
+    def test_pc_dec_type(self):
+        btn = validate_button({"type": "pc_dec", "pc_step": 2}, index=0)
+        assert btn["type"] == "pc_dec"
+        assert btn["pc_step"] == 2
+
+    def test_pc_inc_dec_default_step(self):
+        btn_inc = validate_button({"type": "pc_inc"}, index=0)
+        btn_dec = validate_button({"type": "pc_dec"}, index=0)
+        assert btn_inc["pc_step"] == 1
+        assert btn_dec["pc_step"] == 1
+
+    def test_invalid_type_falls_back_to_cc(self):
+        btn = validate_button({"type": "invalid_type"}, index=0)
+        assert btn["type"] == "cc"
+        assert "cc" in btn
+
+    def test_type_inherits_global_channel(self):
+        btn = validate_button({"type": "note", "note": 48}, index=0, global_channel=3)
+        assert btn["channel"] == 3
+
+    def test_keytimes_works_with_note_type(self):
+        btn = validate_button({"type": "note", "note": 60, "keytimes": 2}, index=0)
+        assert btn["keytimes"] == 2
+
+    def test_keytimes_works_with_cc_type(self):
+        btn = validate_button({"type": "cc", "cc": 20, "keytimes": 3}, index=0)
+        assert btn["keytimes"] == 3
+
+
 class TestValidateConfig:
     """Test validate_config function from core/config.py."""
     

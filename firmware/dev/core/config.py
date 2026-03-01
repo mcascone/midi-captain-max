@@ -10,6 +10,8 @@ except ImportError:
     # CircuitPython has json built-in, but just in case
     json = None
 
+VALID_TYPES = ("cc", "note", "pc", "pc_inc", "pc_dec")
+
 
 def load_config(config_path="/config.json", button_count=10):
     """Load button configuration from JSON file.
@@ -46,64 +48,77 @@ def _default_config(button_count):
 
 def validate_button(btn, index=0, global_channel=None):
     """Validate a button config dict, filling in defaults.
-    
+
     Args:
         btn: Button config dict
         index: Button index (for default CC calculation)
         global_channel: Global MIDI channel (0-15), used if button doesn't specify channel
-        
+
     Returns:
         Validated button config with all required fields
+
+    Button Types:
+        - "cc": Control Change (default)
+        - "note": MIDI Note On/Off
+        - "pc": Program Change fixed
+        - "pc_inc": Program Change increment
+        - "pc_dec": Program Change decrement
     """
-    # Channel: per-button override or global channel or default to 0 (MIDI Ch 1)
     if global_channel is not None:
         default_channel = global_channel
     else:
         default_channel = 0
-    
+
     # Keytimes: default to 1 (no cycling), clamp to 1-99
     keytimes = btn.get("keytimes", 1)
     if not isinstance(keytimes, int):
         keytimes = 1
     keytimes = max(1, min(99, keytimes))
-    
+
+    # Determine message type, fall back to cc if invalid
+    msg_type = btn.get("type", "cc")
+    if msg_type not in VALID_TYPES:
+        msg_type = "cc"
+
     validated = {
         "label": btn.get("label", str(index + 1)),
-        "cc": btn.get("cc", 20 + index),
         "color": btn.get("color", "white"),
         "mode": btn.get("mode", "toggle"),
         "off_mode": btn.get("off_mode", "dim"),
         "channel": btn.get("channel", default_channel),
-        "cc_on": btn.get("cc_on", 127),
-        "cc_off": btn.get("cc_off", 0),
+        "type": msg_type,
         "keytimes": keytimes,
     }
-    
+
+    # Type-specific fields
+    if msg_type == "cc":
+        validated["cc"] = btn.get("cc", 20 + index)
+        validated["cc_on"] = btn.get("cc_on", 127)
+        validated["cc_off"] = btn.get("cc_off", 0)
+    elif msg_type == "note":
+        validated["note"] = btn.get("note", 60)
+        validated["velocity_on"] = btn.get("velocity_on", 127)
+        validated["velocity_off"] = btn.get("velocity_off", 0)
+    elif msg_type == "pc":
+        validated["program"] = btn.get("program", 0)
+    elif msg_type in ("pc_inc", "pc_dec"):
+        validated["pc_step"] = btn.get("pc_step", 1)
+
     # For keytimes > 1, validate and pass through states array
     if keytimes > 1:
         states = btn.get("states", [])
         if isinstance(states, list):
-            # Validate each state entry
             validated_states = []
             for state in states:
                 if isinstance(state, dict):
                     validated_state = {}
-                    # Copy through recognized fields with validation
-                    if "cc" in state:
-                        validated_state["cc"] = state["cc"]
-                    if "cc_on" in state:
-                        validated_state["cc_on"] = state["cc_on"]
-                    if "cc_off" in state:
-                        validated_state["cc_off"] = state["cc_off"]
-                    if "color" in state:
-                        validated_state["color"] = state["color"]
-                    if "label" in state:
-                        validated_state["label"] = state["label"]
+                    for field in ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "color", "label"):
+                        if field in state:
+                            validated_state[field] = state[field]
                     validated_states.append(validated_state)
-            
             if validated_states:
                 validated["states"] = validated_states
-    
+
     return validated
 
 
