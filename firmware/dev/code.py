@@ -39,7 +39,7 @@ from adafruit_midi.control_change import ControlChange
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
 from core.config import load_config as _load_config_from_file, get_display_config
-from core.button import Switch
+from core.button import Switch, ButtonState
 
 # =============================================================================
 # Font Size Configuration
@@ -374,7 +374,15 @@ EXP2_CHANNEL = exp2_config.get("channel", 0)
 # State
 # =============================================================================
 
-button_states = [False] * BUTTON_COUNT  # Toggle state for each button
+# Initialize ButtonState objects for each button with keytimes support
+button_states = []
+for i in range(BUTTON_COUNT):
+    btn_config = buttons[i] if i < len(buttons) else {}
+    cc = btn_config.get("cc", 20 + i)
+    mode = btn_config.get("mode", "toggle")
+    keytimes = btn_config.get("keytimes", 1)
+    button_states.append(ButtonState(cc=cc, mode=mode, keytimes=keytimes))
+
 encoder_value = ENC_INITIAL  # Internal value 0-127
 encoder_slot = -1  # Current slot (set on first change)
 
@@ -496,15 +504,67 @@ display.show(main_group)
 # =============================================================================
 
 
+def get_button_state_config(btn_config, keytime_index):
+    """Get configuration for button at specific keytime state.
+    
+    Args:
+        btn_config: Button configuration dict
+        keytime_index: Current keytime position (1-indexed)
+        
+    Returns:
+        Dict with cc, cc_on, cc_off, and color for this state
+    """
+    states = btn_config.get("states", [])
+    
+    # Get per-state overrides if available
+    if states and 0 < keytime_index <= len(states):
+        state_config = states[keytime_index - 1]
+        cc = state_config.get("cc", btn_config.get("cc", 20))
+        cc_on = state_config.get("cc_on", btn_config.get("cc_on", 127))
+        cc_off = state_config.get("cc_off", btn_config.get("cc_off", 0))
+        color = get_color(state_config.get("color", btn_config.get("color", "white")))
+    else:
+        # Fallback to base button config
+        cc = btn_config.get("cc", 20)
+        cc_on = btn_config.get("cc_on", 127)
+        cc_off = btn_config.get("cc_off", 0)
+        color = get_color(btn_config.get("color", "white"))
+    
+    return {
+        "cc": cc,
+        "cc_on": cc_on,
+        "cc_off": cc_off,
+        "color": color
+    }
+
+
+def get_button_color(btn_config, keytime_index):
+    """Get color for button at specific keytime state.
+    
+    Args:
+        btn_config: Button configuration dict
+        keytime_index: Current keytime position (1-indexed)
+        
+    Returns:
+        RGB tuple for the color
+    """
+    return get_button_state_config(btn_config, keytime_index)["color"]
+
+
 def set_button_state(switch_idx, on):
-    """Update LED and display for a button (1-indexed)."""
+    """Update LED and display for a button (1-indexed).
+    
+    Now uses ButtonState objects and supports keytime colors.
+    """
     idx = switch_idx - 1
     if idx < 0 or idx >= BUTTON_COUNT:
         return
 
-    button_states[idx] = on
+    btn_state = button_states[idx]
     btn_config = buttons[idx] if idx < len(buttons) else {"color": "white"}
-    color_rgb = get_color(btn_config.get("color", "white"))
+    
+    # Get color for current keytime state
+    color_rgb = get_button_color(btn_config, btn_state.get_keytime())
     off_mode = btn_config.get("off_mode", "dim")  # "dim" or "off"
 
     # Update LED
@@ -555,14 +615,16 @@ def handle_midi():
             btn_cc = btn_config.get("cc")
             btn_channel = btn_config.get("channel", 0)
             if btn_cc == cc and btn_channel == msg_channel:
-                on = val > 63
-                set_button_state(i + 1, on)
+                # Use ButtonState's on_midi_receive to handle host override
+                btn_state = button_states[i]
+                new_state = btn_state.on_midi_receive(val)
+                set_button_state(i + 1, new_state)
                 status_label.text = f"RX CC{cc}={val}"
                 break
 
 
 def handle_switches():
-    """Handle footswitch presses."""
+    """Handle footswitch presses with keytimes support."""
     # STD10: index 0 is encoder push, 1-10 are footswitches
     # Mini6: indices 0-5 are footswitches (no encoder)
     start_idx = 1 if HAS_ENCODER else 0
@@ -574,28 +636,46 @@ def handle_switches():
             # Convert to 1-indexed button number
             btn_num = i if HAS_ENCODER else i + 1
             idx = btn_num - 1
+            btn_state = button_states[idx]
             btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
-            cc = btn_config.get("cc", 20 + idx)
-            mode = btn_config.get("mode", "toggle")  # "toggle" or "momentary"
+            
+            # Get per-keytime config (CC, values, color)
+            state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+            cc = state_cfg["cc"]
+            cc_on = state_cfg["cc_on"]
+            cc_off = state_cfg["cc_off"]
             channel = btn_config.get("channel", 0)  # 0 = MIDI Channel 1
-            cc_on = btn_config.get("cc_on", 127)
-            cc_off = btn_config.get("cc_off", 0)
 
-            if mode == "momentary":
-                # Momentary: cc_on on press, cc_off on release
-                val = cc_on if pressed else cc_off
-                set_button_state(btn_num, pressed)
-                midi.send(ControlChange(cc, val, channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, momentary)")
-                status_label.text = f"TX CC{cc}={val}"
-            elif pressed:
-                # Toggle: only act on press, flip state
-                new_state = not button_states[idx]
-                set_button_state(btn_num, new_state)
-                val = cc_on if new_state else cc_off
-                midi.send(ControlChange(cc, val, channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
-                status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+            if pressed:
+                # On press: use ButtonState to handle state transition
+                state_changed, new_state, midi_val = btn_state.on_press()
+                
+                if state_changed:
+                    # Determine value to send
+                    if btn_state.keytimes > 1:
+                        # Keytimes: always send cc_on when cycling
+                        val = cc_on
+                        set_button_state(btn_num, True)
+                        status_msg = f"TX CC{cc}={val} ({btn_state.get_keytime()})"
+                    else:
+                        # Standard toggle/momentary
+                        val = cc_on if new_state else cc_off
+                        set_button_state(btn_num, new_state)
+                        status_msg = f"TX CC{cc}={val}"
+                    
+                    # Send MIDI and update display
+                    midi.send(ControlChange(cc, val, channel=channel))
+                    mode = btn_config.get("mode", "toggle")
+                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, {mode})")
+                    status_label.text = status_msg
+            else:
+                # On release: check if we need to send release message (momentary mode)
+                state_changed, new_state, midi_val = btn_state.on_release()
+                if state_changed and midi_val is not None:
+                    set_button_state(btn_num, new_state)
+                    midi.send(ControlChange(cc, midi_val, channel=channel))
+                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={midi_val} (switch {btn_num}, release)")
+                    status_label.text = f"TX CC{cc}={midi_val}"
 
 
 def handle_encoder_button():
