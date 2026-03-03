@@ -157,6 +157,36 @@ def validate_config(cfg, button_count=10):
     return result
 
 
+def get_button_state_config(btn_config, keytime_index):
+    """Get button config merged with per-state overrides for a given keytime position.
+
+    Args:
+        btn_config: Validated button config dict
+        keytime_index: Current keytime position (1-indexed)
+
+    Returns:
+        Dict with base values overridden by per-state values where present.
+        Overridable fields: cc, cc_on, cc_off, note, velocity_on, velocity_off, color, label.
+    """
+    # Start with base config
+    result = {}
+    for field in ("cc", "cc_on", "cc_off", "note", "velocity_on",
+                  "velocity_off", "color", "label", "program", "pc_step"):
+        if field in btn_config:
+            result[field] = btn_config[field]
+
+    # Apply per-state overrides if keytime_index is in range
+    states = btn_config.get("states", [])
+    if states and 0 < keytime_index <= len(states):
+        state = states[keytime_index - 1]
+        for field in ("cc", "cc_on", "cc_off", "note", "velocity_on",
+                      "velocity_off", "color", "label"):
+            if field in state:
+                result[field] = state[field]
+
+    return result
+
+
 def get_encoder_config(cfg):
     """Extract encoder configuration with defaults.
     

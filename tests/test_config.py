@@ -19,6 +19,7 @@ from core.config import (
     validate_config,
     get_encoder_config,
     get_expression_config,
+    get_button_state_config,
 )
 
 
@@ -412,3 +413,49 @@ class TestEncoderConfig:
         enc = get_encoder_config({"encoder": {"push": {}}})
         assert enc["push"]["cc_on"] == 127
         assert enc["push"]["cc_off"] == 0
+
+
+class TestGetButtonStateConfig:
+    def test_no_states_returns_base_cc_config(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "cc_off": 0, "color": "white"}
+        result = get_button_state_config(btn, 1)
+        assert result["cc"] == 20
+        assert result["cc_on"] == 127
+        assert result["cc_off"] == 0
+
+    def test_state_overrides_cc_on(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "cc_off": 0,
+               "states": [{"cc_on": 64}, {"cc_on": 96}]}
+        assert get_button_state_config(btn, 1)["cc_on"] == 64
+        assert get_button_state_config(btn, 2)["cc_on"] == 96
+
+    def test_state_cc_falls_back_to_base(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "states": [{"cc_on": 64}]}
+        result = get_button_state_config(btn, 1)
+        assert result["cc"] == 20       # fallback
+        assert result["cc_on"] == 64    # override
+
+    def test_keytime_out_of_range_falls_back(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "states": [{"cc_on": 64}]}
+        result = get_button_state_config(btn, 5)
+        assert result["cc_on"] == 127   # base
+
+    def test_note_state_overrides(self):
+        btn = {"type": "note", "note": 60, "velocity_on": 127, "velocity_off": 0,
+               "states": [{"note": 62, "velocity_on": 100}]}
+        result = get_button_state_config(btn, 1)
+        assert result["note"] == 62
+        assert result["velocity_on"] == 100
+        assert result["velocity_off"] == 0  # fallback
+
+    def test_color_overridable_for_all_types(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "color": "blue",
+               "states": [{"color": "cyan"}]}
+        assert get_button_state_config(btn, 1)["color"] == "cyan"
+
+    def test_pc_type_returns_base_program(self):
+        btn = {"type": "pc", "program": 5, "color": "green",
+               "states": [{"color": "red"}]}
+        result = get_button_state_config(btn, 1)
+        assert result["program"] == 5
+        assert result["color"] == "red"

@@ -41,7 +41,7 @@ from adafruit_midi.note_off import NoteOff
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
-from core.config import load_config as _load_config_from_file, get_display_config
+from core.config import load_config as _load_config_from_file, get_display_config, get_button_state_config
 from core.button import Switch, ButtonState
 
 # =============================================================================
@@ -511,40 +511,6 @@ display.show(main_group)
 # =============================================================================
 
 
-def get_button_state_config(btn_config, keytime_index):
-    """Get configuration for button at specific keytime state.
-    
-    Args:
-        btn_config: Button configuration dict
-        keytime_index: Current keytime position (1-indexed)
-        
-    Returns:
-        Dict with cc, cc_on, cc_off, and color for this state
-    """
-    states = btn_config.get("states", [])
-    
-    # Get per-state overrides if available
-    if states and 0 < keytime_index <= len(states):
-        state_config = states[keytime_index - 1]
-        cc = state_config.get("cc", btn_config.get("cc", 20))
-        cc_on = state_config.get("cc_on", btn_config.get("cc_on", 127))
-        cc_off = state_config.get("cc_off", btn_config.get("cc_off", 0))
-        color = get_color(state_config.get("color", btn_config.get("color", "white")))
-    else:
-        # Fallback to base button config
-        cc = btn_config.get("cc", 20)
-        cc_on = btn_config.get("cc_on", 127)
-        cc_off = btn_config.get("cc_off", 0)
-        color = get_color(btn_config.get("color", "white"))
-    
-    return {
-        "cc": cc,
-        "cc_on": cc_on,
-        "cc_off": cc_off,
-        "color": color
-    }
-
-
 def get_button_color(btn_config, keytime_index):
     """Get color for button at specific keytime state.
     
@@ -688,16 +654,20 @@ def handle_switches():
             # Convert to 1-indexed button number
             btn_num = i if HAS_ENCODER else i + 1
             idx = btn_num - 1
+            btn_state = button_states[idx]
             btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
-            
+
             message_type = btn_config.get("type", "cc")
             mode = btn_config.get("mode", "toggle")
             channel = btn_config.get("channel", 0)
 
             if message_type == "cc":
-                cc = btn_config.get("cc", 20 + idx)
-                cc_on = btn_config.get("cc_on", 127)
-                cc_off = btn_config.get("cc_off", 0)
+                if pressed and btn_state.keytimes > 1:
+                    btn_state.current_keytime = (btn_state.current_keytime % btn_state.keytimes) + 1
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                cc = state_cfg.get("cc", 20 + idx)
+                cc_on = state_cfg.get("cc_on", 127)
+                cc_off = state_cfg.get("cc_off", 0)
                 if mode == "momentary":
                     val = cc_on if pressed else cc_off
                     set_button_state(btn_num, pressed)
@@ -713,9 +683,12 @@ def handle_switches():
                     status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
 
             elif message_type == "note":
-                note = btn_config.get("note", 60)
-                vel_on = btn_config.get("velocity_on", 127)
-                vel_off = btn_config.get("velocity_off", 0)
+                if pressed and btn_state.keytimes > 1:
+                    btn_state.current_keytime = (btn_state.current_keytime % btn_state.keytimes) + 1
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                note = state_cfg.get("note", 60)
+                vel_on = state_cfg.get("velocity_on", 127)
+                vel_off = state_cfg.get("velocity_off", 0)
                 if mode == "momentary":
                     if pressed:
                         midi.send(NoteOn(note, vel_on, channel=channel))
