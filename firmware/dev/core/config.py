@@ -166,7 +166,7 @@ def get_button_state_config(btn_config, keytime_index):
 
     Returns:
         Dict with base values overridden by per-state values where present.
-        Overridable fields: cc, cc_on, cc_off, note, velocity_on, velocity_off, color, label.
+        Overridable fields: cc, cc_on, cc_off, note, velocity_on, velocity_off, program, pc_step, color, label.
     """
     # Start with base config
     result = {}
@@ -180,7 +180,7 @@ def get_button_state_config(btn_config, keytime_index):
     if states and 0 < keytime_index <= len(states):
         state = states[keytime_index - 1]
         for field in ("cc", "cc_on", "cc_off", "note", "velocity_on",
-                      "velocity_off", "color", "label"):
+                      "velocity_off", "color", "label", "program", "pc_step"):
             if field in state:
                 result[field] = state[field]
 

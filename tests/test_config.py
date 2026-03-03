@@ -459,3 +459,16 @@ class TestGetButtonStateConfig:
         result = get_button_state_config(btn, 1)
         assert result["program"] == 5
         assert result["color"] == "red"
+
+    def test_pc_state_overrides_program(self):
+        btn = {"type": "pc", "program": 5, "states": [{"program": 10}, {"program": 20}]}
+        assert get_button_state_config(btn, 1)["program"] == 10
+        assert get_button_state_config(btn, 2)["program"] == 20
+
+    def test_pc_inc_state_overrides_pc_step(self):
+        btn = {"type": "pc_inc", "pc_step": 1, "states": [{"pc_step": 5}]}
+        assert get_button_state_config(btn, 1)["pc_step"] == 5
+
+    def test_pc_dec_state_overrides_pc_step(self):
+        btn = {"type": "pc_dec", "pc_step": 1, "states": [{"pc_step": 3}]}
+        assert get_button_state_config(btn, 1)["pc_step"] == 3

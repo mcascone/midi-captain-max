@@ -209,3 +209,38 @@ class TestButtonStateKeytimes:
         btn.on_press()
         assert btn.state == False
         assert btn.get_keytime() == 1
+
+
+class TestAdvanceKeytime:
+    """Tests for the advance_keytime() method."""
+
+    def test_advance_keytime_increments_position(self):
+        btn = ButtonState(cc=20, keytimes=3)
+        btn.advance_keytime()
+        assert btn.get_keytime() == 2
+
+    def test_advance_keytime_wraps_at_max(self):
+        btn = ButtonState(cc=20, keytimes=3)
+        btn.advance_keytime()
+        btn.advance_keytime()
+        btn.advance_keytime()
+        assert btn.get_keytime() == 1
+
+    def test_advance_keytime_no_op_when_keytimes_is_one(self):
+        btn = ButtonState(cc=20, keytimes=1)
+        btn.advance_keytime()
+        assert btn.get_keytime() == 1
+
+    def test_on_press_toggle_uses_advance_keytime(self):
+        """on_press() in toggle mode should call advance_keytime() internally."""
+        btn = ButtonState(cc=20, mode="toggle", keytimes=3)
+        btn.advance_keytime()  # → 2
+        btn.on_press()         # should also advance → 3
+        assert btn.get_keytime() == 3
+
+    def test_on_press_momentary_uses_advance_keytime(self):
+        """on_press() in momentary mode should call advance_keytime() internally."""
+        btn = ButtonState(cc=20, mode="momentary", keytimes=2)
+        btn.advance_keytime()  # → 2
+        btn.on_press()         # should also advance → wrap to 1
+        assert btn.get_keytime() == 1

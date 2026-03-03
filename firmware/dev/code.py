@@ -521,7 +521,7 @@ def get_button_color(btn_config, keytime_index):
     Returns:
         RGB tuple for the color
     """
-    return get_button_state_config(btn_config, keytime_index)["color"]
+    return get_color(get_button_state_config(btn_config, keytime_index)["color"])
 
 
 def set_button_state(switch_idx, on):
@@ -662,8 +662,8 @@ def handle_switches():
             channel = btn_config.get("channel", 0)
 
             if message_type == "cc":
-                if pressed and btn_state.keytimes > 1:
-                    btn_state.current_keytime = (btn_state.current_keytime % btn_state.keytimes) + 1
+                if pressed:
+                    btn_state.advance_keytime()
                 state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
                 cc = state_cfg.get("cc", 20 + idx)
                 cc_on = state_cfg.get("cc_on", 127)
@@ -683,8 +683,8 @@ def handle_switches():
                     status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
 
             elif message_type == "note":
-                if pressed and btn_state.keytimes > 1:
-                    btn_state.current_keytime = (btn_state.current_keytime % btn_state.keytimes) + 1
+                if pressed:
+                    btn_state.advance_keytime()
                 state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
                 note = state_cfg.get("note", 60)
                 vel_on = state_cfg.get("velocity_on", 127)
@@ -712,14 +712,18 @@ def handle_switches():
                         status_label.text = f"TX Note{note} OFF"
 
             elif message_type == "pc" and pressed:
-                program = btn_config.get("program", 0)
+                btn_state.advance_keytime()
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                program = state_cfg.get("program", 0)
                 midi.send(ProgramChange(program, channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
                 status_label.text = f"TX PC{program}"
                 flash_pc_button(btn_num)
 
             elif message_type == "pc_inc" and pressed:
-                step = btn_config.get("pc_step", 1)
+                btn_state.advance_keytime()
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                step = state_cfg.get("pc_step", 1)
                 pc_values[idx] = clamp_pc_value(pc_values[idx] + step)
                 midi.send(ProgramChange(pc_values[idx], channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[idx]} (switch {btn_num}, inc)")
@@ -727,7 +731,9 @@ def handle_switches():
                 flash_pc_button(btn_num)
 
             elif message_type == "pc_dec" and pressed:
-                step = btn_config.get("pc_step", 1)
+                btn_state.advance_keytime()
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                step = state_cfg.get("pc_step", 1)
                 pc_values[idx] = clamp_pc_value(pc_values[idx] - step)
                 midi.send(ProgramChange(pc_values[idx], channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[idx]} (switch {btn_num}, dec)")
