@@ -11,6 +11,7 @@ except ImportError:
     json = None
 
 VALID_TYPES = ("cc", "note", "pc", "pc_inc", "pc_dec")
+STATE_OVERRIDE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label")
 
 
 def load_config(config_path="/config.json", button_count=10):
@@ -112,7 +113,7 @@ def validate_button(btn, index=0, global_channel=None):
             for state in states:
                 if isinstance(state, dict):
                     validated_state = {}
-                    for field in ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "color", "label"):
+                    for field in STATE_OVERRIDE_FIELDS:
                         if field in state:
                             validated_state[field] = state[field]
                     validated_states.append(validated_state)
@@ -170,8 +171,7 @@ def get_button_state_config(btn_config, keytime_index):
     """
     # Start with base config
     result = {}
-    for field in ("cc", "cc_on", "cc_off", "note", "velocity_on",
-                  "velocity_off", "color", "label", "program", "pc_step"):
+    for field in STATE_OVERRIDE_FIELDS:
         if field in btn_config:
             result[field] = btn_config[field]
 
@@ -179,8 +179,7 @@ def get_button_state_config(btn_config, keytime_index):
     states = btn_config.get("states", [])
     if states and 0 < keytime_index <= len(states):
         state = states[keytime_index - 1]
-        for field in ("cc", "cc_on", "cc_off", "note", "velocity_on",
-                      "velocity_off", "color", "label", "program", "pc_step"):
+        for field in STATE_OVERRIDE_FIELDS:
             if field in state:
                 result[field] = state[field]
 

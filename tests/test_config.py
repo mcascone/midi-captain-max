@@ -204,6 +204,26 @@ class TestValidateButton:
         assert "states" in btn
         assert len(btn["states"]) == 3
 
+    def test_validate_button_preserves_program_in_states(self):
+        btn = validate_button({
+            "type": "pc",
+            "program": 5,
+            "keytimes": 2,
+            "states": [{"program": 10}, {"program": 20}]
+        }, index=0)
+        assert btn["states"][0]["program"] == 10
+        assert btn["states"][1]["program"] == 20
+
+    def test_validate_button_preserves_pc_step_in_states(self):
+        btn = validate_button({
+            "type": "pc_inc",
+            "pc_step": 1,
+            "keytimes": 2,
+            "states": [{"pc_step": 5}, {"pc_step": 10}]
+        }, index=0)
+        assert btn["states"][0]["pc_step"] == 5
+        assert btn["states"][1]["pc_step"] == 10
+
 
 class TestButtonMessageTypes:
     """Tests for multi-type button message support."""

@@ -87,7 +87,12 @@ class ButtonState:
     def on_press(self):
         """Handle button press.
 
-        For keytimes > 1: advances to next keytime state (cycling back to 1 after max).
+        For keytimes > 1: advances to next keytime state via advance_keytime().
+
+        NOTE: handle_switches() in code.py does NOT call this method — it calls
+        advance_keytime() directly to keep keytime management and MIDI dispatch
+        in one place. This method is used by tests and any external consumers
+        that need the full ButtonState API without MIDI dispatch.
 
         Returns:
             Tuple of (state_changed: bool, new_state: bool, midi_value: int)
