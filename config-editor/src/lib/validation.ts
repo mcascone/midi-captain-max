@@ -70,6 +70,12 @@ export const validators = {
     if (!Number.isInteger(value)) return 'Step must be an integer';
     return null;
   },
+
+  keytimes: (value: number): string | null => {
+    if (value < 1 || value > 99) return 'Keytimes must be between 1 and 99';
+    if (!Number.isInteger(value)) return 'Keytimes must be an integer';
+    return null;
+  },
 };
 
 export function validateConfig(config: MidiCaptainConfig): ValidationResult {
@@ -123,6 +129,41 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       if (btn.pc_step !== undefined) {
         const stepError = validators.pcStep(btn.pc_step);
         if (stepError) errors.set(`buttons[${idx}].pc_step`, stepError);
+      }
+    }
+
+    if (btn.keytimes !== undefined) {
+      const ktError = validators.keytimes(btn.keytimes);
+      if (ktError) errors.set(`buttons[${idx}].keytimes`, ktError);
+
+      if (btn.states) {
+        btn.states.forEach((state, si) => {
+          const sp = `buttons[${idx}].states[${si}]`;
+          if (state.cc !== undefined) {
+            const e = validators.cc(state.cc);
+            if (e) errors.set(`${sp}.cc`, e);
+          }
+          if (state.cc_on !== undefined) {
+            const e = validators.withinRange(state.cc_on, 0, 127);
+            if (e) errors.set(`${sp}.cc_on`, e);
+          }
+          if (state.cc_off !== undefined) {
+            const e = validators.withinRange(state.cc_off, 0, 127);
+            if (e) errors.set(`${sp}.cc_off`, e);
+          }
+          if (state.note !== undefined) {
+            const e = validators.note(state.note);
+            if (e) errors.set(`${sp}.note`, e);
+          }
+          if (state.velocity_on !== undefined) {
+            const e = validators.velocity(state.velocity_on);
+            if (e) errors.set(`${sp}.velocity_on`, e);
+          }
+          if (state.velocity_off !== undefined) {
+            const e = validators.velocity(state.velocity_off);
+            if (e) errors.set(`${sp}.velocity_off`, e);
+          }
+        });
       }
     }
   });
