@@ -17,6 +17,8 @@ export interface StateOverride {
   note?: number;
   velocity_on?: number;
   velocity_off?: number;
+  program?: number;
+  pc_step?: number;
   color?: ButtonColor;
   label?: string;
 }

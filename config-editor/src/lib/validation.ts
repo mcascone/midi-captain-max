@@ -163,6 +163,14 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
             const e = validators.velocity(state.velocity_off);
             if (e) errors.set(`${sp}.velocity_off`, e);
           }
+          if (state.program !== undefined) {
+            const e = validators.program(state.program);
+            if (e) errors.set(`${sp}.program`, e);
+          }
+          if (state.pc_step !== undefined) {
+            const e = validators.pcStep(state.pc_step);
+            if (e) errors.set(`${sp}.pc_step`, e);
+          }
         });
       }
     }
