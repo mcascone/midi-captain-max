@@ -179,6 +179,8 @@ git push origin v1.0.0-alpha.1
 
 ## CircuitPython Practices
 
+This project uses CircuitPython firmware deployed to hardware devices (Mini6, MCM, STD10). Always verify changes work with the target hardware constraints. For mpy-cross, use Adafruit's CircuitPython builds, NOT MicroPython pip packages.
+
 - Target **CircuitPython 7.x** (7.3.1 verified on devices)
 - Board identifies as `raspberry_pi_pico` (RP2040 MCU)
 - USB CDC disconnects on reset — use auto-reconnect serial workflows
