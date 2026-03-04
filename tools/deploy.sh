@@ -209,6 +209,42 @@ else
     CONFIG_FILE="$DEV_DIR/config.json"
 fi
 
+# Check if the device filesystem is writable before attempting deploy
+if ! touch "$MOUNT_POINT/.deploy_write_test" 2>/dev/null; then
+    echo -e "${RED}❌ Device filesystem is read-only${NC}"
+    echo ""
+    echo -e "${YELLOW}The MIDI Captain drive is mounted but not writable.${NC}"
+    echo ""
+    if [ -f "$MOUNT_POINT/boot.py" ]; then
+        # boot.py exists: firmware already installed, device is in performance mode
+        echo -e "${YELLOW}Our firmware is installed. To enable write access:${NC}"
+        echo "  1. Hold switch 1 (top-left footswitch) while plugging in USB"
+        echo "  2. The device will boot with USB write access enabled"
+        echo "  3. Run deploy.sh again"
+    else
+        # No boot.py: likely first-time install over OEM firmware
+        echo -e "${YELLOW}This looks like a first-time install.${NC}"
+        echo "The OEM firmware may have the USB drive in read-only mode."
+        echo ""
+        echo -e "${YELLOW}Option A — CircuitPython safe mode (easiest):${NC}"
+        echo "  1. Briefly short the RUN pin to GND twice in quick succession"
+        echo "     (or rapidly plug/unplug USB twice if no RUN pin access)"
+        echo "     Status LED will flash yellow — safe mode is active"
+        echo "  2. Run deploy.sh again — the drive will be writable"
+        echo ""
+        echo -e "${YELLOW}Option B — Hold the update button during power-on:${NC}"
+        echo "  1. Hold switch 1 (top-left footswitch) while plugging in USB"
+        echo "  2. Run deploy.sh again"
+        echo ""
+        echo -e "${YELLOW}Option C — Reinstall CircuitPython:${NC}"
+        echo "  1. Hold BOOTSEL while plugging in USB → RPI-RP2 drive appears"
+        echo "  2. Copy CircuitPython .uf2 to the RPI-RP2 drive"
+        echo "  3. Run deploy.sh again"
+    fi
+    exit 1
+fi
+rm -f "$MOUNT_POINT/.deploy_write_test" 2>/dev/null
+
 echo "🚀 Deploying changed files..."
 
 # Deploy dependencies first, code.py last. This ensures all imports are
