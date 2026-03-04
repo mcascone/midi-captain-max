@@ -381,7 +381,7 @@ EXP2_CHANNEL = exp2_config.get("channel", 0)
 button_states = []
 for i in range(BUTTON_COUNT):
     btn_config = buttons[i] if i < len(buttons) else {}
-    cc = btn_config.get("cc", 20 + i)
+    cc = btn_config.get("cc", 0)  # 0 for non-CC types; ButtonState.cc unused by note/pc dispatch
     mode = btn_config.get("mode", "toggle")
     keytimes = btn_config.get("keytimes", 1)
     button_states.append(ButtonState(cc=cc, mode=mode, keytimes=keytimes))
@@ -608,7 +608,8 @@ def handle_midi():
         print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
         for i, btn_config in enumerate(buttons):
             if btn_config.get("type", "cc") == "cc" and btn_config.get("cc") == cc and btn_config.get("channel", 0) == msg_channel:
-                set_button_state(i + 1, val > 63)
+                new_state = button_states[i].on_midi_receive(val)
+                set_button_state(i + 1, new_state)
                 status_label.text = f"RX CC{cc}={val}"
                 break
 
