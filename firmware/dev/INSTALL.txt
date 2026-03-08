@@ -5,27 +5,46 @@ Prerequisites:
   - CircuitPython 7.x installed on your device
   - Device connected via USB and mounted as CIRCUITPY or MIDICAPTAIN
 
-Recommended: Use deploy.sh (macOS/Linux)
+Recommended: Use the deploy script
 ------------------------------------------------
 
-  First install (includes CircuitPython libraries):
+  macOS/Linux:
 
-    ./deploy.sh --install
+    First install (includes CircuitPython libraries):
 
-  Update existing firmware:
+      ./deploy.sh --install
 
-    ./deploy.sh
+    Update existing firmware:
 
-  Options:
-    --install     Full install with CircuitPython libraries
-    --eject       Eject device after deploy (forces clean reload)
-    --fresh       Overwrite config.json with default
-    --libs-only   Only install CircuitPython libraries
+      ./deploy.sh
 
-  deploy.sh auto-detects your device type and preserves your
+    Options:
+      --install     Full install with CircuitPython libraries
+      --eject       Eject device after deploy (forces clean reload)
+      --fresh       Overwrite config.json with default
+      --libs-only   Only install CircuitPython libraries
+
+  Windows (PowerShell):
+
+    First install (includes CircuitPython libraries):
+
+      .\deploy.ps1 -Install
+
+    Update existing firmware:
+
+      .\deploy.ps1
+
+    Options:
+      -Install      Full install with CircuitPython libraries
+      -Eject        Eject device after deploy (forces clean reload)
+      -Fresh        Overwrite config.json with default
+      -LibsOnly     Only install CircuitPython libraries
+      -MountPoint   Specify drive letter (e.g. -MountPoint E:\)
+
+  Both scripts auto-detect your device type and preserve your
   existing config.json (button mappings, colors, etc.).
 
-Manual Installation (Windows or if deploy.sh is unavailable)
+Manual Installation (if deploy scripts are unavailable)
 ------------------------------------------------
 
   1. Connect your MIDI Captain via USB.
@@ -46,7 +65,8 @@ Recovery
   firmware files again.
 
 Files included:
-  deploy.sh        Installation script (recommended)
+  deploy.sh        Installation script (macOS/Linux)
+  deploy.ps1       Installation script (Windows PowerShell)
   code.py          Main firmware entry point
   boot.py          Startup configuration
   config.json      Default config (STD10)

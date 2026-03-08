@@ -73,8 +73,9 @@ echo "$VERSION" > "$STAGE_DIR/firmware/VERSION"
 mkdir -p "$STAGE_DIR/docs"
 cp -R "$REPO_ROOT/docs/." "$STAGE_DIR/docs/"
 
-# ---- COPY INSTALLER ----
+# ---- COPY INSTALLERS ----
 cp "$REPO_ROOT/tools/deploy.sh" "$STAGE_DIR/"
+cp "$REPO_ROOT/tools/deploy.ps1" "$STAGE_DIR/"
 
 # ---- VERSION INFO ----
 cat > "$STAGE_DIR/VERSION.txt" <<EOF
@@ -91,14 +92,19 @@ Commit: ${SHA}
 Contents:
   firmware/     CircuitPython firmware files (copy to CIRCUITPY volume)
   docs/         Documentation and hardware reference
-  deploy.sh     Installation script for macOS/Linux (recommended)
+  deploy.sh     Installation script for macOS/Linux
+  deploy.ps1    Installation script for Windows (PowerShell)
 
 Quick Start:
-  1. Connect your MIDI Captain via USB (make sure CircuitPython is installed)
-  2. Run: ./deploy.sh --install
-  3. Follow the prompts
+  macOS/Linux:
+    1. Connect your MIDI Captain via USB (make sure CircuitPython is installed)
+    2. Run: ./deploy.sh --install
+    3. Follow the prompts
 
-For manual installation or Windows users, copy firmware/ contents to your device.
+  Windows (PowerShell):
+    1. Connect your MIDI Captain via USB (make sure CircuitPython is installed)
+    2. Run: .\deploy.ps1 -Install
+    3. Follow the prompts
 
 For source code and issues: https://github.com/mcascone/midi-captain-max
 EOF
