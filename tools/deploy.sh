@@ -122,7 +122,7 @@ if [ ! -d "$MOUNT_POINT" ]; then
     echo "  3. Mounted as CIRCUITPY or MIDICAPTAIN"
     echo ""
     echo "If CircuitPython is not installed:"
-    echo "  1. Hold BOOTSEL while plugging in USB"
+    echo "  1. Hold Switch 1 (top-left footswitch) while plugging in USB"
     echo "  2. Copy CircuitPython .uf2 to RPI-RP2 drive"
     echo "  3. Run this script again"
     exit 1
@@ -237,7 +237,7 @@ if ! touch "$MOUNT_POINT/.deploy_write_test" 2>/dev/null; then
         echo "  2. Run deploy.sh again"
         echo ""
         echo -e "${YELLOW}Option C — Reinstall CircuitPython:${NC}"
-        echo "  1. Hold BOOTSEL while plugging in USB → RPI-RP2 drive appears"
+        echo "  1. Hold Switch 1 (top-left footswitch) while plugging in USB → RPI-RP2 drive appears"
         echo "  2. Copy CircuitPython .uf2 to the RPI-RP2 drive"
         echo "  3. Run deploy.sh again"
     fi

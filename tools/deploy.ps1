@@ -108,7 +108,7 @@ if (-not $MountPoint -or -not (Test-Path $MountPoint)) {
     Write-Host "  3. Mounted as CIRCUITPY or MIDICAPTAIN"
     Write-Host ""
     Write-Host "If CircuitPython is not installed:"
-    Write-Host "  1. Hold BOOTSEL while plugging in USB"
+    Write-Host "  1. Hold Switch 1 (top-left footswitch) while plugging in USB"
     Write-Host "  2. Copy CircuitPython .uf2 to RPI-RP2 drive"
     Write-Host "  3. Run this script again"
     exit 1
@@ -236,7 +236,7 @@ try {
         Write-Host "  2. Run deploy.ps1 again"
         Write-Host ""
         Write-Host "Option C - Reinstall CircuitPython:" -ForegroundColor Yellow
-        Write-Host "  1. Hold BOOTSEL while plugging in USB -> RPI-RP2 drive appears"
+        Write-Host "  1. Hold Switch 1 (top-left footswitch) while plugging in USB -> RPI-RP2 drive appears"
         Write-Host "  2. Copy CircuitPython .uf2 to the RPI-RP2 drive"
         Write-Host "  3. Run deploy.ps1 again"
     }
