@@ -86,7 +86,7 @@ If your device ends up in a bad state, don't worry — it's fully recoverable:
 
 If the drive doesn't appear at all, reinstall CircuitPython:
 
-1. **Hold BOOTSEL** while plugging in USB — a drive called **RPI-RP2** will appear
+1. **Hold Switch 1** (top-left footswitch) while plugging in USB — a drive called **RPI-RP2** will appear
 2. Download the CircuitPython 7.x `.uf2` file for your board
 3. Copy the `.uf2` file to the RPI-RP2 drive
 4. The device will reboot and appear as **CIRCUITPY**
