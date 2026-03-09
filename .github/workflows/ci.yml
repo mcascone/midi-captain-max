@@ -146,7 +146,7 @@ jobs:
           mkdir -p dist
           cd firmware/dev
           zip -r "../../dist/midicaptain-firmware-${VERSION}.zip" \
-            INSTALL.txt \
+            INSTALL.md \
             code.py \
             boot.py \
             config.json \
