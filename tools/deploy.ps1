@@ -75,11 +75,13 @@ if ($LibsOnly) { $Install = $true }
 Write-Host "=== MIDI Captain Firmware Deploy ===" -ForegroundColor Blue
 Write-Host ""
 
+# Cache WMI volume query (reused for mount detection, device type, and eject)
+$AllVolumes = Get-CimInstance -ClassName Win32_Volume -ErrorAction SilentlyContinue
+
 # Auto-detect mount point if not specified
 if (-not $MountPoint) {
     # Look for CIRCUITPY or MIDICAPTAIN volumes
-    $drives = Get-CimInstance -ClassName Win32_Volume -ErrorAction SilentlyContinue |
-              Where-Object { $_.Label -match "CIRCUITPY|MIDICAPTAIN" }
+    $drives = $AllVolumes | Where-Object { $_.Label -match "CIRCUITPY|MIDICAPTAIN" }
     if ($drives) {
         $drive = $drives | Select-Object -First 1
         $MountPoint = $drive.DriveLetter
@@ -186,8 +188,7 @@ if (Test-Path $configPath) {
 
 # Fallback: use volume label as heuristic
 if (-not $DeviceType) {
-    $vol = Get-CimInstance -ClassName Win32_Volume -ErrorAction SilentlyContinue |
-           Where-Object { $_.DriveLetter -eq ($MountPoint.TrimEnd('\')) -or $_.Name -eq $MountPoint }
+    $vol = $AllVolumes | Where-Object { $_.DriveLetter -eq ($MountPoint.TrimEnd('\')) -or $_.Name -eq $MountPoint }
     if ($vol -and $vol.Label -eq "MIDICAPTAIN") {
         $DeviceType = "mini6"
     } else {
@@ -256,18 +257,12 @@ function Sync-Directory {
         New-Item -ItemType Directory -Path $Destination -Force | Out-Null
     }
 
-    $excludePatterns = @('.DS_Store', '*.pyc', '__pycache__')
-
     # Copy changed files from source
     $sourceFiles = Get-ChildItem -Path $Source -Recurse -File |
         Where-Object {
-            $dominated = $false
-            foreach ($p in $excludePatterns) {
-                if ($_.Name -like $p -or $_.FullName -match '__pycache__') {
-                    $dominated = $true; break
-                }
-            }
-            -not $dominated
+            $_.Name -ne '.DS_Store' -and
+            $_.Name -notlike '*.pyc' -and
+            $_.FullName -notmatch '__pycache__'
         }
 
     $changeCount = 0
@@ -373,18 +368,21 @@ Sync-Directory -Source (Join-Path $DevDir "fonts") -Destination (Join-Path $Moun
 Write-Host "lib/:" -ForegroundColor Cyan
 Sync-Directory -Source (Join-Path $DevDir "lib") -Destination (Join-Path $MountPoint "lib")
 
+# Flush writes to device before deploying config and code.py (equivalent to bash sync)
+$driveLetter = $MountPoint.TrimEnd('\')
+& cmd /c "fsutil volume flush $driveLetter" 2>$null | Out-Null
+
 # 3. Deploy config ONLY if it doesn't exist (preserve user customizations)
-$deviceConfigPath = Join-Path $MountPoint "config.json"
-if (-not (Test-Path $deviceConfigPath) -or $Fresh) {
-    if ($Fresh -and (Test-Path $deviceConfigPath)) {
+if (-not (Test-Path $configPath) -or $Fresh) {
+    if ($Fresh -and (Test-Path $configPath)) {
         Write-Host "Overwriting config.json with fresh default (--Fresh mode)..."
     } else {
         Write-Host "Installing default config.json (device-specific)..."
     }
     if (Test-Path $ConfigFile) {
-        Sync-File -Source $ConfigFile -Destination $deviceConfigPath
+        Sync-File -Source $ConfigFile -Destination $configPath
     } else {
-        Sync-File -Source (Join-Path $DevDir "config.json") -Destination $deviceConfigPath
+        Sync-File -Source (Join-Path $DevDir "config.json") -Destination $configPath
     }
 } else {
     Write-Host "Preserving existing config.json (use -Fresh to overwrite)"
@@ -420,7 +418,7 @@ $manifestLines = @()
 Push-Location $DevDir
 $files = Get-ChildItem -Recurse -File |
     Where-Object {
-        $_.Name -ne '*.pyc' -and
+        $_.Name -notlike '*.pyc' -and
         $_.FullName -notmatch '__pycache__' -and
         $_.FullName -notmatch 'experiments' -and
         $_.Name -ne 'firmware.md5' -and
@@ -428,20 +426,22 @@ $files = Get-ChildItem -Recurse -File |
     } |
     Sort-Object { $_.FullName }
 foreach ($file in $files) {
-    $relativePath = ".\" + $file.FullName.Substring($DevDir.TrimEnd('\').Length + 1)
+    $relativePath = "./" + $file.FullName.Substring($DevDir.TrimEnd('\').Length + 1).Replace('\', '/')
     $hash = (Get-FileHash $file.FullName -Algorithm MD5).Hash.ToLower()
     $manifestLines += "$hash  $relativePath"
 }
 Pop-Location
 $manifestLines -join "`n" | Out-File -FilePath (Join-Path $MountPoint "firmware.md5") -Encoding utf8 -NoNewline
 
+# Final flush to ensure all writes reach the USB device
+& cmd /c "fsutil volume flush $driveLetter" 2>$null | Out-Null
+
 Write-Host ""
 
 if ($Eject) {
     Write-Host "Ejecting device..."
-    $driveLetter = $MountPoint.TrimEnd('\')
     try {
-        $vol = Get-CimInstance -ClassName Win32_Volume | Where-Object { $_.DriveLetter -eq $driveLetter }
+        $vol = $AllVolumes | Where-Object { $_.DriveLetter -eq $driveLetter }
         if ($vol) {
             # Use Windows Shell to eject removable drive
             $shell = New-Object -ComObject Shell.Application
