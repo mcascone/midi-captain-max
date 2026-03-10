@@ -36,9 +36,27 @@ Run the included `deploy.sh` script from the extracted zip folder:
 
 The script auto-detects your device type (STD10 or Mini6) and preserves your `config.json` unless you pass `--fresh`.
 
-#### Windows — manual install
+#### Windows — PowerShell deploy script (recommended)
 
-> **Note:** A PowerShell install script and a GUI-based installer are coming soon.
+Run the included `deploy.ps1` script from the extracted zip folder:
+
+```powershell
+# Quick update (preserves your existing config.json)
+.\deploy.ps1
+
+# First-time install — also installs required CircuitPython libraries
+.\deploy.ps1 -Install
+
+# Deploy and eject for a clean reload
+.\deploy.ps1 -Eject
+
+# Overwrite config.json with the default (resets your button mappings)
+.\deploy.ps1 -Fresh
+```
+
+The script auto-detects your device type (STD10 or Mini6) and preserves your `config.json` unless you pass `-Fresh`.
+
+#### Windows — manual install
 
 1. Open the extracted zip folder.
 1. Copy all files and folders to the device drive (`CIRCUITPY` or `MIDICAPTAIN`), replacing existing files.
