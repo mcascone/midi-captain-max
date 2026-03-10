@@ -159,8 +159,8 @@ jobs:
             VERSION \
             -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"
           cd ../..
-          # Add deploy script to root of zip (using -j to strip path)
-          zip -j "dist/midicaptain-firmware-${VERSION}.zip" tools/deploy.sh
+          # Add deploy scripts to root of zip (using -j to strip path)
+          zip -j "dist/midicaptain-firmware-${VERSION}.zip" tools/deploy.sh tools/deploy.ps1
           echo "Created: \`dist/midicaptain-firmware-${VERSION}.zip\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload zip artifact
