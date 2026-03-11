@@ -190,13 +190,23 @@ if [ -f "$MOUNT_POINT/config.json" ]; then
     fi
 fi
 
-# Fallback: use mount point as heuristic
+# Fallback: ask the user which device they have
 if [ -z "$DEVICE_TYPE" ]; then
-    if [ "$MOUNT_POINT" = "/Volumes/MIDICAPTAIN" ]; then
-        DEVICE_TYPE="mini6"
-    else
-        DEVICE_TYPE="std10"
-    fi
+    echo ""
+    echo -e "${YELLOW}Could not auto-detect device type (no config.json on device).${NC}"
+    echo "Which MIDI Captain model are you deploying to?"
+    echo ""
+    echo "  1) STD10  — 10 footswitches, encoder, expression pedal inputs"
+    echo "  2) Mini6  — 6 footswitches, no encoder or expression inputs"
+    echo ""
+    while true; do
+        read -rp "Enter 1 or 2: " choice
+        case "$choice" in
+            1) DEVICE_TYPE="std10"; break ;;
+            2) DEVICE_TYPE="mini6"; break ;;
+            *) echo "Please enter 1 or 2." ;;
+        esac
+    done
 fi
 
 echo "🎛️  Device type: $DEVICE_TYPE"
@@ -226,19 +236,9 @@ if ! touch "$MOUNT_POINT/.deploy_write_test" 2>/dev/null; then
         echo -e "${YELLOW}This looks like a first-time install.${NC}"
         echo "The OEM firmware may have the USB drive in read-only mode."
         echo ""
-        echo -e "${YELLOW}Option A — CircuitPython safe mode (easiest):${NC}"
-        echo "  1. Briefly short the RUN pin to GND twice in quick succession"
-        echo "     (or rapidly plug/unplug USB twice if no RUN pin access)"
-        echo "     Status LED will flash yellow — safe mode is active"
-        echo "  2. Run deploy.sh again — the drive will be writable"
-        echo ""
-        echo -e "${YELLOW}Option B — Hold the update button during power-on:${NC}"
+        echo -e "${YELLOW}To enable write access:${NC}"
         echo "  1. Hold switch 1 (top-left footswitch) while plugging in USB"
-        echo "  2. Run deploy.sh again"
-        echo ""
-        echo -e "${YELLOW}Option C — Reinstall CircuitPython:${NC}"
-        echo "  1. Hold Switch 1 (top-left footswitch) while plugging in USB → RPI-RP2 drive appears"
-        echo "  2. Copy CircuitPython .uf2 to the RPI-RP2 drive"
+        echo "  2. The device will boot with USB write access enabled"
         echo "  3. Run deploy.sh again"
     fi
     exit 1

@@ -186,14 +186,23 @@ if (Test-Path $configPath) {
     }
 }
 
-# Fallback: use volume label as heuristic
+# Fallback: ask the user which device they have
 if (-not $DeviceType) {
-    $vol = $AllVolumes | Where-Object { $_.DriveLetter -eq ($MountPoint.TrimEnd('\')) -or $_.Name -eq $MountPoint }
-    if ($vol -and $vol.Label -eq "MIDICAPTAIN") {
-        $DeviceType = "mini6"
-    } else {
-        $DeviceType = "std10"
-    }
+    Write-Host ""
+    Write-Host "Could not auto-detect device type (no config.json on device)." -ForegroundColor Yellow
+    Write-Host "Which MIDI Captain model are you deploying to?"
+    Write-Host ""
+    Write-Host "  1) STD10  - 10 footswitches, encoder, expression pedal inputs"
+    Write-Host "  2) Mini6  - 6 footswitches, no encoder or expression inputs"
+    Write-Host ""
+    do {
+        $choice = Read-Host "Enter 1 or 2"
+        switch ($choice) {
+            "1" { $DeviceType = "std10" }
+            "2" { $DeviceType = "mini6" }
+            default { Write-Host "Please enter 1 or 2." }
+        }
+    } while (-not $DeviceType)
 }
 
 Write-Host "Device type: $DeviceType"
@@ -226,19 +235,9 @@ try {
         Write-Host "This looks like a first-time install." -ForegroundColor Yellow
         Write-Host "The OEM firmware may have the USB drive in read-only mode."
         Write-Host ""
-        Write-Host "Option A - CircuitPython safe mode (easiest):" -ForegroundColor Yellow
-        Write-Host "  1. Briefly short the RUN pin to GND twice in quick succession"
-        Write-Host "     (or rapidly plug/unplug USB twice if no RUN pin access)"
-        Write-Host "     Status LED will flash yellow - safe mode is active"
-        Write-Host "  2. Run deploy.ps1 again - the drive will be writable"
-        Write-Host ""
-        Write-Host "Option B - Hold the update button during power-on:" -ForegroundColor Yellow
+        Write-Host "To enable write access:" -ForegroundColor Yellow
         Write-Host "  1. Hold switch 1 (top-left footswitch) while plugging in USB"
-        Write-Host "  2. Run deploy.ps1 again"
-        Write-Host ""
-        Write-Host "Option C - Reinstall CircuitPython:" -ForegroundColor Yellow
-        Write-Host "  1. Hold Switch 1 (top-left footswitch) while plugging in USB -> RPI-RP2 drive appears"
-        Write-Host "  2. Copy CircuitPython .uf2 to the RPI-RP2 drive"
+        Write-Host "  2. The device will boot with USB write access enabled"
         Write-Host "  3. Run deploy.ps1 again"
     }
     exit 1
