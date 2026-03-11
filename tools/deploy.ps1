@@ -189,7 +189,7 @@ if (Test-Path $configPath) {
 # Fallback: ask the user which device they have
 if (-not $DeviceType) {
     Write-Host ""
-    Write-Host "Could not auto-detect device type (no config.json on device)." -ForegroundColor Yellow
+    Write-Host "Could not auto-detect device type." -ForegroundColor Yellow
     Write-Host "Which MIDI Captain model are you deploying to?"
     Write-Host ""
     Write-Host "  1) STD10  - 10 footswitches, encoder, expression pedal inputs"

@@ -193,7 +193,7 @@ fi
 # Fallback: ask the user which device they have
 if [ -z "$DEVICE_TYPE" ]; then
     echo ""
-    echo -e "${YELLOW}Could not auto-detect device type (no config.json on device).${NC}"
+    echo -e "${YELLOW}Could not auto-detect device type.${NC}"
     echo "Which MIDI Captain model are you deploying to?"
     echo ""
     echo "  1) STD10  — 10 footswitches, encoder, expression pedal inputs"
