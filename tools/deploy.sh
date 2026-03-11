@@ -130,6 +130,21 @@ fi
 
 echo -e "${GREEN}✓ Device found at $MOUNT_POINT${NC}"
 
+# Sanity-check: verify file I/O works on the device.
+# USB hubs/adapters can cause the mount to appear while file reads silently fail,
+# leading to wrong device detection and misleading "read-only" errors.
+if ! ls "$MOUNT_POINT/" >/dev/null 2>&1; then
+    echo -e "${RED}❌ Cannot read from device at $MOUNT_POINT${NC}"
+    echo ""
+    echo "The drive appears mounted but file operations are failing."
+    echo ""
+    echo "Try:"
+    echo "  • Disconnect and reconnect the USB cable"
+    echo "  • Use a different USB port (avoid hubs if possible)"
+    echo "  • Try a different USB cable"
+    exit 1
+fi
+
 # Install libraries if requested
 if [ "$DO_INSTALL" = true ]; then
     echo ""

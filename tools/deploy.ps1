@@ -118,6 +118,23 @@ if (-not $MountPoint -or -not (Test-Path $MountPoint)) {
 
 Write-Host "Device found at $MountPoint" -ForegroundColor Green
 
+# Sanity-check: verify file I/O works on the device.
+# USB hubs/adapters can cause the mount to appear while file reads silently fail,
+# leading to wrong device detection and misleading "read-only" errors.
+try {
+    $null = Get-ChildItem $MountPoint -ErrorAction Stop | Select-Object -First 1
+} catch {
+    Write-Host "ERROR: Cannot read from device at $MountPoint" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "The drive appears mounted but file operations are failing."
+    Write-Host ""
+    Write-Host "Try:"
+    Write-Host "  - Disconnect and reconnect the USB cable"
+    Write-Host "  - Use a different USB port (avoid hubs if possible)"
+    Write-Host "  - Try a different USB cable"
+    exit 1
+}
+
 # Install libraries if requested
 if ($Install) {
     Write-Host ""
