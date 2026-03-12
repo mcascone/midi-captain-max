@@ -8,7 +8,7 @@ import os
 # Add firmware/dev to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../firmware/dev"))
 
-from core.config import validate_usb_drive_name, get_usb_drive_name
+from core.config import validate_usb_drive_name, get_usb_drive_name, get_dev_mode
 
 
 def test_validate_usb_drive_name_valid():
@@ -83,3 +83,32 @@ def test_get_usb_drive_name_validation():
     
     cfg = {"usb_drive_name": "MY-DEVICE!@#"}
     assert get_usb_drive_name(cfg) == "MYDEVICE"
+
+
+# ── dev_mode tests ────────────────────────────────────────────────────────────
+
+def test_get_dev_mode_default_false():
+    """dev_mode defaults to False when absent from config."""
+    assert get_dev_mode({}) is False
+
+
+def test_get_dev_mode_explicit_true():
+    """dev_mode returns True when set to true."""
+    assert get_dev_mode({"dev_mode": True}) is True
+
+
+def test_get_dev_mode_explicit_false():
+    """dev_mode returns False when explicitly set to false."""
+    assert get_dev_mode({"dev_mode": False}) is False
+
+
+def test_get_dev_mode_truthy_values():
+    """dev_mode coerces truthy non-bool values to True."""
+    assert get_dev_mode({"dev_mode": 1}) is True
+
+
+def test_get_dev_mode_falsy_values():
+    """dev_mode coerces falsy non-bool values to False."""
+    assert get_dev_mode({"dev_mode": 0}) is False
+    assert get_dev_mode({"dev_mode": None}) is False
+

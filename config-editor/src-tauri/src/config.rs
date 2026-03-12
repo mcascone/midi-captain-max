@@ -231,6 +231,14 @@ pub struct MidiCaptainConfig {
     pub device: DeviceType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub global_channel: Option<u8>,
+    /// Custom USB volume label (max 11 chars, alphanumeric + underscore).
+    /// Applied by boot.py via storage.remount() when the drive is enabled.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usb_drive_name: Option<String>,
+    /// Development mode: when true the USB drive always mounts on boot without
+    /// needing to hold Switch 1.  Defaults to false (performance mode).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dev_mode: Option<bool>,
     pub buttons: Vec<ButtonConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoder: Option<EncoderConfig>,
@@ -563,5 +571,49 @@ mod tests {
             config2.display.as_ref().unwrap().button_text_size.as_deref(),
             Some("large")
         );
+    }
+
+    #[test]
+    fn test_roundtrip_usb_drive_name() {
+        let json = r#"{
+            "buttons": [],
+            "usb_drive_name": "MYCAPTAIN"
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.usb_drive_name.as_deref(), Some("MYCAPTAIN"));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.usb_drive_name.as_deref(), Some("MYCAPTAIN"));
+    }
+
+    #[test]
+    fn test_roundtrip_dev_mode() {
+        let json = r#"{
+            "buttons": [],
+            "dev_mode": true
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.dev_mode, Some(true));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.dev_mode, Some(true));
+    }
+
+    #[test]
+    fn test_dev_mode_defaults_absent_when_false() {
+        // When dev_mode is false (or absent), it should not appear in serialised output
+        // (skip_serializing_if = "Option::is_none" only omits None, so explicit false
+        // WILL be serialised; this test documents that behaviour so we notice if it
+        // changes unintentionally).
+        let json = r#"{ "buttons": [] }"#;
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.dev_mode, None);
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        assert!(!reserialized.contains("dev_mode"));
     }
 }

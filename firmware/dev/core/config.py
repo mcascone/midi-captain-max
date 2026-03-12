@@ -305,6 +305,22 @@ def get_display_config(cfg):
     }
 
 
+def get_dev_mode(cfg):
+    """Extract development mode setting from config.
+
+    In development mode the USB drive mounts on every boot without needing
+    to hold Switch 1.  In performance mode (the default) the drive is hidden
+    unless Switch 1 is held during boot.
+
+    Args:
+        cfg: Full config dict
+
+    Returns:
+        True if development mode is enabled, False otherwise
+    """
+    return bool(cfg.get("dev_mode", False))
+
+
 def validate_usb_drive_name(name):
     """Validate USB drive name for FAT32 compatibility.
     

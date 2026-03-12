@@ -96,6 +96,8 @@ export interface DisplayConfig {
 export interface MidiCaptainConfig {
   device?: DeviceType;
   global_channel?: number;  // Stored as 0-15, displayed as 1-16
+  usb_drive_name?: string;  // Custom USB drive label (max 11 chars, alphanumeric + underscore)
+  dev_mode?: boolean;       // true = USB always mounts; false (default) = switch-gated
   buttons: ButtonConfig[];
   encoder?: EncoderConfig;
   expression?: ExpressionPedals;
