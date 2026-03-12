@@ -88,6 +88,27 @@ jobs:
         run: |
           python -m pytest tests/ -v --tb=short
 
+  test-config-editor-rust:
+    name: Test Config Editor (Rust)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run Rust tests
+        working-directory: config-editor/src-tauri
+        run: cargo test
+
   build-zip:
     name: Build Firmware Zip
     runs-on: ubuntu-latest

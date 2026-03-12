@@ -271,6 +271,26 @@ Both distribution paths must include the same set of files and write the `VERSIO
 - Tests: `test_button_state.py`, `test_config.py`, `test_colors.py`, `test_neopixel_mock.py`, `test_switch_mock.py`, `test_usb_drive_name.py`
 - Run: `pytest` from project root
 
+### Rust Tests (Config Editor)
+Unit tests for the Tauri backend live in `config-editor/src-tauri/src/` (in `config.rs` and `device.rs`).
+
+**Requires GTK system libraries.** Install once per machine before running:
+
+```bash
+# macOS — no extra steps needed; Xcode CLT provides required frameworks
+# Ubuntu / Debian
+sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+```
+
+Run:
+
+```bash
+cd config-editor/src-tauri
+cargo test
+```
+
+These tests are also run in CI (see the `test-config-editor-rust` job in `ci.yml`).  CI installs the same packages automatically.
+
 ---
 
 ## Code Signing
@@ -491,7 +511,7 @@ Top-level config fields:
 }
 ```
 
-**`usb_drive_name`** — label applied to the FAT32 volume when USB is enabled. Max 11 chars, alphanumeric + underscore, uppercase (enforced by `validate_usb_drive_name()` in `core/config.py`). Defaults to `"MIDICAPTAIN"`. Configurable in the GUI "Device Settings" section.
+**`usb_drive_name`** — label applied to the FAT32 volume when USB is enabled. Max 11 chars, alphanumeric + underscore, uppercase (enforced by `validate_usb_drive_name()` in `core/config.py`). Defaults to `"MIDICAPTAIN"`. Configurable in the GUI "Device Settings" section. See [docs/custom-drive-names.md](docs/custom-drive-names.md) for naming rules, examples, and how the deploy script and GUI editor discover custom-named devices.
 
 **`dev_mode`** — boolean controlling USB drive mount behaviour at boot:
 
@@ -614,7 +634,7 @@ if enable_usb_drive:
 | `firmware/original_helmut/code.py` | Helmut's original firmware (reference only, DO NOT MODIFY) |
 | `tools/deploy.sh` | Dev deploy to device (rsync, VERSION, device detection) |
 | `docs/hardware-reference.md` | Verified hardware specs, auto-detection docs |
-| `docs/custom-drive-names.md` | Guide for customizing USB drive names and dev/performance mode |
+| [docs/custom-drive-names.md](docs/custom-drive-names.md) | Guide for customizing USB drive names and dev/performance mode |
 | `docs/usb-disable-bug-fix.md` | Explanation of the boot.py USB disable timing bug and fix |
 | `docs/screen-cheatsheet.md` | Serial console (screen) usage guide |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
