@@ -37,26 +37,89 @@ pub enum OffMode {
     Off,
 }
 
+/// Message type for a button
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageType {
+    #[default]
+    Cc,
+    Note,
+    Pc,
+    PcInc,
+    PcDec,
+}
+
+/// Per-state overrides for keytimes cycling
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StateOverride {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc_on: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc_off: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub velocity_on: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub velocity_off: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub program: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pc_step: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<ButtonColor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
 /// Button configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonConfig {
     pub label: String,
-    pub cc: u8,
     pub color: ButtonColor,
+    #[serde(rename = "type", default, skip_serializing_if = "is_default_message_type")]
+    pub message_type: MessageType,
     #[serde(default)]
     pub mode: ButtonMode,
     #[serde(default, skip_serializing_if = "is_default_off_mode")]
     pub off_mode: OffMode,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub channel: Option<u8>,
+    // CC fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cc_on: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cc_off: Option<u8>,
+    // Note fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub velocity_on: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub velocity_off: Option<u8>,
+    // PC fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub program: Option<u8>,
+    // PC inc/dec fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pc_step: Option<u8>,
+    // Keytimes cycling
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keytimes: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub states: Option<Vec<StateOverride>>,
 }
 
 fn is_default_off_mode(mode: &OffMode) -> bool {
     *mode == OffMode::Dim
+}
+
+fn is_default_message_type(t: &MessageType) -> bool {
+    *t == MessageType::Cc
 }
 
 /// Encoder push button configuration
@@ -147,6 +210,17 @@ pub enum DeviceType {
     Mini6,
 }
 
+/// Display text size settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisplayConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button_text_size: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_text_size: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expression_text_size: Option<String>,
+}
+
 /// Complete MIDI Captain configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MidiCaptainConfig {
@@ -159,6 +233,8 @@ pub struct MidiCaptainConfig {
     pub encoder: Option<EncoderConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expression: Option<ExpressionPedals>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display: Option<DisplayConfig>,
 }
 
 impl MidiCaptainConfig {
@@ -190,8 +266,10 @@ impl MidiCaptainConfig {
 
         // Validate CC numbers (0-127) and button-specific fields
         for (i, button) in self.buttons.iter().enumerate() {
-            if button.cc > 127 {
-                errors.push(format!("Button {} CC {} exceeds 127", i + 1, button.cc));
+            if let Some(cc) = button.cc {
+                if cc > 127 {
+                    errors.push(format!("Button {} CC {} exceeds 127", i + 1, cc));
+                }
             }
             if button.label.len() > 8 {
                 errors.push(format!(
@@ -353,5 +431,129 @@ mod tests {
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         assert_eq!(config.device, DeviceType::Mini6);
         assert!(config.encoder.is_none());
+    }
+
+    /// Round-trip: fields present in input JSON must survive serialize → deserialize.
+    /// This class of test would have caught the missing-field bug (serde silently drops
+    /// unknown fields during deserialization, so re-serializing strips them).
+    #[test]
+    fn test_roundtrip_note_button() {
+        let json = r#"{
+            "buttons": [
+                {"label": "NOTE", "type": "note", "note": 60, "velocity_on": 100, "velocity_off": 0, "color": "blue", "mode": "momentary"}
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.message_type, MessageType::Note);
+        assert_eq!(btn.note, Some(60));
+        assert_eq!(btn.velocity_on, Some(100));
+        assert_eq!(btn.velocity_off, Some(0));
+
+        // Re-serialize and re-parse to confirm round-trip
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let btn2 = &config2.buttons[0];
+        assert_eq!(btn2.message_type, MessageType::Note);
+        assert_eq!(btn2.note, Some(60));
+        assert_eq!(btn2.velocity_on, Some(100));
+    }
+
+    #[test]
+    fn test_roundtrip_pc_button() {
+        let json = r#"{
+            "buttons": [
+                {"label": "PC", "type": "pc", "program": 42, "color": "red"}
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.message_type, MessageType::Pc);
+        assert_eq!(btn.program, Some(42));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].program, Some(42));
+    }
+
+    #[test]
+    fn test_roundtrip_pc_inc_dec_buttons() {
+        let json = r#"{
+            "buttons": [
+                {"label": "UP", "type": "pc_inc", "pc_step": 5, "color": "green"},
+                {"label": "DN", "type": "pc_dec", "pc_step": 2, "color": "red"}
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.buttons[0].message_type, MessageType::PcInc);
+        assert_eq!(config.buttons[0].pc_step, Some(5));
+        assert_eq!(config.buttons[1].message_type, MessageType::PcDec);
+        assert_eq!(config.buttons[1].pc_step, Some(2));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].pc_step, Some(5));
+        assert_eq!(config2.buttons[1].pc_step, Some(2));
+    }
+
+    #[test]
+    fn test_roundtrip_keytimes_and_states() {
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "CYCLE",
+                    "type": "cc",
+                    "cc": 20,
+                    "color": "white",
+                    "keytimes": 3,
+                    "states": [
+                        {"cc": 1, "cc_on": 127, "label": "ONE"},
+                        {"cc": 2, "color": "red"},
+                        {"cc": 3, "cc_off": 64}
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.keytimes, Some(3));
+        let states = btn.states.as_ref().unwrap();
+        assert_eq!(states.len(), 3);
+        assert_eq!(states[0].cc, Some(1));
+        assert_eq!(states[0].label.as_deref(), Some("ONE"));
+        assert_eq!(states[1].color, Some(ButtonColor::Red));
+        assert_eq!(states[2].cc_off, Some(64));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let states2 = config2.buttons[0].states.as_ref().unwrap();
+        assert_eq!(states2[0].cc, Some(1));
+        assert_eq!(states2[1].color, Some(ButtonColor::Red));
+    }
+
+    #[test]
+    fn test_roundtrip_display_config() {
+        let json = r#"{
+            "buttons": [],
+            "display": {
+                "button_text_size": "large",
+                "status_text_size": "small"
+            }
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let display = config.display.as_ref().unwrap();
+        assert_eq!(display.button_text_size.as_deref(), Some("large"));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(
+            config2.display.as_ref().unwrap().button_text_size.as_deref(),
+            Some("large")
+        );
     }
 }
