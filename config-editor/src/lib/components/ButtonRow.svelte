@@ -20,7 +20,7 @@
   let isNote = $derived(msgType === 'note');
   let isPC = $derived(msgType === 'pc');
   let isPCIncDec = $derived(msgType === 'pc_inc' || msgType === 'pc_dec');
-  let showMode = $derived(isCC || isNote);
+  let showMode = $derived(true);
 
   function handleLabelChange(e: Event) {
     const target = e.target as HTMLInputElement;
