@@ -51,13 +51,22 @@ jobs:
           path: ci-artifacts
           merge-multiple: true
           
+      - name: Patch VERSION in firmware zip
+        run: |
+          ZIP_FILE=$(find ci-artifacts -name "midicaptain-firmware-*.zip" | head -1)
+          # The CI artifact was built before the release tag existed, so its VERSION
+          # file contains a git-describe string (e.g. v1.5.0-beta.2-11-g5fd6334).
+          # Overwrite it with the actual release tag before publishing.
+          (cd /tmp && echo "$VERSION" > VERSION && zip -u "$(realpath "$OLDPWD/$ZIP_FILE")" VERSION)
+          echo "✓ Patched VERSION inside zip to: $VERSION" >> $GITHUB_STEP_SUMMARY
+
       - name: Prepare release assets
         run: |
           mkdir -p dist
-          
+
           echo "Downloaded artifacts:"
           ls -la ci-artifacts/
-          
+
           # Find and rename firmware zip
           ZIP_FILE=$(find ci-artifacts -name "midicaptain-firmware-*.zip" | head -1)
           if [ -n "$ZIP_FILE" ]; then

@@ -2,13 +2,14 @@
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
   import { message } from '@tauri-apps/plugin-dialog';
-  import { 
-    devices, selectedDevice, currentConfigRaw, 
-    hasUnsavedChanges, validationErrors, statusMessage, isLoading 
+  import { getVersion } from '@tauri-apps/api/app';
+  import {
+    devices, selectedDevice, currentConfigRaw,
+    hasUnsavedChanges, validationErrors, statusMessage, isLoading
   } from '$lib/stores';
-  import { 
+  import {
     scanDevices, startDeviceWatcher, readConfigRaw, writeConfigRaw,
-    onDeviceConnected, onDeviceDisconnected 
+    onDeviceConnected, onDeviceDisconnected
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
   import ConfigForm from '$lib/components/ConfigForm.svelte';
@@ -17,7 +18,9 @@
   import EncoderSection from '$lib/components/EncoderSection.svelte';
   import ExpressionSection from '$lib/components/ExpressionSection.svelte';
   import DisplaySection from '$lib/components/DisplaySection.svelte';
-  import { loadConfig, validate, config } from '$lib/formStore';
+  import { loadConfig, validate, normalizeConfig, config } from '$lib/formStore';
+
+  let appVersion = $state('');
   
   // Event listener cleanup functions
   let unlistenConnect: (() => void) | undefined;
@@ -25,6 +28,8 @@
   
   onMount(async () => {
     try {
+      appVersion = await getVersion();
+
       // Initial device scan
       $devices = await scanDevices();
       console.log('Devices found:', $devices);
@@ -182,7 +187,7 @@
     $isLoading = true;
     
     try {
-      const configObj = get(config);
+      const configObj = normalizeConfig(get(config));
       const configJson = JSON.stringify(configObj, null, 2);
       
       await writeConfigRaw($selectedDevice.config_path, configJson);
@@ -259,7 +264,12 @@
 
 <main>
   <header>
-    <h1>MIDI Captain MAX Config Editor</h1>
+    <div class="title-group">
+      <h1>MIDI Captain MAX Config Editor</h1>
+      {#if appVersion}
+        <span class="version">v{appVersion}</span>
+      {/if}
+    </div>
     <div class="device-selector">
       {#if $devices.length === 0}
         <span class="no-device">No device connected</span>
@@ -392,11 +402,22 @@
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
   }
-  
+
+  .title-group {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
   h1 {
     margin: 0;
     font-size: 18px;
     font-weight: 500;
+  }
+
+  .version {
+    font-size: 12px;
+    color: var(--text-secondary);
   }
   
   .device-selector select {

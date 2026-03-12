@@ -2,7 +2,7 @@ ${NOTES}
 
 ## Installation
 
-**Before doing any of this, if you haven't already, please back up your existing config and firmware in a safe place** for recovery or if you just want to go back to OEM code.
+**Before doing any of this, if you haven't already, please back up your existing config and firmware in a safe place** for recovery or to revert to OEM firmware.
 
 ### GUI Config Editor
 
@@ -10,10 +10,11 @@ Download the appropriate **MIDI-Captain-MAX-Config-Editor** installer file from 
 
 ### Device Firmware
 
-1. Download the firmware zip: [midi-captain-max-latest.zip](https://github.com/mcascone/midi-captain-max/releases/latest/download/midi-captain-max-latest.zip).
+1. Download the firmware zip: [midi-captain-max-latest.zip](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest/download/midi-captain-max-latest.zip).
 1. Extract the zip.
-1. Connect your MIDI Captain via USB. Power it on normally — no need to hold any buttons.
+1. Connect your MIDI Captain via USB. Power it on normally.
     - The device will mount as `CIRCUITPY` or `MIDICAPTAIN`.
+    - If the drive mounts as read-only, hold switch 1 (top-left footswitch) while plugging in USB to enable write access.
 
 #### macOS / Linux — deploy script (recommended)
 
@@ -33,7 +34,7 @@ Run the included `deploy.sh` script from the extracted zip folder:
 ./deploy.sh --fresh
 ```
 
-The script auto-detects your device and device type. Your `config.json` is always preserved unless you pass `--fresh`.
+The script auto-detects your device type (STD10 or Mini6) and preserves your `config.json` unless you pass `--fresh`.
 
 #### Windows — manual install
 
@@ -46,5 +47,4 @@ The script auto-detects your device and device type. Your `config.json` is alway
 
 ---
 
-Power-cycle the device to reload the firmware. If anything goes wrong, it's fully recoverable: mount the device, erase the contents, and copy your backed-up files back.
-
+Eject and reconnect the device to reload the firmware. If anything goes wrong, it's fully recoverable: mount the device, erase the contents, and copy your backed-up files back.

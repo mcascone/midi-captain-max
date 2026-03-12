@@ -122,7 +122,7 @@ if [ ! -d "$MOUNT_POINT" ]; then
     echo "  3. Mounted as CIRCUITPY or MIDICAPTAIN"
     echo ""
     echo "If CircuitPython is not installed:"
-    echo "  1. Hold BOOTSEL while plugging in USB"
+    echo "  1. Hold Switch 1 (top-left footswitch) while plugging in USB"
     echo "  2. Copy CircuitPython .uf2 to RPI-RP2 drive"
     echo "  3. Run this script again"
     exit 1
@@ -209,6 +209,42 @@ else
     CONFIG_FILE="$DEV_DIR/config.json"
 fi
 
+# Check if the device filesystem is writable before attempting deploy
+if ! touch "$MOUNT_POINT/.deploy_write_test" 2>/dev/null; then
+    echo -e "${RED}❌ Device filesystem is read-only${NC}"
+    echo ""
+    echo -e "${YELLOW}The MIDI Captain drive is mounted but not writable.${NC}"
+    echo ""
+    if [ -f "$MOUNT_POINT/boot.py" ]; then
+        # boot.py exists: firmware already installed, device is in performance mode
+        echo -e "${YELLOW}Our firmware is installed. To enable write access:${NC}"
+        echo "  1. Hold switch 1 (top-left footswitch) while plugging in USB"
+        echo "  2. The device will boot with USB write access enabled"
+        echo "  3. Run deploy.sh again"
+    else
+        # No boot.py: likely first-time install over OEM firmware
+        echo -e "${YELLOW}This looks like a first-time install.${NC}"
+        echo "The OEM firmware may have the USB drive in read-only mode."
+        echo ""
+        echo -e "${YELLOW}Option A — CircuitPython safe mode (easiest):${NC}"
+        echo "  1. Briefly short the RUN pin to GND twice in quick succession"
+        echo "     (or rapidly plug/unplug USB twice if no RUN pin access)"
+        echo "     Status LED will flash yellow — safe mode is active"
+        echo "  2. Run deploy.sh again — the drive will be writable"
+        echo ""
+        echo -e "${YELLOW}Option B — Hold the update button during power-on:${NC}"
+        echo "  1. Hold switch 1 (top-left footswitch) while plugging in USB"
+        echo "  2. Run deploy.sh again"
+        echo ""
+        echo -e "${YELLOW}Option C — Reinstall CircuitPython:${NC}"
+        echo "  1. Hold Switch 1 (top-left footswitch) while plugging in USB → RPI-RP2 drive appears"
+        echo "  2. Copy CircuitPython .uf2 to the RPI-RP2 drive"
+        echo "  3. Run deploy.sh again"
+    fi
+    exit 1
+fi
+rm -f "$MOUNT_POINT/.deploy_write_test" 2>/dev/null
+
 echo "🚀 Deploying changed files..."
 
 # Deploy dependencies first, code.py last. This ensures all imports are
@@ -229,13 +265,17 @@ rsync -av --checksum --inplace --itemize-changes \
     "$MOUNT_POINT/"
 
 # 2. Core modules, device definitions, and fonts
-rsync -av --checksum --inplace --itemize-changes \
+# --delete removes stale files from the device (e.g. old .py source when
+# deploying compiled .mpy from a package, or old .mpy when deploying .py
+# source from the dev repo). Without --delete, both forms can coexist on
+# the device and CircuitPython may load the wrong one, causing ImportErrors.
+rsync -av --checksum --inplace --itemize-changes --delete \
     --exclude='.DS_Store' \
     --exclude='*.pyc' \
     --exclude='__pycache__' \
     "$DEV_DIR/core/" "$MOUNT_POINT/core/"
 
-rsync -av --checksum --inplace --itemize-changes \
+rsync -av --checksum --inplace --itemize-changes --delete \
     --exclude='.DS_Store' \
     --exclude='*.pyc' \
     --exclude='__pycache__' \
@@ -283,9 +323,17 @@ rsync -av --checksum --inplace --itemize-changes \
     "$MOUNT_POINT/"
 
 # 6. Write VERSION file for firmware version display
-VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
-echo "$VERSION" > "$MOUNT_POINT/VERSION"
-echo "$VERSION" > "$DEV_DIR/VERSION"
+# Distributed packages include a pre-built VERSION file written by CI.
+# Use it directly rather than falling back to "dev" via git describe.
+if [ "$CONTEXT" = "dist" ] && [ -f "$DEV_DIR/VERSION" ]; then
+    VERSION=$(cat "$DEV_DIR/VERSION")
+    rsync -av --checksum --inplace --itemize-changes \
+        "$DEV_DIR/VERSION" "$MOUNT_POINT/VERSION"
+else
+    VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+    echo "$VERSION" > "$MOUNT_POINT/VERSION"
+    echo "$VERSION" > "$DEV_DIR/VERSION"
+fi
 echo "📌 Version: $VERSION"
 
 # Sync filesystem
@@ -295,17 +343,29 @@ sync
 # The installer compares this against the firmware zip's manifest
 # to skip unchanged files on subsequent installs.
 echo "📋 Generating firmware manifest..."
-(
-  cd "$DEV_DIR"
-  find . -type f \
-    -not -name "*.pyc" \
-    -not -path "*/__pycache__/*" \
-    -not -path "*/experiments/*" \
-    -not -name "firmware.md5" \
-    -not -name ".DS_Store" \
-    | sort \
-    | xargs md5sum > "$MOUNT_POINT/firmware.md5"
-)
+# Detect checksum command: md5sum (Linux) or md5 -r (macOS)
+if command -v md5sum &>/dev/null; then
+    MD5_CMD="md5sum"
+elif command -v md5 &>/dev/null; then
+    MD5_CMD="md5 -r"
+else
+    MD5_CMD=""
+fi
+if [ -n "$MD5_CMD" ]; then
+    (
+      cd "$DEV_DIR"
+      find . -type f \
+        -not -name "*.pyc" \
+        -not -path "*/__pycache__/*" \
+        -not -path "*/experiments/*" \
+        -not -name "firmware.md5" \
+        -not -name ".DS_Store" \
+        | sort \
+        | xargs $MD5_CMD > "$MOUNT_POINT/firmware.md5"
+    )
+else
+    echo "⚠️  Skipping firmware manifest (neither md5sum nor md5 found)"
+fi
 
 echo ""
 

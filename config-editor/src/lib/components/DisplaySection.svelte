@@ -11,45 +11,43 @@
 </script>
 
 <Accordion title="Display Settings">
-  {#if display}
-    <div class="display-section">
-      <div class="field-row">
-        <label>Button text size:</label>
-        <select 
-          value={display.button_text_size}
-          onchange={(e) => handleField('button_text_size', e)}
-        >
-          <option value="small">Small</option>
-          <option value="medium">Medium</option>
-          <option value="large">Large</option>
-        </select>
-      </div>
-      
-      <div class="field-row">
-        <label>Status text size:</label>
-        <select 
-          value={display.status_text_size}
-          onchange={(e) => handleField('status_text_size', e)}
-        >
-          <option value="small">Small</option>
-          <option value="medium">Medium</option>
-          <option value="large">Large</option>
-        </select>
-      </div>
-      
-      <div class="field-row">
-        <label>Expression text size:</label>
-        <select 
-          value={display.expression_text_size}
-          onchange={(e) => handleField('expression_text_size', e)}
-        >
-          <option value="small">Small</option>
-          <option value="medium">Medium</option>
-          <option value="large">Large</option>
-        </select>
-      </div>
+  <div class="display-section">
+    <div class="field-row">
+      <label>Button text size:</label>
+      <select
+        value={display?.button_text_size ?? 'medium'}
+        onchange={(e) => handleField('button_text_size', e)}
+      >
+        <option value="small">Small</option>
+        <option value="medium">Medium</option>
+        <option value="large">Large</option>
+      </select>
     </div>
-  {/if}
+
+    <div class="field-row">
+      <label>Status text size:</label>
+      <select
+        value={display?.status_text_size ?? 'medium'}
+        onchange={(e) => handleField('status_text_size', e)}
+      >
+        <option value="small">Small</option>
+        <option value="medium">Medium</option>
+        <option value="large">Large</option>
+      </select>
+    </div>
+
+    <div class="field-row">
+      <label>Expression text size:</label>
+      <select
+        value={display?.expression_text_size ?? 'medium'}
+        onchange={(e) => handleField('expression_text_size', e)}
+      >
+        <option value="small">Small</option>
+        <option value="medium">Medium</option>
+        <option value="large">Large</option>
+      </select>
+    </div>
+  </div>
 </Accordion>
 
 <style>

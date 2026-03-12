@@ -45,9 +45,11 @@ export const canRedo = derived(formState, $state =>
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function loadConfig(newConfig: MidiCaptainConfig) {
-  formState.update(state => ({
-    config: structuredClone(newConfig),
-    history: [structuredClone(newConfig)],
+  // Ensure display always exists so DisplaySection can traverse into it
+  const config = { ...newConfig, display: newConfig.display ?? {} };
+  formState.update(_state => ({
+    config: structuredClone(config),
+    history: [structuredClone(config)],
     historyIndex: 0,
     validationErrors: new Map(),
     isDirty: false,
@@ -186,6 +188,38 @@ export function updateField(path: string, value: any) {
   }, DEBOUNCE_MS);
 }
 
+export function syncButtonStates(buttonIndex: number, keytimes: number) {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+
+  formState.update(state => {
+    const newConfig = structuredClone(state.config);
+    const btn = newConfig.buttons[buttonIndex];
+    if (!btn) return state;
+
+    if (keytimes <= 1) {
+      delete btn.keytimes;
+      delete btn.states;
+    } else {
+      btn.keytimes = keytimes;
+      const current = btn.states ?? [];
+      if (current.length < keytimes) {
+        while (current.length < keytimes) current.push({});
+      } else if (current.length > keytimes) {
+        current.length = keytimes;
+      }
+      btn.states = current;
+    }
+
+    return { ...state, config: newConfig, isDirty: true };
+  });
+
+  validate();
+  formState.update(state => pushHistory(state));
+}
+
 function createDefaultButton(index: number): ButtonConfig {
   return {
     label: `BTN${index}`,
@@ -287,6 +321,55 @@ export function setDevice(deviceType: DeviceType) {
     
     return pushHistory(newState);
   });
+}
+
+// Strip type-specific fields that don't belong to the button's current type.
+// Prevents stale cc/note/program/etc. from accumulating in the saved JSON when
+// the user switches a button's type.
+function normalizeButton(btn: ButtonConfig): ButtonConfig {
+  const type = btn.type ?? 'cc';
+  const { cc, cc_on, cc_off, note, velocity_on, velocity_off, program, pc_step, flash_ms, ...common } = btn;
+
+  switch (type) {
+    case 'cc':
+      return {
+        ...common,
+        ...(cc !== undefined && { cc }),
+        ...(cc_on !== undefined && { cc_on }),
+        ...(cc_off !== undefined && { cc_off }),
+      };
+    case 'note':
+      return {
+        ...common,
+        ...(note !== undefined && { note }),
+        ...(velocity_on !== undefined && { velocity_on }),
+        ...(velocity_off !== undefined && { velocity_off }),
+      };
+    case 'pc':
+      return {
+        ...common,
+        ...(program !== undefined && { program }),
+        ...(flash_ms !== undefined && { flash_ms }),
+      };
+    case 'pc_inc':
+    case 'pc_dec':
+      return {
+        ...common,
+        ...(pc_step !== undefined && { pc_step }),
+        ...(flash_ms !== undefined && { flash_ms }),
+      };
+    default:
+      return btn;
+  }
+}
+
+export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
+  const normalized: MidiCaptainConfig = { ...cfg, buttons: cfg.buttons.map(normalizeButton) };
+  // Strip display if no fields were set (avoids writing `"display": {}` for untouched configs)
+  if (normalized.display && Object.values(normalized.display).every(v => v === undefined)) {
+    delete normalized.display;
+  }
+  return normalized;
 }
 
 export function validate() {

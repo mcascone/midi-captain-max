@@ -10,6 +10,9 @@ except ImportError:
     # CircuitPython has json built-in, but just in case
     json = None
 
+VALID_TYPES = ("cc", "note", "pc", "pc_inc", "pc_dec")
+STATE_OVERRIDE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label")
+
 
 def load_config(config_path="/config.json", button_count=10):
     """Load button configuration from JSON file.
@@ -44,33 +47,95 @@ def _default_config(button_count):
     }
 
 
+_MIDI_BYTE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program")
+
+def _clamp_state_field(field, value):
+    """Clamp numeric state override fields to valid MIDI ranges. Non-numeric fields pass through."""
+    if field in _MIDI_BYTE_FIELDS:
+        if not isinstance(value, int):
+            return 0
+        return max(0, min(127, value))
+    if field == "pc_step":
+        if not isinstance(value, int):
+            return 1
+        return max(1, min(127, value))
+    return value  # color, label — pass through as-is
+
+
 def validate_button(btn, index=0, global_channel=None):
     """Validate a button config dict, filling in defaults.
-    
+
     Args:
         btn: Button config dict
         index: Button index (for default CC calculation)
         global_channel: Global MIDI channel (0-15), used if button doesn't specify channel
-        
+
     Returns:
         Validated button config with all required fields
+
+    Button Types:
+        - "cc": Control Change (default)
+        - "note": MIDI Note On/Off
+        - "pc": Program Change fixed
+        - "pc_inc": Program Change increment
+        - "pc_dec": Program Change decrement
     """
-    # Channel: per-button override or global channel or default to 0 (MIDI Ch 1)
     if global_channel is not None:
         default_channel = global_channel
     else:
         default_channel = 0
-    
-    return {
+
+    # Keytimes: default to 1 (no cycling), clamp to 1-99
+    keytimes = btn.get("keytimes", 1)
+    if not isinstance(keytimes, int):
+        keytimes = 1
+    keytimes = max(1, min(99, keytimes))
+
+    # Determine message type, fall back to cc if invalid
+    msg_type = btn.get("type", "cc")
+    if msg_type not in VALID_TYPES:
+        msg_type = "cc"
+
+    validated = {
         "label": btn.get("label", str(index + 1)),
-        "cc": btn.get("cc", 20 + index),
         "color": btn.get("color", "white"),
         "mode": btn.get("mode", "toggle"),
         "off_mode": btn.get("off_mode", "dim"),
         "channel": btn.get("channel", default_channel),
-        "cc_on": btn.get("cc_on", 127),
-        "cc_off": btn.get("cc_off", 0),
+        "type": msg_type,
+        "keytimes": keytimes,
     }
+
+    # Type-specific fields
+    if msg_type == "cc":
+        validated["cc"] = btn.get("cc", 20 + index)
+        validated["cc_on"] = btn.get("cc_on", 127)
+        validated["cc_off"] = btn.get("cc_off", 0)
+    elif msg_type == "note":
+        validated["note"] = btn.get("note", 60)
+        validated["velocity_on"] = btn.get("velocity_on", 127)
+        validated["velocity_off"] = btn.get("velocity_off", 0)
+    elif msg_type == "pc":
+        validated["program"] = btn.get("program", 0)
+    elif msg_type in ("pc_inc", "pc_dec"):
+        validated["pc_step"] = btn.get("pc_step", 1)
+
+    # For keytimes > 1, validate and pass through states array
+    if keytimes > 1:
+        states = btn.get("states", [])
+        if isinstance(states, list):
+            validated_states = []
+            for state in states:
+                if isinstance(state, dict):
+                    validated_state = {}
+                    for field in STATE_OVERRIDE_FIELDS:
+                        if field in state:
+                            validated_state[field] = _clamp_state_field(field, state[field])
+                    validated_states.append(validated_state)
+            if validated_states:
+                validated["states"] = validated_states
+
+    return validated
 
 
 def validate_config(cfg, button_count=10):
@@ -105,6 +170,34 @@ def validate_config(cfg, button_count=10):
         result[k] = v
     result["buttons"] = validated_buttons
     result["global_channel"] = global_channel
+    return result
+
+
+def get_button_state_config(btn_config, keytime_index):
+    """Get button config merged with per-state overrides for a given keytime position.
+
+    Args:
+        btn_config: Validated button config dict
+        keytime_index: Current keytime position (1-indexed)
+
+    Returns:
+        Dict with base values overridden by per-state values where present.
+        Overridable fields: cc, cc_on, cc_off, note, velocity_on, velocity_off, program, pc_step, color, label.
+    """
+    # Start with base config
+    result = {}
+    for field in STATE_OVERRIDE_FIELDS:
+        if field in btn_config:
+            result[field] = btn_config[field]
+
+    # Apply per-state overrides if keytime_index is in range
+    states = btn_config.get("states", [])
+    if states and 0 < keytime_index <= len(states):
+        state = states[keytime_index - 1]
+        for field in STATE_OVERRIDE_FIELDS:
+            if field in state:
+                result[field] = state[field]
+
     return result
 
 

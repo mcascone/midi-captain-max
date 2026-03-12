@@ -1,0 +1,18 @@
+name: Patch config editor version
+description: Patches the version field in tauri.conf.json and package.json
+
+inputs:
+  semver:
+    description: Semver string to inject (e.g. 1.5.0 or 1.5.0-beta.2)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Patch version
+      shell: bash
+      run: |
+        SEMVER="${{ inputs.semver }}"
+        jq --arg v "$SEMVER" '.version = $v' config-editor/src-tauri/tauri.conf.json > tauri.conf.json.tmp && mv tauri.conf.json.tmp config-editor/src-tauri/tauri.conf.json
+        jq --arg v "$SEMVER" '.version = $v' config-editor/package.json > package.json.tmp && mv package.json.tmp config-editor/package.json
+        echo "Config editor version patched to: $SEMVER" >> $GITHUB_STEP_SUMMARY

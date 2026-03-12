@@ -1,5 +1,5 @@
 """
-MIDI Captain Custom Firmware - MVP
+MIDI Captain MAX Custom Firmware - MVP
 
 Config-driven, bidirectional MIDI firmware for Paint Audio MIDI Captain controllers.
 
@@ -17,7 +17,7 @@ Author: Max Cascone (based on work by Helmut Keller)
 Date: 2026-01-27
 """
 
-print("\n=== MIDI CAPTAIN CUSTOM FIRMWARE ===\n")
+print("\n=== MIDI CAPTAIN MAX ===\n")
 
 import board
 import neopixel
@@ -35,11 +35,14 @@ import terminalio
 from adafruit_st7789 import ST7789
 import adafruit_midi
 from adafruit_midi.control_change import ControlChange
+from adafruit_midi.program_change import ProgramChange
+from adafruit_midi.note_on import NoteOn
+from adafruit_midi.note_off import NoteOff
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
-from core.config import load_config as _load_config_from_file, get_display_config
-from core.button import Switch
+from core.config import load_config as _load_config_from_file, get_display_config, get_button_state_config
+from core.button import Switch, ButtonState
 
 # =============================================================================
 # Font Size Configuration
@@ -374,7 +377,19 @@ EXP2_CHANNEL = exp2_config.get("channel", 0)
 # State
 # =============================================================================
 
-button_states = [False] * BUTTON_COUNT  # Toggle state for each button
+# Initialize ButtonState objects for each button with keytimes support
+button_states = []
+for i in range(BUTTON_COUNT):
+    btn_config = buttons[i] if i < len(buttons) else {}
+    cc = btn_config.get("cc", 0)  # 0 for non-CC types; ButtonState.cc unused by note/pc dispatch
+    mode = btn_config.get("mode", "toggle")
+    keytimes = btn_config.get("keytimes", 1)
+    button_states.append(ButtonState(cc=cc, mode=mode, keytimes=keytimes))
+
+pc_values = [0] * 16                 # Current PC value per MIDI channel (0-15), shared across all pc_inc/pc_dec buttons
+pc_flash_timers = [0.0] * BUTTON_COUNT  # Expiry time (monotonic) for PC button flash; 0 = inactive
+PC_FLASH_DURATION_MS = 200              # Default PC button flash duration in ms
+
 encoder_value = ENC_INITIAL  # Internal value 0-127
 encoder_slot = -1  # Current slot (set on first change)
 
@@ -496,15 +511,33 @@ display.show(main_group)
 # =============================================================================
 
 
+def get_button_color(btn_config, keytime_index):
+    """Get color for button at specific keytime state.
+    
+    Args:
+        btn_config: Button configuration dict
+        keytime_index: Current keytime position (1-indexed)
+        
+    Returns:
+        RGB tuple for the color
+    """
+    return get_color(get_button_state_config(btn_config, keytime_index).get("color", "white"))
+
+
 def set_button_state(switch_idx, on):
-    """Update LED and display for a button (1-indexed)."""
+    """Update LED and display for a button (1-indexed).
+    
+    Now uses ButtonState objects and supports keytime colors.
+    """
     idx = switch_idx - 1
     if idx < 0 or idx >= BUTTON_COUNT:
         return
 
-    button_states[idx] = on
+    btn_state = button_states[idx]
     btn_config = buttons[idx] if idx < len(buttons) else {"color": "white"}
-    color_rgb = get_color(btn_config.get("color", "white"))
+    
+    # Get color for current keytime state
+    color_rgb = get_button_color(btn_config, btn_state.get_keytime())
     off_mode = btn_config.get("off_mode", "dim")  # "dim" or "off"
 
     # Update LED
@@ -532,6 +565,31 @@ def init_leds():
         set_button_state(i, False)
 
 
+def clamp_pc_value(value):
+    """Clamp PC value to valid MIDI range (0-127)."""
+    return max(0, min(127, value))
+
+
+def flash_pc_button(button_idx, flash_ms=PC_FLASH_DURATION_MS):
+    """Light LED briefly for PC button press feedback.
+
+    Args:
+        button_idx: 1-indexed button number (matches set_button_state convention)
+        flash_ms: flash duration in milliseconds
+    """
+    set_button_state(button_idx, True)
+    pc_flash_timers[button_idx - 1] = time.monotonic() + flash_ms / 1000.0
+
+
+def update_pc_flash_timers():
+    """Turn off LEDs whose flash period has expired. Call each main loop."""
+    now = time.monotonic()
+    for i in range(BUTTON_COUNT):
+        if pc_flash_timers[i] > 0 and now >= pc_flash_timers[i]:
+            pc_flash_timers[i] = 0.0
+            set_button_state(i + 1, False)
+
+
 # =============================================================================
 # Polling Functions
 # =============================================================================
@@ -540,29 +598,51 @@ def init_leds():
 def handle_midi():
     """Handle incoming MIDI messages."""
     msg = midi.receive()
-    if msg and isinstance(msg, ControlChange):
+    if not msg:
+        return
+
+    msg_channel = getattr(msg, 'channel', 0) or 0  # channel is None when received on default channel
+
+    if isinstance(msg, ControlChange):
         cc = msg.control
         val = msg.value
-        # ControlChange objects have a .channel attribute (0-15 = MIDI Ch 1-16)
-        # If channel is None, it means it was sent on the default channel
-        msg_channel = getattr(msg, 'channel', 0)
-        if msg_channel is None:
-            msg_channel = 0
         print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
-
-        # Check if this CC matches any button (must match both CC number and channel)
         for i, btn_config in enumerate(buttons):
-            btn_cc = btn_config.get("cc")
-            btn_channel = btn_config.get("channel", 0)
-            if btn_cc == cc and btn_channel == msg_channel:
-                on = val > 63
-                set_button_state(i + 1, on)
+            if btn_config.get("type", "cc") == "cc" and btn_config.get("cc") == cc and btn_config.get("channel", 0) == msg_channel:
+                new_state = button_states[i].on_midi_receive(val)
+                set_button_state(i + 1, new_state)
                 status_label.text = f"RX CC{cc}={val}"
                 break
 
+    elif isinstance(msg, NoteOn):
+        note = msg.note
+        vel = msg.velocity
+        print(f"[MIDI RX] Ch{msg_channel+1} NoteOn{note} vel{vel}")
+        for i, btn_config in enumerate(buttons):
+            if btn_config.get("type") == "note" and btn_config.get("note") == note and btn_config.get("channel", 0) == msg_channel:
+                set_button_state(i + 1, vel > 0)
+                status_label.text = f"RX Note{note}"
+                break
+
+    elif isinstance(msg, NoteOff):
+        note = msg.note
+        print(f"[MIDI RX] Ch{msg_channel+1} NoteOff{note}")
+        for i, btn_config in enumerate(buttons):
+            if btn_config.get("type") == "note" and btn_config.get("note") == note and btn_config.get("channel", 0) == msg_channel:
+                set_button_state(i + 1, False)
+                status_label.text = f"RX NoteOff{note}"
+                break
+
+    elif isinstance(msg, ProgramChange):
+        program = msg.patch
+        print(f"[MIDI RX] Ch{msg_channel+1} PC{program}")
+        # pc_values is per-channel, so one assignment covers all pc_inc/pc_dec buttons on this channel
+        pc_values[msg_channel] = program
+        status_label.text = f"RX PC{program}"
+
 
 def handle_switches():
-    """Handle footswitch presses."""
+    """Handle footswitch presses with keytimes support."""
     # STD10: index 0 is encoder push, 1-10 are footswitches
     # Mini6: indices 0-5 are footswitches (no encoder)
     start_idx = 1 if HAS_ENCODER else 0
@@ -574,28 +654,95 @@ def handle_switches():
             # Convert to 1-indexed button number
             btn_num = i if HAS_ENCODER else i + 1
             idx = btn_num - 1
+            btn_state = button_states[idx]
             btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
-            cc = btn_config.get("cc", 20 + idx)
-            mode = btn_config.get("mode", "toggle")  # "toggle" or "momentary"
-            channel = btn_config.get("channel", 0)  # 0 = MIDI Channel 1
-            cc_on = btn_config.get("cc_on", 127)
-            cc_off = btn_config.get("cc_off", 0)
 
-            if mode == "momentary":
-                # Momentary: cc_on on press, cc_off on release
-                val = cc_on if pressed else cc_off
-                set_button_state(btn_num, pressed)
-                midi.send(ControlChange(cc, val, channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, momentary)")
-                status_label.text = f"TX CC{cc}={val}"
-            elif pressed:
-                # Toggle: only act on press, flip state
-                new_state = not button_states[idx]
-                set_button_state(btn_num, new_state)
-                val = cc_on if new_state else cc_off
-                midi.send(ControlChange(cc, val, channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
-                status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+            message_type = btn_config.get("type", "cc")
+            mode = btn_config.get("mode", "toggle")
+            channel = btn_config.get("channel", 0)
+
+            if message_type == "cc":
+                if pressed:
+                    btn_state.advance_keytime()
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                cc = state_cfg.get("cc", 20 + idx)
+                cc_on = state_cfg.get("cc_on", 127)
+                cc_off = state_cfg.get("cc_off", 0)
+                if mode == "momentary":
+                    val = cc_on if pressed else cc_off
+                    set_button_state(btn_num, pressed)
+                    midi.send(ControlChange(cc, val, channel=channel))
+                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, momentary)")
+                    status_label.text = f"TX CC{cc}={val}"
+                elif pressed:
+                    # Keytimes cycling always stays on; standard toggle flips on/off
+                    new_state = True if btn_state.keytimes > 1 else not btn_state.state
+                    btn_state.state = new_state
+                    set_button_state(btn_num, new_state)
+                    val = cc_on if new_state else cc_off
+                    midi.send(ControlChange(cc, val, channel=channel))
+                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
+                    status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+
+            elif message_type == "note":
+                if pressed:
+                    btn_state.advance_keytime()
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                note = state_cfg.get("note", 60)
+                vel_on = state_cfg.get("velocity_on", 127)
+                vel_off = state_cfg.get("velocity_off", 0)
+                if mode == "momentary":
+                    if pressed:
+                        midi.send(NoteOn(note, vel_on, channel=channel))
+                        set_button_state(btn_num, True)
+                        print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel_on} (switch {btn_num})")
+                        status_label.text = f"TX Note{note}"
+                    else:
+                        midi.send(NoteOff(note, vel_off, channel=channel))
+                        set_button_state(btn_num, False)
+                        print(f"[MIDI TX] Ch{channel+1} NoteOff{note} (switch {btn_num})")
+                elif pressed:
+                    # Keytimes cycling always stays on; standard toggle flips on/off
+                    new_state = True if btn_state.keytimes > 1 else not btn_state.state
+                    btn_state.state = new_state
+                    set_button_state(btn_num, new_state)
+                    if new_state:
+                        midi.send(NoteOn(note, vel_on, channel=channel))
+                        print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel_on} (switch {btn_num}, toggle on)")
+                        status_label.text = f"TX Note{note} ON"
+                    else:
+                        midi.send(NoteOff(note, vel_off, channel=channel))
+                        print(f"[MIDI TX] Ch{channel+1} NoteOff{note} (switch {btn_num}, toggle off)")
+                        status_label.text = f"TX Note{note} OFF"
+
+            elif message_type == "pc" and pressed:
+                btn_state.advance_keytime()
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                program = state_cfg.get("program", 0)
+                midi.send(ProgramChange(program, channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
+                status_label.text = f"TX PC{program}"
+                flash_pc_button(btn_num, btn_config.get("flash_ms", PC_FLASH_DURATION_MS))
+
+            elif message_type == "pc_inc" and pressed:
+                btn_state.advance_keytime()
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                step = state_cfg.get("pc_step", 1)
+                pc_values[channel] = clamp_pc_value(pc_values[channel] + step)
+                midi.send(ProgramChange(pc_values[channel], channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} (switch {btn_num}, inc)")
+                status_label.text = f"TX PC{pc_values[channel]}"
+                flash_pc_button(btn_num, btn_config.get("flash_ms", PC_FLASH_DURATION_MS))
+
+            elif message_type == "pc_dec" and pressed:
+                btn_state.advance_keytime()
+                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
+                step = state_cfg.get("pc_step", 1)
+                pc_values[channel] = clamp_pc_value(pc_values[channel] - step)
+                midi.send(ProgramChange(pc_values[channel], channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} (switch {btn_num}, dec)")
+                status_label.text = f"TX PC{pc_values[channel]}"
+                flash_pc_button(btn_num, btn_config.get("flash_ms", PC_FLASH_DURATION_MS))
 
 
 def handle_encoder_button():
@@ -757,6 +904,7 @@ print("\nRunning...")
 while True:
     handle_midi()
     handle_switches()
+    update_pc_flash_timers()
     if HAS_ENCODER:
         handle_encoder_button()
         handle_encoder()

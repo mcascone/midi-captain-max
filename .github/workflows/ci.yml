@@ -21,6 +21,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
+      semver: ${{ steps.version.outputs.SEMVER }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -30,8 +31,11 @@ jobs:
         id: version
         run: |
           VERSION=$(git describe --tags --always 2>/dev/null || git rev-parse --short HEAD)
+          # Strip 'v' prefix and commit-distance suffix for semver (e.g. v1.5.0-11-gabc1234 → 1.5.0)
+          SEMVER=$(echo "$VERSION" | sed 's/^v//' | sed 's/-[0-9]*-g[a-f0-9]*$//')
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "SEMVER=${SEMVER}" >> $GITHUB_OUTPUT
+          echo "Building version: \`$VERSION\` (semver: \`$SEMVER\`)" >> $GITHUB_STEP_SUMMARY
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -146,7 +150,7 @@ jobs:
           mkdir -p dist
           cd firmware/dev
           zip -r "../../dist/midicaptain-firmware-${VERSION}.zip" \
-            INSTALL.txt \
+            INSTALL.md \
             code.py \
             boot.py \
             config.json \
@@ -159,8 +163,8 @@ jobs:
             VERSION \
             -x "*.pyc" -x "*/__pycache__/*" -x "*/__pycache__" -x "experiments/*"
           cd ../..
-          # Add deploy script to root of zip (using -j to strip path)
-          zip -j "dist/midicaptain-firmware-${VERSION}.zip" tools/deploy.sh
+          # Add deploy scripts to root of zip (using -j to strip path)
+          zip -j "dist/midicaptain-firmware-${VERSION}.zip" tools/deploy.sh tools/deploy.ps1
           echo "Created: \`dist/midicaptain-firmware-${VERSION}.zip\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload zip artifact
@@ -226,6 +230,11 @@ jobs:
         run: |
           cd config-editor
           npm install
+
+      - name: Patch version in config editor
+        uses: ./.github/actions/patch-config-editor-version
+        with:
+          semver: ${{ needs.lint.outputs.semver }}
 
       - name: Build Tauri app (universal binary)
         env:
@@ -300,6 +309,11 @@ jobs:
         run: |
           cd config-editor
           npm install
+
+      - name: Patch version in config editor
+        uses: ./.github/actions/patch-config-editor-version
+        with:
+          semver: ${{ needs.lint.outputs.semver }}
 
       - name: Build Tauri app
         run: |

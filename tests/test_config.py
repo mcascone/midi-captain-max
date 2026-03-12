@@ -19,6 +19,7 @@ from core.config import (
     validate_config,
     get_encoder_config,
     get_expression_config,
+    get_button_state_config,
 )
 
 
@@ -162,6 +163,186 @@ class TestValidateButton:
         btn = validate_button({"cc_on": 100, "cc_off": 20}, index=0)
         assert btn["cc_on"] == 100
         assert btn["cc_off"] == 20
+    
+    def test_keytimes_default(self):
+        """Button defaults to keytimes=1 when not specified."""
+        btn = validate_button({}, index=0)
+        assert btn["keytimes"] == 1
+    
+    def test_keytimes_explicit_value(self):
+        """Button can specify keytimes value."""
+        btn = validate_button({"keytimes": 3}, index=0)
+        assert btn["keytimes"] == 3
+    
+    def test_keytimes_clamped_to_valid_range(self):
+        """Keytimes is clamped to 1-99."""
+        btn_low = validate_button({"keytimes": 0}, index=0)
+        assert btn_low["keytimes"] == 1
+        
+        btn_high = validate_button({"keytimes": 150}, index=0)
+        assert btn_high["keytimes"] == 99
+        
+        btn_valid = validate_button({"keytimes": 5}, index=0)
+        assert btn_valid["keytimes"] == 5
+    
+    def test_keytimes_invalid_type_defaults_to_one(self):
+        """Non-integer keytimes defaults to 1."""
+        btn = validate_button({"keytimes": "invalid"}, index=0)
+        assert btn["keytimes"] == 1
+    
+    def test_keytimes_with_states(self):
+        """Button with keytimes > 1 can have states array."""
+        btn = validate_button({
+            "keytimes": 3,
+            "states": [
+                {"cc_on": 64, "color": "red"},
+                {"cc_on": 96, "color": "blue"},
+                {"cc_on": 127, "color": "green"}
+            ]
+        }, index=0)
+        assert btn["keytimes"] == 3
+        assert "states" in btn
+        assert len(btn["states"]) == 3
+
+    def test_validate_button_clamps_invalid_cc_in_states(self):
+        """Out-of-range numeric state overrides are clamped, not passed through raw."""
+        btn = validate_button({
+            "type": "cc",
+            "cc": 20,
+            "keytimes": 2,
+            "states": [{"cc": 200, "cc_on": -10, "cc_off": 999}]
+        }, index=0)
+        assert btn["states"][0]["cc"] == 127      # clamped to max
+        assert btn["states"][0]["cc_on"] == 0     # clamped to min
+        assert btn["states"][0]["cc_off"] == 127  # clamped to max
+
+    def test_validate_button_clamps_invalid_note_in_states(self):
+        btn = validate_button({
+            "type": "note",
+            "note": 60,
+            "keytimes": 2,
+            "states": [{"note": 200, "velocity_on": -5}]
+        }, index=0)
+        assert btn["states"][0]["note"] == 127
+        assert btn["states"][0]["velocity_on"] == 0
+
+    def test_validate_button_preserves_program_in_states(self):
+        btn = validate_button({
+            "type": "pc",
+            "program": 5,
+            "keytimes": 2,
+            "states": [{"program": 10}, {"program": 20}]
+        }, index=0)
+        assert btn["states"][0]["program"] == 10
+        assert btn["states"][1]["program"] == 20
+
+    def test_validate_button_preserves_pc_step_in_states(self):
+        btn = validate_button({
+            "type": "pc_inc",
+            "pc_step": 1,
+            "keytimes": 2,
+            "states": [{"pc_step": 5}, {"pc_step": 10}]
+        }, index=0)
+        assert btn["states"][0]["pc_step"] == 5
+        assert btn["states"][1]["pc_step"] == 10
+
+
+class TestButtonMessageTypes:
+    """Tests for multi-type button message support."""
+
+    def test_default_type_is_cc(self):
+        btn = validate_button({}, index=0)
+        assert btn["type"] == "cc"
+
+    def test_cc_type_explicit(self):
+        btn = validate_button({"type": "cc", "cc": 50}, index=0)
+        assert btn["type"] == "cc"
+        assert btn["cc"] == 50
+        assert btn["cc_on"] == 127
+        assert btn["cc_off"] == 0
+
+    def test_cc_type_no_note_fields(self):
+        btn = validate_button({"type": "cc"}, index=0)
+        assert "note" not in btn
+        assert "velocity_on" not in btn
+        assert "velocity_off" not in btn
+
+    def test_cc_type_no_pc_fields(self):
+        btn = validate_button({"type": "cc"}, index=0)
+        assert "program" not in btn
+        assert "pc_step" not in btn
+
+    def test_note_type(self):
+        btn = validate_button({"type": "note", "note": 60}, index=0)
+        assert btn["type"] == "note"
+        assert btn["note"] == 60
+        assert btn["velocity_on"] == 127
+        assert btn["velocity_off"] == 0
+
+    def test_note_type_defaults(self):
+        btn = validate_button({"type": "note"}, index=0)
+        assert btn["note"] == 60
+        assert btn["velocity_on"] == 127
+        assert btn["velocity_off"] == 0
+
+    def test_note_type_custom_velocity(self):
+        btn = validate_button({"type": "note", "note": 36, "velocity_on": 100, "velocity_off": 0}, index=0)
+        assert btn["velocity_on"] == 100
+        assert btn["velocity_off"] == 0
+
+    def test_note_type_no_cc_fields(self):
+        btn = validate_button({"type": "note"}, index=0)
+        assert "cc" not in btn
+        assert "cc_on" not in btn
+        assert "cc_off" not in btn
+
+    def test_pc_type(self):
+        btn = validate_button({"type": "pc", "program": 5}, index=0)
+        assert btn["type"] == "pc"
+        assert btn["program"] == 5
+
+    def test_pc_type_default_program(self):
+        btn = validate_button({"type": "pc"}, index=0)
+        assert btn["program"] == 0
+
+    def test_pc_type_no_cc_fields(self):
+        btn = validate_button({"type": "pc"}, index=0)
+        assert "cc" not in btn
+        assert "cc_on" not in btn
+        assert "cc_off" not in btn
+
+    def test_pc_inc_type(self):
+        btn = validate_button({"type": "pc_inc", "pc_step": 5}, index=0)
+        assert btn["type"] == "pc_inc"
+        assert btn["pc_step"] == 5
+
+    def test_pc_dec_type(self):
+        btn = validate_button({"type": "pc_dec", "pc_step": 2}, index=0)
+        assert btn["type"] == "pc_dec"
+        assert btn["pc_step"] == 2
+
+    def test_pc_inc_dec_default_step(self):
+        btn_inc = validate_button({"type": "pc_inc"}, index=0)
+        btn_dec = validate_button({"type": "pc_dec"}, index=0)
+        assert btn_inc["pc_step"] == 1
+        assert btn_dec["pc_step"] == 1
+
+    def test_invalid_type_falls_back_to_cc(self):
+        btn = validate_button({"type": "invalid_type"}, index=0)
+        assert btn["type"] == "cc"
+        assert "cc" in btn
+
+    def test_type_inherits_global_channel(self):
+        btn = validate_button({"type": "note", "note": 48}, index=0, global_channel=3)
+        assert btn["channel"] == 3
+
+    def test_keytimes_works_with_note_type(self):
+        btn = validate_button({"type": "note", "note": 60, "keytimes": 2}, index=0)
+        assert btn["keytimes"] == 2
+
+    def test_keytimes_works_with_cc_type(self):
+        btn = validate_button({"type": "cc", "cc": 20, "keytimes": 3}, index=0)
+        assert btn["keytimes"] == 3
 
 
 class TestValidateConfig:
@@ -274,3 +455,68 @@ class TestEncoderConfig:
         enc = get_encoder_config({"encoder": {"push": {}}})
         assert enc["push"]["cc_on"] == 127
         assert enc["push"]["cc_off"] == 0
+
+
+class TestGetButtonStateConfig:
+    def test_no_states_returns_base_cc_config(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "cc_off": 0, "color": "white"}
+        result = get_button_state_config(btn, 1)
+        assert result["cc"] == 20
+        assert result["cc_on"] == 127
+        assert result["cc_off"] == 0
+
+    def test_state_overrides_cc_on(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "cc_off": 0,
+               "states": [{"cc_on": 64}, {"cc_on": 96}]}
+        assert get_button_state_config(btn, 1)["cc_on"] == 64
+        assert get_button_state_config(btn, 2)["cc_on"] == 96
+
+    def test_state_cc_falls_back_to_base(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "states": [{"cc_on": 64}]}
+        result = get_button_state_config(btn, 1)
+        assert result["cc"] == 20       # fallback
+        assert result["cc_on"] == 64    # override
+
+    def test_keytime_out_of_range_falls_back(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "states": [{"cc_on": 64}]}
+        result = get_button_state_config(btn, 5)
+        assert result["cc_on"] == 127   # base
+
+    def test_note_state_overrides(self):
+        btn = {"type": "note", "note": 60, "velocity_on": 127, "velocity_off": 0,
+               "states": [{"note": 62, "velocity_on": 100}]}
+        result = get_button_state_config(btn, 1)
+        assert result["note"] == 62
+        assert result["velocity_on"] == 100
+        assert result["velocity_off"] == 0  # fallback
+
+    def test_color_overridable_for_all_types(self):
+        btn = {"type": "cc", "cc": 20, "cc_on": 127, "color": "blue",
+               "states": [{"color": "cyan"}]}
+        assert get_button_state_config(btn, 1)["color"] == "cyan"
+
+    def test_pc_type_returns_base_program(self):
+        btn = {"type": "pc", "program": 5, "color": "green",
+               "states": [{"color": "red"}]}
+        result = get_button_state_config(btn, 1)
+        assert result["program"] == 5
+        assert result["color"] == "red"
+
+    def test_pc_state_overrides_program(self):
+        btn = {"type": "pc", "program": 5, "states": [{"program": 10}, {"program": 20}]}
+        assert get_button_state_config(btn, 1)["program"] == 10
+        assert get_button_state_config(btn, 2)["program"] == 20
+
+    def test_pc_inc_state_overrides_pc_step(self):
+        btn = {"type": "pc_inc", "pc_step": 1, "states": [{"pc_step": 5}]}
+        assert get_button_state_config(btn, 1)["pc_step"] == 5
+
+    def test_pc_dec_state_overrides_pc_step(self):
+        btn = {"type": "pc_dec", "pc_step": 1, "states": [{"pc_step": 3}]}
+        assert get_button_state_config(btn, 1)["pc_step"] == 3
+
+    def test_no_color_key_in_result_when_not_in_config(self):
+        """color absent from btn_config means no color key in result — callers must use .get()."""
+        btn = {"type": "cc", "cc": 20}
+        result = get_button_state_config(btn, 1)
+        assert "color" not in result
