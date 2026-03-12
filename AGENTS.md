@@ -340,6 +340,8 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 - [x] Per-button flash duration (PC types)
 
 ### Future
+- [ ] CI workflow DRY: `Setup Node.js` + `Install frontend dependencies` duplicated between `build-config-editor-macos` and `build-config-editor-windows` — could be a composite action
+- [ ] Release workflow DRY: find/rename/warn pattern in `Prepare release assets` repeats 3× (DMG, MSI, NSIS) — could be a shell function
 - [ ] Windows Signing Cert
 - [ ] Support for 1/2/4-switch variants
 - [ ] Custom display layouts
