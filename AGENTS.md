@@ -334,6 +334,10 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 
 ### Phase 3: GUI Config Editor
 - [x] GUI Config editor app
+- [x] Multi-type button support (CC, Note, PC, PC+, PC-)
+- [x] Keytimes cycling with per-state overrides
+- [x] Display settings section
+- [x] Per-button flash duration (PC types)
 
 ### Future
 - [ ] Windows Signing Cert
@@ -347,6 +351,211 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 
 ---
 
+---
+
+## Config Editor Architecture
+
+The config editor is a desktop app at `config-editor/` built with **SvelteKit 5 + Tauri 2 (Rust backend)**.
+
+### Tech Stack
+- **Frontend**: SvelteKit 5 (Svelte 5 runes mode), TypeScript, Vite
+- **Desktop shell**: Tauri 2 — Rust backend handles file I/O, device detection
+- **State**: Svelte stores (`formStore.ts` for form state, `stores.ts` for UI/device state)
+
+### Save Flow
+```
+ButtonRow/DeviceSection/etc. → onUpdate(field, value)
+  → ButtonsSection.handleButtonUpdate(idx, field, value)
+    → formStore.updateField(`buttons[${idx}].${field}`, value)
+      → setNestedValue() mutates config clone in formState
+      → validate() re-runs client-side validation
+      → debounced pushHistory() (500ms) for undo/redo
+
+Save button → saveToDevice()
+  → validate()
+  → normalizeConfig(get(config))   ← strips type-irrelevant fields
+  → JSON.stringify()
+  → writeConfigRaw(path, json)     ← Tauri IPC
+    → Rust: validate_device_path() + verify_device_connected()
+    → serde_json::from_str() → MidiCaptainConfig
+    → config.validate()
+    → serde_json::to_string_pretty() → fs::write() + sync_all()
+```
+
+### Key Files — Config Editor
+
+| Path | Purpose |
+|------|---------|
+| `config-editor/src/routes/+page.svelte` | App shell: device selector, save/reload/reset, ⌘S shortcut |
+| `config-editor/src/lib/formStore.ts` | Form state, undo/redo history (50 items), `updateField`, `normalizeConfig`, `loadConfig` |
+| `config-editor/src/lib/stores.ts` | UI state: devices, selectedDevice, hasUnsavedChanges, isLoading |
+| `config-editor/src/lib/types.ts` | TypeScript interfaces — must stay in sync with Rust structs |
+| `config-editor/src/lib/validation.ts` | Client-side validators; `validateConfig()` called before every save |
+| `config-editor/src/lib/api.ts` | Tauri `invoke()` wrappers for all IPC calls |
+| `config-editor/src/lib/components/ConfigForm.svelte` | Toolbar (Undo/Redo/View JSON/Save), keyboard shortcuts |
+| `config-editor/src/lib/components/ButtonRow.svelte` | Per-button fields; uses `onUpdate` callback prop |
+| `config-editor/src/lib/components/ButtonsSection.svelte` | Iterates buttons, wires `handleButtonUpdate → updateField` |
+| `config-editor/src/lib/components/DisplaySection.svelte` | Display text size settings |
+| `config-editor/src-tauri/src/config.rs` | Rust config structs + validation; must mirror `types.ts` |
+| `config-editor/src-tauri/src/commands.rs` | Tauri commands: read/write/validate config, path security |
+| `config-editor/src-tauri/src/device.rs` | USB device detection and watcher (cross-platform) |
+
+### Critical: Rust ↔ TypeScript Type Sync
+
+**Serde silently drops unknown fields** — if a field exists in TypeScript but not in the Rust struct, it is deserialized away and the re-serialized output omits it. No error, no warning. This is how all multi-type button fields (`type`, `note`, `velocity_on`, `velocity_off`, `program`, `pc_step`, `keytimes`, `states`) and `display` were silently stripped on save.
+
+**Rule**: whenever you add a field to `types.ts`, add the matching field to the Rust `ButtonConfig`/`MidiCaptainConfig` struct in `config.rs` with `#[serde(skip_serializing_if = "Option::is_none")]`.
+
+**Detection**: add a round-trip test in `config.rs` that parses JSON containing the field and asserts the field survives re-serialization. See existing `test_roundtrip_*` tests.
+
+### Config Normalization
+
+`normalizeConfig()` in `formStore.ts` is called at save time. It:
+1. Strips type-irrelevant fields from each button based on `button.type`:
+   - `cc` type: keeps `cc`, `cc_on`, `cc_off`
+   - `note` type: keeps `note`, `velocity_on`, `velocity_off`
+   - `pc` type: keeps `program`, `flash_ms`
+   - `pc_inc`/`pc_dec`: keeps `pc_step`, `flash_ms`
+2. Strips `display: {}` if no display fields were set (avoids writing empty object)
+
+### `setNestedValue` Path Format
+
+`updateField` uses dot-notation paths with array index notation:
+- `buttons[0].label` — button field
+- `buttons[0].states[1].cc` — state override field
+- `encoder.push.cc_on` — nested object field
+- `display.button_text_size` — top-level optional object
+
+**Gotcha**: `setNestedValue` throws if any intermediate path segment is `undefined` or `null`. `loadConfig` therefore initializes `display: {}` even when the config JSON has no `display` field, so the path is always traversable.
+
+### Validation Notes
+
+Client-side validation (`validation.ts`) must match server-side Rust validation (`config.rs`). Known gaps that were fixed:
+- Button/encoder/expression **channel** fields (0-15): now validated in both
+- **Encoder push** button: was entirely unvalidated in TypeScript
+- **Expression pedal min/max range**: was missing in TypeScript
+- **Encoder initial** value: must be within min/max range
+- **Button label max**: 6 chars in UI/TypeScript, was incorrectly 8 in Rust (now fixed to 6)
+- **Encoder/expression labels**: max 8 chars (Rust), not validated in TypeScript (acceptable — UI has maxlength inputs)
+
+### `mode` vs `off_mode` Per Button Type
+
+From firmware `code.py`:
+- **`mode` (toggle/momentary)**: used by CC and Note types only. PC types only fire on `pressed`, so mode is irrelevant. GUI shows Switch Mode only for `isCC || isNote`.
+- **`off_mode` (dim/off)**: LED appearance when button is "off" — applies to all types. GUI always shows it.
+
+---
+
+## Config JSON Schema
+
+Full button config fields:
+```json
+{
+  "label": "string (max 6 chars)",
+  "color": "red|green|blue|yellow|cyan|magenta|orange|purple|white",
+  "type": "cc|note|pc|pc_inc|pc_dec",
+  "mode": "toggle|momentary",
+  "off_mode": "dim|off",
+  "channel": 0,
+  "cc": 0,
+  "cc_on": 127,
+  "cc_off": 0,
+  "note": 60,
+  "velocity_on": 127,
+  "velocity_off": 0,
+  "program": 0,
+  "pc_step": 1,
+  "flash_ms": 200,
+  "keytimes": 3,
+  "states": [
+    { "cc": 1, "cc_on": 127, "color": "red", "label": "ONE" }
+  ]
+}
+```
+
+Top-level config fields:
+```json
+{
+  "device": "std10|mini6",
+  "global_channel": 0,
+  "buttons": [...],
+  "encoder": { "enabled": true, "cc": 11, "label": "ENC", "min": 0, "max": 127, "initial": 64, "steps": null, "channel": 0, "push": { "enabled": true, "cc": 14, "label": "PUSH", "mode": "toggle|momentary", "cc_on": 127, "cc_off": 0, "channel": 0 } },
+  "expression": { "exp1": { "enabled": true, "cc": 12, "label": "EXP1", "min": 0, "max": 127, "polarity": "normal|inverted", "threshold": 2, "channel": 0 }, "exp2": {...} },
+  "display": { "button_text_size": "small|medium|large", "status_text_size": "small|medium|large", "expression_text_size": "small|medium|large" }
+}
+```
+
+Channels are stored as 0-15 internally; displayed as 1-16 in the GUI. The conversion is in `ButtonRow.svelte` `handleChannelChange` (subtract 1 on input) and `effectiveChannel`/`displayChannel` derived values (add 1 for display).
+
+---
+
+## Display & Fonts
+
+**Display**: ST7789, 240×240px, centered at (120, 120) for status label.
+
+**Available fonts** (`firmware/dev/fonts/`):
+| File | Size | Used as |
+|------|------|---------|
+| `terminalio.FONT` (built-in) | ~8px | `"small"` |
+| `PTSans-Regular-20.pcf` | 20px | `"medium"` |
+| `PTSans-Bold-60.pcf` | 60px | `"large"` |
+| `PTSans-NarrowBold-54.pcf` | 54px | **unused** — candidate for future use |
+
+**Font overflow issue**: The `"large"` font (60px bold) overflows the status line for strings longer than ~5 chars (e.g. "TX CC22=0" = 9 chars, ~405px at ~45px/char). The narrow 54px font also overflows at ~11 chars. A dynamic font-switching approach (fall back to medium when text exceeds `DISPLAY_WIDTH - 4`) is the proper fix — partially implemented but not committed. `set_status_text()` helper was designed for this; pending completion.
+
+The font is loaded at startup based on `display_config["status_text_size"]`. `label.font` can be changed after label creation in CircuitPython.
+
+---
+
+## Firmware Patterns
+
+### PC Button Flash
+
+PC buttons flash the LED on press for feedback (they have no persistent on/off state). Implementation:
+- `pc_flash_timers[]` array stores **expiry time** as `time.monotonic() + flash_ms / 1000.0` (one slot per button)
+- `update_pc_flash_timers()` called every main loop: compares `time.monotonic()` to expiry, turns LED off when expired
+- `flash_pc_button(btn_idx, flash_ms)` sets LED on and stores expiry
+- Default: `PC_FLASH_DURATION_MS = 200` (ms). Configurable per button via `flash_ms` in config.
+- **Important**: uses `time.monotonic()` not loop-tick counting — the main loop has no sleep so tick count is unreliable.
+
+### Main Loop Structure
+
+```python
+while True:
+    handle_midi()       # RX: process incoming CC/Note/PC, update LED state
+    handle_switches()   # TX: scan footswitches, dispatch MIDI on change
+    update_pc_flash_timers()
+    if HAS_ENCODER:
+        handle_encoder_button()
+        handle_encoder()
+    if HAS_EXPRESSION:
+        handle_expression()
+```
+
+No sleep — runs as fast as possible. Timing-sensitive code must use `time.monotonic()`.
+
+### Button Dispatch (in `handle_switches`)
+
+For each button press/release, `dispatch_button(btn_num, pressed, btn_config, btn_state, channel)` is called. Dispatch branches on `message_type = btn_config.get("type", "cc")`:
+- `"cc"` + toggle/momentary → sends CC with `cc_on`/`cc_off` values
+- `"note"` + toggle/momentary → sends NoteOn/NoteOff
+- `"pc"` + pressed only → sends ProgramChange, calls `flash_pc_button`
+- `"pc_inc"` + pressed only → increments `pc_values[channel]`, sends PC, flashes
+- `"pc_dec"` + pressed only → decrements, sends PC, flashes
+
+`pc_values` is a 16-element array (one per MIDI channel), shared across all pc_inc/dec buttons on that channel.
+
+Keytimes: `btn_state.advance_keytime()` is called before reading `state_cfg`, so per-state overrides are applied from `btn_config["states"][keytime_index]` via `get_button_state_config()`.
+
+### Config Loading
+
+`firmware/dev/core/config.py` handles config parsing. Key points:
+- `get_display_config(config)` returns display settings with defaults (`"medium"` for all sizes)
+- `STATE_OVERRIDE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label")` — fields that can be overridden per keytime state
+- Default button: `{"label": str(i+1), "cc": 20+i, "color": "white"}`
+
+---
+
 ## Key Files
 
 | Path | Purpose |
@@ -356,18 +565,26 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 | `firmware/dev/config.json` | STD10 default config (button labels, CC numbers, colors) |
 | `firmware/dev/config-mini6.json` | Mini6 template config (copy to device as config.json) |
 | `firmware/dev/VERSION` | Firmware version (generated, gitignored) |
-| `firmware/dev/core/config.py` | Config loading and validation |
-| `firmware/dev/core/button.py` | Switch and ButtonState classes |
-| `firmware/dev/core/colors.py` | Color palette and utilities |
+| `firmware/dev/core/config.py` | Config loading and validation; `STATE_OVERRIDE_FIELDS`; `get_display_config()` |
+| `firmware/dev/core/button.py` | `ButtonState` class: toggle/momentary mode, keytimes cycling |
+| `firmware/dev/core/colors.py` | Color palette and `get_off_color()` utilities |
 | `firmware/dev/devices/std10.py` | STD10 hardware constants |
 | `firmware/dev/devices/mini6.py` | Mini6 hardware constants |
-| `firmware/original_helmut/code.py` | Helmut's original firmware (reference only) |
+| `firmware/original_helmut/code.py` | Helmut's original firmware (reference only, DO NOT MODIFY) |
 | `tools/deploy.sh` | Dev deploy to device (rsync, VERSION, device detection) |
 | `docs/hardware-reference.md` | Verified hardware specs, auto-detection docs |
 | `docs/screen-cheatsheet.md` | Serial console (screen) usage guide |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
-| `.github/workflows/ci.yml` | CI: lint, build firmware zip |
+| `.github/workflows/ci.yml` | CI: lint, syntax check (CP 7.x guards), build firmware zip |
 | `.github/workflows/release.yml` | Create GitHub Release on version tag |
+| `config-editor/src/routes/+page.svelte` | App shell: device selector, save/reload/reset |
+| `config-editor/src/lib/formStore.ts` | Form state, undo/redo, `updateField`, `normalizeConfig`, `loadConfig` |
+| `config-editor/src/lib/types.ts` | TypeScript config interfaces — must stay in sync with Rust structs |
+| `config-editor/src/lib/validation.ts` | Client-side validation; must mirror Rust validation in `config.rs` |
+| `config-editor/src/lib/components/ButtonRow.svelte` | Per-button form row; `onUpdate` callback prop |
+| `config-editor/src-tauri/src/config.rs` | Rust config structs + validation + round-trip tests |
+| `config-editor/src-tauri/src/commands.rs` | Tauri IPC commands: read/write/validate, path security |
+| `config-editor/src-tauri/src/device.rs` | USB device detection and hot-plug watcher |
 
 ---
 
