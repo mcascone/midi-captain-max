@@ -115,3 +115,42 @@ To change your drive name:
 **Q: The name is truncated**
 - FAT32 limits volume labels to 11 characters
 - Use shorter names or abbreviations
+
+## Tooling Support
+
+Both the deploy script and the GUI config editor automatically handle custom drive names.
+
+### Deploy Script (`tools/deploy.sh`)
+
+The script reads `usb_drive_name` from your local `config.json` and `config-mini6.json` files and
+includes those names in its mount-point search. No extra flags are needed:
+
+```bash
+./tools/deploy.sh          # finds CIRCUITPY, MIDICAPTAIN, or any usb_drive_name in config
+./tools/deploy.sh --eject  # same, plus eject after deploy
+```
+
+Candidate search order:
+1. `/Volumes/CIRCUITPY` (CircuitPython default)
+2. `/Volumes/MIDICAPTAIN`
+3. `/Volumes/<usb_drive_name>` from `firmware/dev/config.json`
+4. `/Volumes/<usb_drive_name>` from `firmware/dev/config-mini6.json`
+5. Same paths under `/media/$USER/` and `/run/media/$USER/` (Linux)
+
+If your device is not found, pass the mount point explicitly:
+
+```bash
+./tools/deploy.sh /Volumes/MYRIG
+```
+
+### GUI Config Editor
+
+The config editor detects devices by both volume name and config content:
+
+- **Known names** — always accepted: `CIRCUITPY`, `MIDICAPTAIN`
+- **Custom names** — any mounted volume whose `config.json` contains a `"device": "std10"` or
+  `"device": "mini6"` field is accepted automatically
+
+This means you can rename your device and the editor will still find and open it without any
+extra configuration.
+

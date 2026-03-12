@@ -107,9 +107,43 @@ echo ""
 
 # Auto-detect mount point if not specified
 if [ ! -d "$MOUNT_POINT" ]; then
-    if [ -d "/Volumes/MIDICAPTAIN" ]; then
-        MOUNT_POINT="/Volumes/MIDICAPTAIN"
+    # Build candidate list: well-known defaults + usb_drive_name from local config files
+    CANDIDATE_NAMES=("CIRCUITPY" "MIDICAPTAIN")
+    for cfg_file in "$DEV_DIR/config.json" "$DEV_DIR/config-mini6.json"; do
+        if [ -f "$cfg_file" ]; then
+            # Parse usb_drive_name: use jq if available, fall back to grep/sed
+            if command -v jq &>/dev/null; then
+                CNAME=$(jq -r '.usb_drive_name // empty' "$cfg_file" 2>/dev/null)
+            else
+                CNAME=$(grep -o '"usb_drive_name"[[:space:]]*:[[:space:]]*"[^"]*"' "$cfg_file" 2>/dev/null \
+                        | sed 's/.*"\([^"]*\)"$/\1/')
+            fi
+            if [ -n "$CNAME" ]; then
+                # Add only if not already in the list
+                if ! printf '%s\n' "${CANDIDATE_NAMES[@]}" | grep -qx "$CNAME"; then
+                    CANDIDATE_NAMES+=("$CNAME")
+                fi
+            fi
+        fi
+    done
+
+    # Collect volume root directories for this platform
+    VOLUME_ROOTS=()
+    [ -d "/Volumes" ] && VOLUME_ROOTS+=("/Volumes")
+    if [ -n "${USER:-}" ]; then
+        [ -d "/media/$USER" ]     && VOLUME_ROOTS+=("/media/$USER")
+        [ -d "/run/media/$USER" ] && VOLUME_ROOTS+=("/run/media/$USER")
     fi
+
+    # Try each candidate under each volume root
+    for vol_root in "${VOLUME_ROOTS[@]}"; do
+        for cname in "${CANDIDATE_NAMES[@]}"; do
+            if [ -d "$vol_root/$cname" ]; then
+                MOUNT_POINT="$vol_root/$cname"
+                break 2
+            fi
+        done
+    done
 fi
 
 # Check if device is mounted
@@ -119,7 +153,7 @@ if [ ! -d "$MOUNT_POINT" ]; then
     echo "Make sure your MIDI Captain is:"
     echo "  1. Connected via USB"
     echo "  2. Running CircuitPython (not in bootloader mode)"
-    echo "  3. Mounted as CIRCUITPY or MIDICAPTAIN"
+    echo "  3. Mounted (try: CIRCUITPY, MIDICAPTAIN, or the usb_drive_name in your config.json)"
     echo ""
     echo "If CircuitPython is not installed:"
     echo "  1. Hold Switch 1 (top-left footswitch) while plugging in USB"
@@ -190,13 +224,9 @@ if [ -f "$MOUNT_POINT/config.json" ]; then
     fi
 fi
 
-# Fallback: use mount point as heuristic
+# Fallback: cannot determine device type without a config; default to std10
 if [ -z "$DEVICE_TYPE" ]; then
-    if [ "$MOUNT_POINT" = "/Volumes/MIDICAPTAIN" ]; then
-        DEVICE_TYPE="mini6"
-    else
-        DEVICE_TYPE="std10"
-    fi
+    DEVICE_TYPE="std10"
 fi
 
 echo "🎛️  Device type: $DEVICE_TYPE"

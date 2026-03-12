@@ -94,6 +94,11 @@ impl From<serde_json::Error> for ConfigError {
 
 /// Validate that a path is on a recognized MIDI Captain device volume.
 /// Prevents path traversal attacks by ensuring paths are within expected directories.
+///
+/// Accepts:
+/// 1. Volumes with a known name (CIRCUITPY or MIDICAPTAIN), or
+/// 2. Any volume whose root contains a config.json that identifies as a MIDI Captain device.
+///    This handles the case where the user has configured a custom `usb_drive_name`.
 fn validate_device_path(path: &str) -> Result<(), ConfigError> {
     let path = Path::new(path);
     
@@ -109,14 +114,27 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
         details: None,
     })?;
     
-    if !DEVICE_VOLUMES.iter().any(|v| volume_name.eq_ignore_ascii_case(v)) {
-        return Err(ConfigError {
-            message: format!("Path must be on a MIDI Captain device (CIRCUITPY or MIDICAPTAIN volume), found: {}", volume_name),
-            details: None,
-        });
+    // Accept well-known volume names
+    if DEVICE_VOLUMES.iter().any(|v| volume_name.eq_ignore_ascii_case(v)) {
+        return Ok(());
     }
-    
-    Ok(())
+
+    // Accept volumes containing a recognizable MIDI Captain config.json.
+    // This handles custom usb_drive_name values set by the user.
+    if let Some(volume_path) = get_volume_path(&canonical) {
+        let config_path = volume_path.join("config.json");
+        if crate::device::is_midi_captain_config(&config_path) {
+            return Ok(());
+        }
+    }
+
+    Err(ConfigError {
+        message: format!(
+            "Path must be on a MIDI Captain device (CIRCUITPY, MIDICAPTAIN, or a custom-named volume with a MIDI Captain config.json), found: {}",
+            volume_name
+        ),
+        details: None,
+    })
 }
 
 /// Check if a volume is still mounted (not being ejected)

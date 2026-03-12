@@ -33,3 +33,6 @@ dirs = "5"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi", "winbase", "winnt", "minwindef"] }
 
+[dev-dependencies]
+tempfile = "3"
+
