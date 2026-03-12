@@ -250,6 +250,16 @@ Device-specific constants live in `firmware/dev/devices/`:
 - Use `screen` with auto-reconnect loop for serial monitoring. See docs/screen-cheatsheet.md for usage tips.
 - Experiments in `firmware/dev/experiments/` for isolated testing
 
+#### USB Drive / Boot Mode Hardware Tests
+When changing `boot.py`, `usb_drive_name`, or `dev_mode`, verify on physical hardware:
+1. **Performance mode** (default): power on without Switch 1 → no USB drive appears; serial shows "🔒 USB drive disabled"
+2. **Update mode**: hold Switch 1 while powering on → drive mounts with configured name; serial shows "🔓 USB DRIVE ENABLED as '…'"
+3. **Dev mode** (`dev_mode: true`): drive always mounts on boot without switch press
+4. **Custom name**: set `usb_drive_name`, power-cycle with Switch 1 → drive appears with that name
+5. **Validation**: lowercase, special chars, >11 chars, all-invalid → verify auto-correction or fallback to `"MIDICAPTAIN"`
+6. **Config failure**: corrupt config.json → device still boots, falls back to `"MIDICAPTAIN"`
+7. **Persistence**: custom name survives power cycles and USB disconnects
+
 ### Deployment
 
 Use `tools/deploy.sh` for dev deploys (handles ordering, sync, and device detection).
@@ -511,7 +521,11 @@ Top-level config fields:
 }
 ```
 
-**`usb_drive_name`** — label applied to the FAT32 volume when USB is enabled. Max 11 chars, alphanumeric + underscore, uppercase (enforced by `validate_usb_drive_name()` in `core/config.py`). Defaults to `"MIDICAPTAIN"`. Configurable in the GUI "Device Settings" section. See [docs/custom-drive-names.md](docs/custom-drive-names.md) for naming rules, examples, and how the deploy script and GUI editor discover custom-named devices.
+**`usb_drive_name`** — label applied to the FAT32 volume when USB is enabled. Defaults to `"MIDICAPTAIN"`. Configurable in the GUI "Device Settings" section. Validation rules (enforced by `validate_usb_drive_name()` in `core/config.py`): max 11 chars, uppercase alphanumeric + underscore only, auto-uppercased, special chars stripped, empty/all-invalid falls back to `"MIDICAPTAIN"`.
+
+Tooling support for custom names:
+- **`deploy.sh`** reads `usb_drive_name` from `config.json` and `config-mini6.json` and adds them to the mount-point search. Candidate order: `CIRCUITPY`, `MIDICAPTAIN`, then any `usb_drive_name` values found in local configs. Checked under `/Volumes/`, `/media/$USER/`, `/run/media/$USER/`.
+- **GUI config editor** detects devices by volume name *and* config content. Known names (`CIRCUITPY`, `MIDICAPTAIN`) are always accepted. Custom-named volumes are accepted only when the config.json inside them (a) has `"device": "std10"` or `"mini6"`, and (b) the `usb_drive_name` in that config matches the actual volume name (case-insensitive). This cross-check prevents a stray config.json on an unrelated volume from being treated as a device. The same cross-check applies in `validate_device_path()` (path security gate in `commands.rs`).
 
 **`dev_mode`** — boolean controlling USB drive mount behaviour at boot:
 
@@ -611,7 +625,7 @@ if enable_usb_drive:
     storage.remount("/", readonly=False, label=usb_drive_name)
 ```
 
-**Why the ordering matters**: the original `if/else` structure called `remount()` (enabling USB) before the `else` branch could call `disable_usb_drive()`. Splitting into two separate `if` blocks ensures disable always executes before any USB initialization.
+**Why two `if` blocks instead of `if/else`**: the original `boot.py` (before custom drive names) never called `remount()`, so `if/else` was fine. Adding `storage.remount()` for custom labels introduced an ordering constraint: `disable_usb_drive()` must execute before any `remount()` call. Using two separate `if` blocks makes this ordering explicit in source — `disable` always appears above `remount`, preventing future refactors from accidentally reversing the calls.
 
 **Boot sequence for config reads**: `boot.py` runs before normal `sys.path` is established. It manually inserts `/core` via `sys.path.insert(0, "/core")` to import `config.py`. If config loading fails (missing file, parse error), a bare `except Exception` swallows it and safe defaults are used.
 
@@ -634,8 +648,6 @@ if enable_usb_drive:
 | `firmware/original_helmut/code.py` | Helmut's original firmware (reference only, DO NOT MODIFY) |
 | `tools/deploy.sh` | Dev deploy to device (rsync, VERSION, device detection) |
 | `docs/hardware-reference.md` | Verified hardware specs, auto-detection docs |
-| [docs/custom-drive-names.md](docs/custom-drive-names.md) | Guide for customizing USB drive names and dev/performance mode |
-| `docs/usb-disable-bug-fix.md` | Explanation of the boot.py USB disable timing bug and fix |
 | `docs/screen-cheatsheet.md` | Serial console (screen) usage guide |
 | `docs/plans/2026-01-23-custom-firmware-design.md` | Full design document |
 | `.github/workflows/ci.yml` | CI: lint, syntax check (CP 7.x guards), build firmware zip |
