@@ -396,6 +396,10 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 ### Future
 - [x] 5-pin DIN MIDI output + thru (mirrored from USB; GP16 TX / GP17 RX / 31250 baud) — 2026-03-13
 - [ ] Separate USB vs DIN MIDI configuration (deferred — adds complexity, low priority)
+- [ ] **Scripting / MIDI Transform Engine** — allow users to define rules that trigger on incoming MIDI and produce outgoing MIDI or internal actions. The Captain becomes a standalone MIDI brain: transpose, remap, filter, merge, split, and transform MIDI between DIN and USB without a computer. Analogous to Gig Performer GP Script, Bome MIDI Translator, MIDIStroke, LoopBe, etc. — but running on the device itself.
+  - Config-driven first: a `scripts` or `rules` section in `config.json` mapping trigger conditions to actions (e.g. `{ "on": {"type": "cc", "cc": 5, "value": ">63"}, "send": {"type": "pc", "program": 2} }`)
+  - Scripting language second (higher complexity): a minimal interpreted DSL in CircuitPython (line-by-line eval or pre-compiled to a simple bytecode). Look at GP Script / Pawn / Lua as inspiration for syntax.
+  - Marketing angle: *"The Captain is the brain of your rig"* — not just a footswitch, but a real-time MIDI processor and rules engine that replaces desktop MIDI utility apps on stage.
 - [ ] CI workflow DRY: `Setup Node.js` + `Install frontend dependencies` duplicated between `build-config-editor-macos` and `build-config-editor-windows` — could be a composite action
 - [ ] Release workflow DRY: find/rename/warn pattern in `Prepare release assets` repeats 3× (DMG, MSI, NSIS) — could be a shell function
 - [ ] Windows Signing Cert
