@@ -247,6 +247,8 @@ For historical context on reverse engineering, see [docs/midicaptain_reverse_eng
 - The original Helmut firmware had DIN MIDI; the dev rewrite initially dropped it (now restored)
 - **Pattern**: use a `midi_send(msg)` helper that calls both `midi.send(msg)` (USB) and `midi_serial.send(msg)` (DIN), rather than duplicating every send site
 - **MIDI Thru**: `handle_midi()` reads both ports; USB→DIN and DIN→USB forwarding happens there; both directions also drive LED/button state via `_process_midi_msg()`
+- **Full bidirectionality**: a hardware device on the DIN port can control Captain LEDs/LCD exactly like a USB DAW host — `_process_midi_msg` is source-agnostic (`source` arg is debug-print only). CC value >63 = ON, ≤63 = OFF (`on_midi_receive` in `button.py`). NoteOn/Off and PC are also handled.
+- **Keytimes caveat**: `on_midi_receive` sets boolean on/off state only — it does not advance the keytime slot. A host can illuminate the correct keytime color but cannot remotely cycle keytime positions.
 - For now, USB and DIN outputs are always mirrored — separate configuration is deferred (complexity not worth it yet)
 
 ### Device Auto-Detection
