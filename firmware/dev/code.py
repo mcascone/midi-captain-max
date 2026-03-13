@@ -355,6 +355,8 @@ enc_push_config = enc_config.get("push", {"enabled": True, "cc": 14, "label": "P
 
 CC_ENCODER = enc_config.get("cc", 11)
 CC_ENCODER_PUSH = enc_push_config.get("cc", 14)
+ENC_LABEL = enc_config.get("label", "ENC")
+ENC_PUSH_LABEL = enc_push_config.get("label", "PUSH")
 ENC_MIN = enc_config.get("min", 0)
 ENC_MAX = enc_config.get("max", 127)
 ENC_INITIAL = enc_config.get("initial", 64)
