@@ -13,7 +13,7 @@
     onDeviceConnected, onDeviceDisconnected
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
-  import DeviceGrid from '$lib/components/DeviceGrid.svelte';
+  import LeftPanel from '$lib/components/LeftPanel.svelte';
   import ButtonSettingsPanel from '$lib/components/ButtonSettingsPanel.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import { loadConfig, validate, normalizeConfig, config, isDirty, canUndo, canRedo, undo, redo, updateField } from '$lib/formStore';
@@ -239,7 +239,7 @@
   <!-- main content -->
   <div class="main">
     {#if $selectedDevice && !$isLoading}
-      <div class="left-panel"><DeviceGrid /></div>
+      <div class="left-panel"><LeftPanel /></div>
       <div class="right-panel"><ButtonSettingsPanel /></div>
     {:else if $isLoading}
       <div class="center-state"><div class="spinner"></div><span>Loading…</span></div>

@@ -44,14 +44,15 @@
 <style>
   .accordion {
     margin-bottom: 1rem;
-    border: 1px solid #ddd;
+    border: 1px solid #374151;
     border-radius: 4px;
+    background: #1f2937;
   }
   
   .accordion-header {
     width: 100%;
     padding: 0.75rem 1rem;
-    background: #f5f5f5;
+    background: #374151;
     border: none;
     border-radius: 4px 4px 0 0;
     cursor: pointer;
@@ -61,10 +62,11 @@
     font-size: 1rem;
     font-weight: 600;
     text-align: left;
+    color: #e5e7eb;
   }
   
   .accordion-header:hover {
-    background: #e5e5e5;
+    background: #4b5563;
   }
   
   .accordion-header.disabled {
@@ -73,12 +75,12 @@
   }
   
   .accordion-header.disabled:hover {
-    background: #f5f5f5;
+    background: #374151;
   }
   
   .triangle {
     font-size: 0.75rem;
-    color: #666;
+    color: #9ca3af;
   }
   
   .title {
@@ -86,13 +88,14 @@
   }
   
   .message {
-    color: #666;
+    color: #9ca3af;
     font-size: 0.875rem;
     font-weight: 400;
   }
   
   .accordion-content {
     padding: 1rem;
-    background: white;
+    background: #1f2937;
+    color: #e5e7eb;
   }
 </style>

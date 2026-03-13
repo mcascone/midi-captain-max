@@ -62,100 +62,96 @@
   
   {#if pedal.enabled}
     <div class="pedal-fields">
-      <div class="field-row">
-        <label>
-          <span class="field-label">Label:</span>
-          <input 
-            type="text" 
-            value={pedal.label}
-            maxlength="6"
-            on:blur={(e) => onUpdate('label', (e.target as HTMLInputElement).value)}
-          />
-        </label>
+      <label>
+        <span class="field-label">Label:</span>
+        <input 
+          type="text" 
+          value={pedal.label}
+          maxlength="6"
+          on:blur={(e) => onUpdate('label', (e.target as HTMLInputElement).value)}
+        />
+      </label>
 
-        <label>
-          <span class="field-label">Channel:</span>
-          <input 
-            type="number" 
-            value={displayChannel !== undefined ? displayChannel : ''}
-            min="1"
-            max="16"
-            placeholder={effectiveChannel.toString()}
-            title={pedal.channel !== undefined ? `MIDI Ch ${effectiveChannel}` : `Using global: ${effectiveChannel}`}
-            on:blur={handleChannelChange}
-          />
-        </label>
+      <label>
+        <span class="field-label">Channel:</span>
+        <input 
+          type="number" 
+          value={displayChannel !== undefined ? displayChannel : ''}
+          min="1"
+          max="16"
+          placeholder={effectiveChannel.toString()}
+          title={pedal.channel !== undefined ? `MIDI Ch ${effectiveChannel}` : `Using global: ${effectiveChannel}`}
+          on:blur={handleChannelChange}
+        />
+      </label>
 
-        <label>
-          <span class="field-label">CC:</span>
-          <input 
-            type="number" 
-            value={pedal.cc}
-            min="0"
-            max="127"
-            on:blur={(e) => handleNumberInput('cc', e)}
-          />
-        </label>
-        
-        <label>
-          <span class="field-label">Polarity:</span>
-          <select 
-            value={pedal.polarity || 'normal'}
-            on:change={(e) => handleSelect('polarity', e)}
-          >
-            <option value="normal">Normal</option>
-            <option value="inverted">Inverted</option>
-          </select>
-        </label>
-      </div>
+      <label>
+        <span class="field-label">CC:</span>
+        <input 
+          type="number" 
+          value={pedal.cc}
+          min="0"
+          max="127"
+          on:blur={(e) => handleNumberInput('cc', e)}
+        />
+      </label>
       
-      <div class="field-row">
-        <label>
-          <span class="field-label">Min:</span>
-          <input 
-            type="number" 
-            value={pedal.min ?? 0}
-            min="0"
-            max="127"
-            placeholder="0"
-            on:blur={(e) => handleNumberInput('min', e)}
-          />
-        </label>
-        
-        <label>
-          <span class="field-label">Max:</span>
-          <input 
-            type="number" 
-            value={pedal.max ?? 127}
-            min="0"
-            max="127"
-            placeholder="127"
-            on:blur={(e) => handleNumberInput('max', e)}
-          />
-        </label>
-        
-        <label>
-          <span class="field-label">Threshold:</span>
-          <input 
-            type="number" 
-            value={pedal.threshold ?? 5}
-            min="0"
-            max="127"
-            placeholder="5"
-            on:blur={(e) => handleNumberInput('threshold', e)}
-          />
-        </label>
-      </div>
+      <label>
+        <span class="field-label">Polarity:</span>
+        <select 
+          value={pedal.polarity || 'normal'}
+          on:change={(e) => handleSelect('polarity', e)}
+        >
+          <option value="normal">Normal</option>
+          <option value="inverted">Inverted</option>
+        </select>
+      </label>
+
+      <label>
+        <span class="field-label">Min:</span>
+        <input 
+          type="number" 
+          value={pedal.min ?? 0}
+          min="0"
+          max="127"
+          placeholder="0"
+          on:blur={(e) => handleNumberInput('min', e)}
+        />
+      </label>
+      
+      <label>
+        <span class="field-label">Max:</span>
+        <input 
+          type="number" 
+          value={pedal.max ?? 127}
+          min="0"
+          max="127"
+          placeholder="127"
+          on:blur={(e) => handleNumberInput('max', e)}
+        />
+      </label>
+      
+      <label>
+        <span class="field-label">Threshold:</span>
+        <input 
+          type="number" 
+          value={pedal.threshold ?? 5}
+          min="0"
+          max="127"
+          placeholder="5"
+          on:blur={(e) => handleNumberInput('threshold', e)}
+        />
+      </label>
     </div>
   {/if}
 </div>
 
 <style>
   .pedal-config {
-    border: 1px solid var(--border-color, #ddd);
+    border: 1px solid #374151;
     border-radius: 4px;
     padding: 1rem;
-    background: var(--bg-secondary, #fafafa);
+    background: #111827;
   }
   
   .pedal-header {
@@ -169,6 +165,7 @@
     font-weight: 600;
     font-size: 0.95rem;
     cursor: pointer;
+    color: #e5e7eb;
   }
   
   .pedal-name input[type="checkbox"] {
@@ -176,57 +173,56 @@
   }
   
   .pedal-fields {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-    padding-left: 1.5rem;
-  }
-  
-  .field-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
-    flex-wrap: wrap;
+    margin-top: 0.75rem;
+    padding: 1rem;
+    background: #0f172a;
+    border-radius: 4px;
   }
   
-  .field-row label {
-    display: flex;
+  .pedal-fields label {
+    display: grid;
+    grid-template-columns: 80px 1fr;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    color: #e5e7eb;
   }
   
   .field-label {
     font-size: 0.875rem;
-    color: var(--text-secondary, #666);
-    min-width: 4rem;
+    color: #9ca3af;
+    text-align: right;
+    font-weight: 500;
   }
   
   input[type="text"],
   input[type="number"],
   select {
-    padding: 0.375rem 0.5rem;
-    border: 1px solid var(--border-color, #ccc);
-    border-radius: 3px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #4b5563;
+    border-radius: 4px;
     font-size: 0.875rem;
     font-family: inherit;
+    background: #374151;
+    color: #e5e7eb;
+    width: 100%;
   }
-  
-  input[type="text"] {
-    width: 6rem;
-  }
-  
-  input[type="number"] {
-    width: 4.5rem;
+
+  input[type="text"]:hover,
+  input[type="number"]:hover,
+  select:hover {
+    background: #4b5563;
   }
   
   select {
-    padding: 0.375rem 0.5rem;
     cursor: pointer;
   }
   
   input:focus,
   select:focus {
-    outline: 2px solid var(--accent-color, #007aff);
+    outline: 2px solid #8b5cf6;
     outline-offset: 1px;
   }
   

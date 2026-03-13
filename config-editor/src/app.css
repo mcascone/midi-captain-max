@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton/themes/modern';
 
 * {
   box-sizing: border-box;
@@ -10,8 +12,8 @@ body {
     'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
-  color: #333;
-  background: #fff;
+  color: #e5e7eb;
+  background: #0f0f1a;
 }
 
 h1, h2, h3, h4, h5, h6 {

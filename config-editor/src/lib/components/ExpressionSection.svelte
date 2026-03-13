@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Accordion from './Accordion.svelte';
   import ExpressionPedal from './ExpressionPedal.svelte';
   import { config, updateField } from '$lib/formStore';
   
@@ -10,26 +9,24 @@
   }
 </script>
 
-<Accordion title="Expression Pedals">
-  {#if expression}
-    <div class="pedals-list">
-      <ExpressionPedal 
-        pedal={expression.exp1}
-        name="Expression 1"
-        onUpdate={(field, value) => handlePedalUpdate('exp1', field, value)}
-      />
-      <ExpressionPedal 
-        pedal={expression.exp2}
-        name="Expression 2"
-        onUpdate={(field, value) => handlePedalUpdate('exp2', field, value)}
-      />
-    </div>
-  {:else}
-    <div class="no-expression">
-      <p>No expression pedal configuration available</p>
-    </div>
-  {/if}
-</Accordion>
+{#if expression}
+  <div class="pedals-list">
+    <ExpressionPedal 
+      pedal={expression.exp1}
+      name="Expression 1"
+      onUpdate={(field, value) => handlePedalUpdate('exp1', field, value)}
+    />
+    <ExpressionPedal 
+      pedal={expression.exp2}
+      name="Expression 2"
+      onUpdate={(field, value) => handlePedalUpdate('exp2', field, value)}
+    />
+  </div>
+{:else}
+  <div class="no-expression">
+    <p>No expression pedal configuration available</p>
+  </div>
+{/if}
 
 <style>
   .pedals-list {
@@ -39,7 +36,7 @@
   }
   
   .no-expression {
-    color: var(--text-secondary, #666);
+    color: #9ca3af;
     font-style: italic;
     padding: 1rem;
   }
