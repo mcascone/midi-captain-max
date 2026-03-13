@@ -433,14 +433,16 @@ Save button → saveToDevice()
 | `config-editor/src/routes/+page.svelte` | App shell: device selector, save/reload/reset, ⌘S shortcut |
 | `config-editor/src/lib/formStore.ts` | Form state, undo/redo history (50 items), `updateField`, `normalizeConfig`, `loadConfig` |
 | `config-editor/src/lib/stores.ts` | UI state: devices, selectedDevice, hasUnsavedChanges, isLoading |
-| `config-editor/src/lib/types.ts` | TypeScript interfaces — must stay in sync with Rust structs |
+| `config-editor/src/lib/types.ts` | TypeScript interfaces — must stay in sync with Rust structs; `MidiCommand.channel` is optional |
 | `config-editor/src/lib/validation.ts` | Client-side validators; `validateConfig()` called before every save |
 | `config-editor/src/lib/api.ts` | Tauri `invoke()` wrappers for all IPC calls |
 | `config-editor/src/lib/components/ConfigForm.svelte` | Toolbar (Undo/Redo/View JSON/Save), keyboard shortcuts |
-| `config-editor/src/lib/components/ButtonRow.svelte` | Per-button fields; uses `onUpdate` callback prop |
+| `config-editor/src/lib/components/ButtonSettingsPanel.svelte` | Unified multi-command interface: ID, Behavior, Actions (Press/Release/Long Press/Long Release) |
+| `config-editor/src/lib/components/ButtonCommandsEditor.svelte` | Reusable command array editor for any event type; supports CC/Note/PC/PC+/PC- |
+| `config-editor/src/lib/components/DeviceGrid.svelte` | Button overview grid with multi-command indicators (badges, tooltips); offValues() checks release commands |
 | `config-editor/src/lib/components/ButtonsSection.svelte` | Iterates buttons, wires `handleButtonUpdate → updateField` |
 | `config-editor/src/lib/components/DisplaySection.svelte` | Display text size settings |
-| `config-editor/src-tauri/src/config.rs` | Rust config structs + validation; must mirror `types.ts` |
+| `config-editor/src-tauri/src/config.rs` | Rust config structs + validation + `OneOrMany<T>` backward compatibility; must mirror `types.ts` |
 | `config-editor/src-tauri/src/commands.rs` | Tauri commands: read/write/validate config, path security |
 | `config-editor/src-tauri/src/device.rs` | USB device detection and watcher (cross-platform) |
 
@@ -455,12 +457,11 @@ Save button → saveToDevice()
 ### Config Normalization
 
 `normalizeConfig()` in `formStore.ts` is called at save time. It:
-1. Strips type-irrelevant fields from each button based on `button.type`:
-   - `cc` type: keeps `cc`, `cc_on`, `cc_off`
-   - `note` type: keeps `note`, `velocity_on`, `velocity_off`
-   - `pc` type: keeps `program`, `flash_ms`
-   - `pc_inc`/`pc_dec`: keeps `pc_step`, `flash_ms`
-2. Strips `display: {}` if no display fields were set (avoids writing empty object)
+1. Strips legacy single-type fields from each button (these are replaced by event arrays):
+   - Removes: `type`, `cc`, `cc_on`, `cc_off`, `note`, `velocity_on`, `velocity_off`, `program`, `pc_step`, `flash_ms`
+   - Keeps: event arrays (`press`, `release`, `long_press`, `long_release`), `mode`, `channel`, `keytimes`, `states`, `select_group`
+2. Converts any remaining single-command objects to arrays via `ensureArray()`
+3. Strips `display: {}` if no display fields were set (avoids writing empty object)
 
 ### `setNestedValue` Path Format
 
@@ -482,40 +483,72 @@ Client-side validation (`validation.ts`) must match server-side Rust validation 
 - **Button label max**: 6 chars in UI/TypeScript, was incorrectly 8 in Rust (now fixed to 6)
 - **Encoder/expression labels**: max 8 chars (Rust), not validated in TypeScript (acceptable — UI has maxlength inputs)
 
-### `mode` vs `off_mode` Per Button Type
+### `mode` vs `off_mode` Behavior
 
 From firmware `code.py`:
-- **`mode` (toggle/momentary)**: used by CC and Note types only. PC types only fire on `pressed`, so mode is irrelevant. GUI shows Switch Mode only for `isCC || isNote`.
-- **`off_mode` (dim/off)**: LED appearance when button is "off" — applies to all types. GUI always shows it.
+- **`mode`**: Controls button state behavior
+  - `toggle`: Alternates ON/OFF on each press, sends `press` event when turning ON, `release` event when turning OFF
+  - `momentary`: ON while held, OFF on release; sends `press` on press, `release` on release
+  - `select`: Like toggle but always turns ON (never toggles to OFF); used with `select_group` for radio-button behavior
+  - `tap`: Advanced mode for tap tempo (future enhancement)
+- **`off_mode`**: LED appearance when button is in "off" state
+  - `dim`: LED shows at reduced brightness (30% of color)
+  - `off`: LED completely off
+- **`select_group`**: String identifier for radio-button groups
+  - When a button with `select_group` turns ON, all other buttons in the same group are turned OFF
+  - Applies to both `toggle` and `select` modes
+  - Deselected buttons send their `release` event (or fall back to legacy `cc_off`/`velocity_off`)
 
 ---
 
 ## Config JSON Schema
+
+### Multi-Command Event-Based Format (Current)
 
 Full button config fields:
 ```json
 {
   "label": "string (max 6 chars)",
   "color": "red|green|blue|yellow|cyan|magenta|orange|purple|white",
-  "type": "cc|note|pc|pc_inc|pc_dec",
-  "mode": "toggle|momentary",
+  "mode": "toggle|momentary|select|tap",
   "off_mode": "dim|off",
   "channel": 0,
-  "cc": 0,
-  "cc_on": 127,
-  "cc_off": 0,
-  "note": 60,
-  "velocity_on": 127,
-  "velocity_off": 0,
-  "program": 0,
-  "pc_step": 1,
-  "flash_ms": 200,
+  "select_group": "optional string",
   "keytimes": 3,
+  "press": [
+    { "type": "cc", "cc": 20, "value": 127, "channel": 0 },
+    { "type": "pc", "program": 5 }
+  ],
+  "release": [
+    { "type": "cc", "cc": 20, "value": 0, "channel": 0 }
+  ],
+  "long_press": [
+    { "type": "cc", "cc": 40, "value": 127, "threshold_ms": 700 }
+  ],
+  "long_release": [
+    { "type": "cc", "cc": 40, "value": 0 }
+  ],
   "states": [
     { "cc": 1, "cc_on": 127, "color": "red", "label": "ONE" }
   ]
 }
 ```
+
+**Event arrays** (`press`, `release`, `long_press`, `long_release`):
+- Each is an **array of command objects**
+- Commands executed sequentially
+- `channel` is optional per command (defaults to button channel or global_channel)
+
+**Command object fields**:
+- `type`: `"cc"` | `"note"` | `"pc"` | `"pc_inc"` | `"pc_dec"`
+- `channel`: 0-15 (optional)
+- **CC**: `cc`, `value`
+- **Note**: `note`, `velocity`
+- **PC**: `program`
+- **PC Inc/Dec**: `pc_step`
+- **Long press**: `threshold_ms` (on first command only)
+
+**Backward compatibility**: The system still accepts legacy single-type configs with top-level `type`, `cc`, `cc_on`, `note`, etc. The Rust backend auto-converts single command objects to arrays via `OneOrMany<T>` deserialization.
 
 Top-level config fields:
 ```json
@@ -578,6 +611,7 @@ PC buttons flash the LED on press for feedback (they have no persistent on/off s
 - `flash_pc_button(btn_idx, flash_ms)` sets LED on and stores expiry
 - Default: `PC_FLASH_DURATION_MS = 200` (ms). Configurable per button via `flash_ms` in config.
 - **Important**: uses `time.monotonic()` not loop-tick counting — the main loop has no sleep so tick count is unreliable.
+- **Multi-command support**: `_send_action_from_cfg()` tracks if any PC command executed in the action sequence and calls `flash_pc_button()` once per action (not once per command).
 
 ### Main Loop Structure
 
@@ -595,18 +629,57 @@ while True:
 
 No sleep — runs as fast as possible. Timing-sensitive code must use `time.monotonic()`.
 
-### Button Dispatch (in `handle_switches`)
+### Multi-Command Event Dispatch
 
-For each button press/release, `dispatch_button(btn_num, pressed, btn_config, btn_state, channel)` is called. Dispatch branches on `message_type = btn_config.get("type", "cc")`:
-- `"cc"` + toggle/momentary → sends CC with `cc_on`/`cc_off` values
-- `"note"` + toggle/momentary → sends NoteOn/NoteOff
-- `"pc"` + pressed only → sends ProgramChange, calls `flash_pc_button`
-- `"pc_inc"` + pressed only → increments `pc_values[channel]`, sends PC, flashes
-- `"pc_dec"` + pressed only → decrements, sends PC, flashes
+The firmware uses an event-based dispatch system that supports multiple MIDI commands per action. Each button can define:
+- `press`: Commands sent on button press
+- `release`: Commands sent on button release  
+- `long_press`: Commands sent when hold threshold is exceeded
+- `long_release`: Commands sent on release after long press
 
-`pc_values` is a 16-element array (one per MIDI channel), shared across all pc_inc/dec buttons on that channel.
+#### Event Arrays
 
-Keytimes: `btn_state.advance_keytime()` is called before reading `state_cfg`, so per-state overrides are applied from `btn_config["states"][keytime_index]` via `get_button_state_config()`.
+Each event is defined as an array of command objects:
+```json
+{
+  "press": [
+    {"type": "cc", "cc": 20, "value": 127, "channel": 0},
+    {"type": "pc", "program": 5, "channel": 0}
+  ],
+  "release": [
+    {"type": "cc", "cc": 20, "value": 0, "channel": 0}
+  ]
+}
+```
+
+Command types: `cc`, `note`, `pc`, `pc_inc`, `pc_dec`. Channel is optional (defaults to button channel or global_channel).
+
+#### Dispatch Function: `_send_action_from_cfg()`
+
+Handles all command execution:
+- Accepts single command dict or array of commands
+- Executes commands sequentially
+- For PC-type commands (`pc`, `pc_inc`, `pc_dec`): calls `flash_pc_button()` once per action
+- Maintains `pc_values[]` array (16 elements, one per MIDI channel) for pc_inc/dec state
+
+#### Mode-Specific Behavior
+
+**Toggle/Select Modes:**
+- On press: Advances keytime, updates state (ON/OFF)
+- Dispatches `press` event if toggling ON, `release` event if toggling OFF
+- This ensures toggle buttons send appropriate "off" messages when turning off
+
+**Momentary Mode:**
+- Press: Sends `press` event, turns LED on
+- Release: Sends `release` event, turns LED off
+- Works with long-press: LED turns off correctly after both short and long release
+
+**Select Groups:**
+- When a button with `select_group` turns ON, sibling buttons in same group are deselected
+- Deselection uses `release` event if configured, falls back to legacy `cc_off`/`velocity_off`
+- **Applies to both `toggle` and `select` modes** (not just `select`)
+
+Keytimes: `btn_state.advance_keytime()` is called before dispatch, so per-state overrides from `btn_config["states"][keytime_index]` apply via `get_button_state_config()`.
 
 ### Config Loading
 
