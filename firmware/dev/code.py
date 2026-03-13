@@ -904,11 +904,22 @@ def _deselect_group(group_name, keep_idx):
 
 
 def handle_switches():
-    """Handle footswitch presses with keytimes support."""
+    """Handle footswitch presses using event-based dispatch.
+    
+    Refactored to use the new multi-command event system:
+    - "press" event: dispatched when button is pressed
+    - "release" event: dispatched when button is released (short press)
+    - "long_press" event: dispatched when hold threshold is exceeded
+    - "long_release" event: dispatched when button released after long press
+    
+    State management (toggle, momentary, keytimes, select_group) is handled
+    here, while MIDI dispatch is delegated to _send_action_from_cfg().
+    """
     # STD10: index 0 is encoder push, 1-10 are footswitches
     # Mini6: indices 0-5 are footswitches (no encoder)
     start_idx = 1 if HAS_ENCODER else 0
     now = time.monotonic()
+    
     for i in range(start_idx, len(switches)):
         sw = switches[i]
         changed, pressed = sw.changed()
@@ -919,310 +930,121 @@ def handle_switches():
         btn_state = button_states[idx]
         btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
 
-        message_type = btn_config.get("type", "cc")
         mode = btn_config.get("mode", "toggle")
-        channel = btn_config.get("channel", 0)
-
-        # Determine whether this button has long-press configured
+        
+        # Check for long-press configuration
         long_press_cfg = btn_config.get("long_press")
         long_release_cfg = btn_config.get("long_release")
         long_enabled = bool(long_press_cfg or long_release_cfg)
-        # Debug: log long-press detection for failing test investigation
-        if long_press_cfg or long_release_cfg:
-            pass
-
-        # Helper: perform the original "pressed" behaviour (used for short press)
-        def _do_short_press():
-            # Prevent multiple short-press executions within same press/release
-            if short_action_executed[idx]:
-                return
-            # If this button has long handling configured, don't run the
-            # short action while the button is still physically pressed
-            # (i.e. we should defer until release).
-            local_long = bool(btn_config.get("long_press") or btn_config.get("long_release"))
-            if local_long and press_start_times[idx]:
-                return
-            if message_type == "cc":
-                btn_state.advance_keytime()
-                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                cc = state_cfg.get("cc", 20 + idx)
-                cc_on = state_cfg.get("cc_on", 127)
-                cc_off = state_cfg.get("cc_off", 0)
-
-                if mode == "momentary":
-                    # momentary: handled on press/release separately
-                    pass
-                else:
-                    # toggle, select, tap, or keytimes
-                    if mode == "select":
-                        new_state = True
-                        btn_state.state = new_state
-                        set_button_state(btn_num, new_state)
-                        # If selecting on within a select_group, deselect siblings
-                        sg = btn_config.get("select_group")
-                        if new_state and sg:
-                            _deselect_group(sg, idx)
-                        val = cc_on if new_state else cc_off
-                        midi.send(ControlChange(cc, val, channel=channel))
-                        print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, select)")
-                        status_label.text = f"TX CC{cc}=ON"
-
-                    elif mode == "tap":
-                        # Tap mode: do not toggle persistent state. Trigger visual
-                        # blink for a short window and send the CC each press.
-                        now_press = time.monotonic()
-                        record_tap_tempo(idx, now_press)
-                        # Start blinking immediately
-                        blink_state[idx] = True
-                        blink_next_toggle[idx] = now_press + (blink_rate_ms[idx] / 1000.0)
-                        midi.send(ControlChange(cc, cc_on, channel=channel))
-                        print(f"[MIDI TX] Ch{channel+1} CC{cc}={cc_on} (switch {btn_num}, tap)")
-                        status_label.text = f"TX CC{cc}={cc_on}"
-
-                    else:
-                        # Standard toggle or keytimes
-                        new_state = True if btn_state.keytimes > 1 else not btn_state.state
-                        btn_state.state = new_state
-                        set_button_state(btn_num, new_state)
-                        # If selecting on within a select_group, deselect siblings
-                        sg = btn_config.get("select_group")
-                        if new_state and sg:
-                            _deselect_group(sg, idx)
-                        val = cc_on if new_state else cc_off
-                        midi.send(ControlChange(cc, val, channel=channel))
-                        print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
-                        status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
-
-            elif message_type == "note":
-                btn_state.advance_keytime()
-                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                note = state_cfg.get("note", 60)
-                vel_on = state_cfg.get("velocity_on", 127)
-                vel_off = state_cfg.get("velocity_off", 0)
-                if mode == "momentary":
-                    # release of momentary will send NoteOff
-                    pass
-                else:
-                    if mode == "select":
-                        new_state = True
-                    else:
-                        new_state = True if btn_state.keytimes > 1 else not btn_state.state
-                    btn_state.state = new_state
-                    set_button_state(btn_num, new_state)
-                    # If selecting on within a select_group, deselect siblings
-                    sg = btn_config.get("select_group")
-                    if new_state and sg:
-                        _deselect_group(sg, idx)
-                    if new_state:
-                        midi.send(NoteOn(note, vel_on, channel=channel))
-                        print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel_on} (switch {btn_num}, toggle on)")
-                        status_label.text = f"TX Note{note} ON"
-                    else:
-                        midi.send(NoteOff(note, vel_off, channel=channel))
-                        print(f"[MIDI TX] Ch{channel+1} NoteOff{note} (switch {btn_num}, toggle off)")
-                        status_label.text = f"TX Note{note} OFF"
-
-            elif message_type == "pc":
-                btn_state.advance_keytime()
-                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                program = state_cfg.get("program", 0)
-                midi.send(ProgramChange(program, channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
-                status_label.text = f"TX PC{program}"
-                flash_pc_button(btn_num, btn_config.get("flash_ms", PC_FLASH_DURATION_MS))
-
-                # Mark that we executed the short action for this press/release
-                short_action_executed[idx] = True
-
-            elif message_type == "pc_inc":
-                btn_state.advance_keytime()
-                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                step = state_cfg.get("pc_step", 1)
-                pc_values[channel] = clamp_pc_value(pc_values[channel] + step)
-                midi.send(ProgramChange(pc_values[channel], channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} (switch {btn_num}, inc)")
-                status_label.text = f"TX PC{pc_values[channel]}"
-                flash_pc_button(btn_num, btn_config.get("flash_ms", PC_FLASH_DURATION_MS))
-
-            elif message_type == "pc_dec":
-                btn_state.advance_keytime()
-                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                step = state_cfg.get("pc_step", 1)
-                pc_values[channel] = clamp_pc_value(pc_values[channel] - step)
-                midi.send(ProgramChange(pc_values[channel], channel=channel))
-                print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} (switch {btn_num}, dec)")
-                status_label.text = f"TX PC{pc_values[channel]}"
-                flash_pc_button(btn_num, btn_config.get("flash_ms", PC_FLASH_DURATION_MS))
-
-            # Mark executed if we reached here (guards above can return early)
-            if not short_action_executed[idx]:
-                short_action_executed[idx] = True
 
         # --- Handle edge events ---
         if changed:
             if pressed:
-                # Pressed: record start time only on the *transition* from
-                # unpressed->pressed. Some test harnesses return changed=True
-                # repeatedly while held; avoid resetting the timer in that
-                # case so long-press thresholds can be reached.
+                # PRESSED: Initialize press timing
                 if not press_start_times[idx]:
                     press_start_times[idx] = now
                     long_press_triggered[idx] = False
-                    # Allow short action again for a new press/release cycle
                     short_action_executed[idx] = False
 
-                # If long-press not configured, keep legacy immediate behaviour
+                # Handle tap tempo recording
+                if mode == "tap":
+                    record_tap_tempo(idx, now)
+                    # Start blinking for tap mode
+                    blink_state[idx] = True
+                    blink_next_toggle[idx] = now + (blink_rate_ms[idx] / 1000.0)
+
+                # Dispatch press event
                 if not long_enabled:
-                    # Perform existing immediate actions for press/momentary
-                    if message_type == "cc":
-                        state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                        cc = state_cfg.get("cc", 20 + idx)
-                        cc_on = state_cfg.get("cc_on", 127)
-                        cc_off = state_cfg.get("cc_off", 0)
-                        if mode == "momentary":
-                            val = cc_on
-                            set_button_state(btn_num, True)
-                            midi.send(ControlChange(cc, val, channel=channel))
-                            print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, momentary)")
-                            status_label.text = f"TX CC{cc}={val}"
-                        else:
-                            # toggle/keytimes on press
-                            _do_short_press()
-
-                    elif message_type == "note":
-                        state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                        note = state_cfg.get("note", 60)
-                        vel_on = state_cfg.get("velocity_on", 127)
-                        if mode == "momentary":
-                            midi.send(NoteOn(note, vel_on, channel=channel))
-                            set_button_state(btn_num, True)
-                            print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel_on} (switch {btn_num})")
-                            status_label.text = f"TX Note{note}"
-                        else:
-                            _do_short_press()
-
-                    elif message_type in ("pc", "pc_inc", "pc_dec"):
-                        # pc types acted only on press previously
-                        _do_short_press()
-
+                    # No long-press: execute press action immediately
+                    if mode in ("toggle", "select", "tap"):
+                        # Advance keytime for toggle modes
+                        btn_state.advance_keytime()
+                        # For toggle/select: update state and LED
+                        if mode in ("toggle", "select"):
+                            new_state = True if btn_state.keytimes > 1 else (not btn_state.state if mode == "toggle" else True)
+                            btn_state.state = new_state
+                            set_button_state(btn_num, new_state)
+                            # Handle select_group exclusivity
+                            if new_state and mode == "select":
+                                sg = btn_config.get("select_group")
+                                if sg:
+                                    _deselect_group(sg, idx)
+                    
+                    # Dispatch press event
+                    press_cfg = btn_config.get("press")
+                    if press_cfg:
+                        _send_action_from_cfg(press_cfg, btn_num, idx)
+                        short_action_executed[idx] = True
+                    
+                    # For momentary mode, also set LED on
+                    if mode == "momentary":
+                        set_button_state(btn_num, True)
+                
                 else:
-                    # Long-press configured: for momentary types still send immediate 'on'
-                    if message_type == "cc" and mode == "momentary":
+                    # Long-press configured: for momentary, dispatch press immediately
+                    # For toggle modes, defer until we know if it's short or long
+                    if mode == "momentary":
                         btn_state.advance_keytime()
-                        state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                        cc = state_cfg.get("cc", 20 + idx)
-                        cc_on = state_cfg.get("cc_on", 127)
+                        press_cfg = btn_config.get("press")
+                        if press_cfg:
+                            _send_action_from_cfg(press_cfg, btn_num, idx)
                         set_button_state(btn_num, True)
-                        midi.send(ControlChange(cc, cc_on, channel=channel))
-                        print(f"[MIDI TX] Ch{channel+1} CC{cc}={cc_on} (switch {btn_num}, momentary)")
-                        status_label.text = f"TX CC{cc}={cc_on}"
-                    elif message_type == "note" and mode == "momentary":
-                        btn_state.advance_keytime()
-                        state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                        note = state_cfg.get("note", 60)
-                        vel_on = state_cfg.get("velocity_on", 127)
-                        midi.send(NoteOn(note, vel_on, channel=channel))
-                        set_button_state(btn_num, True)
-                        print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel_on} (switch {btn_num})")
-                        status_label.text = f"TX Note{note}"
-                    else:
-                        # Other types: defer action until we know short vs long
-                        pass
-
-                # If this button is in 'tap' mode, record tap tempo on press
-                try:
-                    if mode == "tap":
-                        # idx is 0-based here
-                        record_tap_tempo(idx, now)
-                except Exception:
-                    pass
 
             else:
-                # Released
-                duration = now - press_start_times[idx] if press_start_times[idx] else 0
+                # RELEASED: Dispatch appropriate release event
                 press_start_times[idx] = 0.0
                 was_long = long_press_triggered[idx]
                 long_press_triggered[idx] = False
 
                 if was_long:
-                    # Long-press completed; optionally dispatch long_release
+                    # Long-press completed: dispatch long_release if configured
                     if long_release_cfg:
                         _send_action_from_cfg(long_release_cfg, btn_num, idx)
                 else:
-                    # Short press (not a long). Behavior differs depending on whether
-                    # long handling was configured for this button:
-                    # - If `long_enabled` is True, we deferred the short action until
-                    #   release, so now perform the short-press action.
-                    # - If `long_enabled` is False, the short action already occurred
-                    #   on press; on release we only need to handle momentary-off.
+                    # Short press: handle deferred actions
                     if long_enabled:
-                        # Execute short-press now (deferred)
-                        if message_type == "cc":
-                            if mode == "momentary":
-                                # momentary already set on press for long-enabled case
-                                set_button_state(btn_num, False)
-                                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                                cc = state_cfg.get("cc", 20 + idx)
-                                cc_off = state_cfg.get("cc_off", 0)
-                                midi.send(ControlChange(cc, cc_off, channel=channel))
-                                print(f"[MIDI TX] Ch{channel+1} CC{cc}={cc_off} (switch {btn_num}, momentary release)")
-                                status_label.text = f"TX CC{cc}={cc_off}"
-                            else:
-                                _do_short_press()
+                        # Deferred press action (for toggle modes with long-press configured)
+                        if mode in ("toggle", "select", "tap") and not short_action_executed[idx]:
+                            btn_state.advance_keytime()
+                            if mode in ("toggle", "select"):
+                                new_state = True if btn_state.keytimes > 1 else (not btn_state.state if mode == "toggle" else True)
+                                btn_state.state = new_state
+                                set_button_state(btn_num, new_state)
+                                if new_state and mode == "select":
+                                    sg = btn_config.get("select_group")
+                                    if sg:
+                                        _deselect_group(sg, idx)
+                            press_cfg = btn_config.get("press")
+                            if press_cfg:
+                                _send_action_from_cfg(press_cfg, btn_num, idx)
+                                short_action_executed[idx] = True
+                    
+                    # Dispatch release event
+                    release_cfg = btn_config.get("release")
+                    if release_cfg:
+                        _send_action_from_cfg(release_cfg, btn_num, idx)
+                    
+                    # For momentary mode, set LED off
+                    if mode == "momentary":
+                        set_button_state(btn_num, False)
 
-                        elif message_type == "note":
-                            if mode == "momentary":
-                                state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                                note = state_cfg.get("note", 60)
-                                vel_off = state_cfg.get("velocity_off", 0)
-                                midi.send(NoteOff(note, vel_off, channel=channel))
-                                set_button_state(btn_num, False)
-                                print(f"[MIDI TX] Ch{channel+1} NoteOff{note} (switch {btn_num})")
-                            else:
-                                _do_short_press()
-
-                        elif message_type in ("pc", "pc_inc", "pc_dec"):
-                            _do_short_press()
-                    else:
-                        # long not enabled: short-press already fired on press. Handle
-                        # only momentary-release cleanup here.
-                        if message_type == "cc" and mode == "momentary":
-                            state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                            cc = state_cfg.get("cc", 20 + idx)
-                            cc_off = state_cfg.get("cc_off", 0)
-                            set_button_state(btn_num, False)
-                            midi.send(ControlChange(cc, cc_off, channel=channel))
-                            print(f"[MIDI TX] Ch{channel+1} CC{cc}={cc_off} (switch {btn_num}, momentary release)")
-                            status_label.text = f"TX CC{cc}={cc_off}"
-                        elif message_type == "note" and mode == "momentary":
-                            state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
-                            note = state_cfg.get("note", 60)
-                            vel_off = state_cfg.get("velocity_off", 0)
-                            midi.send(NoteOff(note, vel_off, channel=channel))
-                            set_button_state(btn_num, False)
-                            print(f"[MIDI TX] Ch{channel+1} NoteOff{note} (switch {btn_num})")
-
-                # Note: do NOT reset the short_action_executed flag here; keep it
-                # set until the next physical press. This prevents duplicate
-                # release notifications (test harness may repeat changed=True)
-                # from re-triggering the short action.
-
-        # --- Handle held buttons for threshold crossing (long-press trigger) ---
-        # Run this check every loop iteration (not only when `changed` is False)
+        # --- Handle held buttons for long-press threshold crossing ---
         if pressed and long_enabled and not long_press_triggered[idx] and press_start_times[idx]:
             # Determine threshold (ms)
             threshold_ms = DEFAULT_LONG_PRESS_MS
             if long_press_cfg and isinstance(long_press_cfg, dict):
                 threshold_ms = long_press_cfg.get("threshold_ms", threshold_ms)
+            elif isinstance(long_press_cfg, list) and len(long_press_cfg) > 0:
+                # If it's an array, check first command for threshold
+                first_cmd = long_press_cfg[0]
+                if isinstance(first_cmd, dict):
+                    threshold_ms = first_cmd.get("threshold_ms", threshold_ms)
 
             if (now - press_start_times[idx]) >= (threshold_ms / 1000.0):
                 # Trigger long-press action
                 long_press_triggered[idx] = True
                 if long_press_cfg:
                     _send_action_from_cfg(long_press_cfg, btn_num, idx)
-                else:
-                    # No explicit long_press action; nothing to do
-                    pass
 
 
 def handle_encoder_button():
