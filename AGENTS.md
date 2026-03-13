@@ -207,6 +207,16 @@ CircuitPython 7.3.1 does NOT support all CPython syntax. These features pass `py
 
 **CI enforces this** via the "CircuitPython 7.x compatibility guard" step in `ci.yml`. It greps `firmware/dev/` for banned patterns and fails the build.
 
+**Several `str` methods are missing in CircuitPython 7.x.** These work in desktop Python and pass all tests, but raise `AttributeError` at runtime on device:
+
+| Missing method | Use Instead |
+|----------------|-------------|
+| `str.isalnum()` | `('A' <= c <= 'Z') or ('0' <= c <= '9')` (after `.upper()`) |
+| `str.isalpha()` | `'A' <= c <= 'Z'` (after `.upper()`) |
+| `str.isdigit()` | `'0' <= c <= '9'` |
+
+This is especially dangerous because the error occurs silently in `boot.py` (the `except Exception: pass` fallback swallows it), causing downstream config values like `dev_mode` to never be read.
+
 **Barrel imports are dangerous on embedded.** Keep `__init__.py` files minimal (no re-exports). If `__init__.py` imports a submodule, CircuitPython parses the entire submodule eagerly — a single syntax error in any submodule prevents the whole package from importing.
 
 ---
