@@ -13,7 +13,7 @@ export type DeviceType = 'std10' | 'mini6';
 // Multi-command per action support
 export interface MidiCommand {
   type: MessageType;
-  channel: number;     // 0-15
+  channel?: number;    // 0-15 (optional, defaults to button channel or global_channel)
   // CC fields
   cc?: number;
   value?: number;      // CC value (replaces cc_on for simplicity)

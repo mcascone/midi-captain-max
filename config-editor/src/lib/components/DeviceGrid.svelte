@@ -38,29 +38,28 @@
   }
 
   function commandTooltip(btn: ButtonConfig): string {
+    const formatCmd = (c: any) => {
+      const t = c.type ?? 'cc';
+      if (t === 'cc') return `CC${c.cc}=${c.value}`;
+      if (t === 'note') return `Note${c.note} vel${c.velocity}`;
+      if (t === 'pc') return `PC${c.program}`;
+      if (t === 'pc_inc') return `PC+${c.pc_step ?? 1}`;
+      if (t === 'pc_dec') return `PC-${c.pc_step ?? 1}`;
+      return t;
+    };
+
     const lines: string[] = [];
     if (btn.press?.length) {
-      lines.push(`Press: ${btn.press.map(c => {
-        const t = c.type ?? 'cc';
-        if (t === 'cc') return `CC${c.cc}=${c.value}`;
-        if (t === 'note') return `Note${c.note} vel${c.velocity}`;
-        if (t === 'pc') return `PC${c.program}`;
-        return t;
-      }).join(', ')}`);
+      lines.push(`Press: ${btn.press.map(formatCmd).join(', ')}`);
     }
     if (btn.release?.length) {
-      lines.push(`Release: ${btn.release.map(c => {
-        const t = c.type ?? 'cc';
-        if (t === 'cc') return `CC${c.cc}=${c.value}`;
-        return t;
-      }).join(', ')}`);
+      lines.push(`Release: ${btn.release.map(formatCmd).join(', ')}`);
     }
     if (btn.long_press?.length) {
-      lines.push(`Long: ${btn.long_press.map(c => {
-        const t = c.type ?? 'cc';
-        if (t === 'cc') return `CC${c.cc}=${c.value}`;
-        return t;
-      }).join(', ')}`);
+      lines.push(`Long: ${btn.long_press.map(formatCmd).join(', ')}`);
+    }
+    if (btn.long_release?.length) {
+      lines.push(`Long Release: ${btn.long_release.map(formatCmd).join(', ')}`);
     }
     return lines.join('\n');
   }
@@ -77,14 +76,23 @@
   }
 
   function offValues(btn: ButtonConfig): string {
-    // For toggle/select modes, look for a "release" command or infer off value
-    const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
-    if (!firstCmd) return '';
+    // Check release command first (for momentary mode or explicit release)
+    const releaseCmd = Array.isArray(btn.release) && btn.release.length > 0 ? btn.release[0] : null;
+    if (releaseCmd) {
+      const t = releaseCmd.type ?? 'cc';
+      if (t === 'cc')   return String(releaseCmd.value ?? 0);
+      if (t === 'note') return String(releaseCmd.velocity ?? 0);
+      return '—';  // PC types don't have an off value
+    }
+
+    // Fall back to inferring from press command type
+    const pressCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+    if (!pressCmd) return '';
     
-    const type = firstCmd.type ?? 'cc';
+    const type = pressCmd.type ?? 'cc';
     if (type === 'cc')   return '0';  // Default CC off value
     if (type === 'note') return '0';  // Default note off velocity
-    return '';
+    return '';  // PC types have no off value
   }
 </script>
 

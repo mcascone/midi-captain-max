@@ -100,15 +100,6 @@
             <option value="tap">Tap</option>
           </select>
         </div>
-          <div class="field">
-            <label>Switch Mode:</label>
-            <select value={btn.mode ?? 'toggle'} onchange={(e) => update('mode', strVal(e))}>
-              <option value="toggle">Toggle</option>
-              <option value="momentary">Momentary</option>
-              <option value="select">Select</option>
-              <option value="tap">Tap</option>
-            </select>
-        </div>
         <div class="field narrow">
           <label>Keytimes:</label>
           <input type="number" min="1" max="99"

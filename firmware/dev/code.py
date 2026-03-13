@@ -616,6 +616,9 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
         print(f"[WARN] Invalid action_cfg type (button {btn_num}): {type(action_cfg)}")
         return
     
+    # Track if any PC command executed (for LED flash feedback)
+    pc_command_sent = False
+    
     # Execute each command in sequence
     for cmd in commands:
         if not isinstance(cmd, dict):
@@ -645,6 +648,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
                 midi.send(ProgramChange(program, channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
                 status_label.text = f"TX PC{program}"
+                pc_command_sent = True
                 
             elif msg_type == "pc_inc":
                 step = cmd.get("pc_step", 1)
@@ -652,6 +656,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
                 midi.send(ProgramChange(pc_values[channel], channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} +{step} (switch {btn_num})")
                 status_label.text = f"TX PC{pc_values[channel]}"
+                pc_command_sent = True
                 
             elif msg_type == "pc_dec":
                 step = cmd.get("pc_step", 1)
@@ -659,6 +664,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
                 midi.send(ProgramChange(pc_values[channel], channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} -{step} (switch {btn_num})")
                 status_label.text = f"TX PC{pc_values[channel]}"
+                pc_command_sent = True
                 
             else:
                 print(f"[WARN] Unknown command type '{msg_type}' (button {btn_num})")
@@ -667,6 +673,10 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
             print(f"[ERROR] Failed to send command (button {btn_num}): {e}")
             # Continue to next command
             continue
+    
+    # Flash LED once if any PC command was sent in this action
+    if pc_command_sent:
+        flash_pc_button(btn_num)
 
 
 def set_button_state(switch_idx, on):
@@ -874,6 +884,9 @@ def _deselect_group(group_name, keep_idx):
 
     Sends OFF MIDI messages for siblings when applicable and updates visual state.
     keep_idx is the index (0-based) of the button to keep ON.
+    
+    Uses the new event-based dispatch: sends `release` event if configured,
+    otherwise falls back to legacy cc_off/velocity_off behavior.
     """
     if not group_name:
         return
@@ -886,19 +899,27 @@ def _deselect_group(group_name, keep_idx):
                 if button_states[j].state:
                     button_states[j].state = False
                     set_button_state(j + 1, False)
-                    msg_type = bcfg.get("type", "cc")
-                    ch = bcfg.get("channel", 0)
-                    state_cfg = get_button_state_config(bcfg, button_states[j].get_keytime())
-                    if msg_type == "cc":
-                        cc = state_cfg.get("cc", 20 + j)
-                        cc_off = state_cfg.get("cc_off", 0)
-                        midi.send(ControlChange(cc, cc_off, channel=ch))
-                        print(f"[MIDI TX] Ch{ch+1} CC{cc}={cc_off} (deselect sibling {j+1}, group {group_name})")
-                    elif msg_type == "note":
-                        note = state_cfg.get("note", 60)
-                        vel_off = state_cfg.get("velocity_off", 0)
-                        midi.send(NoteOff(note, vel_off, channel=ch))
-                        print(f"[MIDI TX] Ch{ch+1} NoteOff{note} (deselect sibling {j+1}, group {group_name})")
+                    
+                    # Try new event-based release first
+                    release_cfg = bcfg.get("release")
+                    if release_cfg:
+                        _send_action_from_cfg(release_cfg, j + 1, j)
+                        print(f"[SELECT] Deselected sibling {j+1} (group {group_name}) via release event")
+                    else:
+                        # Fall back to legacy behavior for backward compatibility
+                        msg_type = bcfg.get("type", "cc")
+                        ch = bcfg.get("channel", 0)
+                        state_cfg = get_button_state_config(bcfg, button_states[j].get_keytime())
+                        if msg_type == "cc":
+                            cc = state_cfg.get("cc", 20 + j)
+                            cc_off = state_cfg.get("cc_off", 0)
+                            midi.send(ControlChange(cc, cc_off, channel=ch))
+                            print(f"[MIDI TX] Ch{ch+1} CC{cc}={cc_off} (deselect sibling {j+1}, group {group_name})")
+                        elif msg_type == "note":
+                            note = state_cfg.get("note", 60)
+                            vel_off = state_cfg.get("velocity_off", 0)
+                            midi.send(NoteOff(note, vel_off, channel=ch))
+                            print(f"[MIDI TX] Ch{ch+1} NoteOff{note} (deselect sibling {j+1}, group {group_name})")
             except Exception:
                 pass
 
@@ -959,22 +980,33 @@ def handle_switches():
                     if mode in ("toggle", "select", "tap"):
                         # Advance keytime for toggle modes
                         btn_state.advance_keytime()
-                        # For toggle/select: update state and LED
+                        # For toggle/select: update state and LED, dispatch appropriate event
                         if mode in ("toggle", "select"):
                             new_state = True if btn_state.keytimes > 1 else (not btn_state.state if mode == "toggle" else True)
                             btn_state.state = new_state
                             set_button_state(btn_num, new_state)
-                            # Handle select_group exclusivity
-                            if new_state and mode == "select":
+                            # Handle select_group exclusivity (applies to both toggle and select modes)
+                            if new_state:
                                 sg = btn_config.get("select_group")
                                 if sg:
                                     _deselect_group(sg, idx)
-                    
-                    # Dispatch press event
-                    press_cfg = btn_config.get("press")
-                    if press_cfg:
-                        _send_action_from_cfg(press_cfg, btn_num, idx)
-                        short_action_executed[idx] = True
+                            # Dispatch press (ON) or release (OFF) based on new state
+                            action_cfg = btn_config.get("press" if new_state else "release")
+                            if action_cfg:
+                                _send_action_from_cfg(action_cfg, btn_num, idx)
+                                short_action_executed[idx] = True
+                        else:
+                            # Tap mode: always dispatch press
+                            press_cfg = btn_config.get("press")
+                            if press_cfg:
+                                _send_action_from_cfg(press_cfg, btn_num, idx)
+                                short_action_executed[idx] = True
+                    else:
+                        # Momentary or other modes: dispatch press event
+                        press_cfg = btn_config.get("press")
+                        if press_cfg:
+                            _send_action_from_cfg(press_cfg, btn_num, idx)
+                            short_action_executed[idx] = True
                     
                     # For momentary mode, also set LED on
                     if mode == "momentary":
@@ -1000,6 +1032,10 @@ def handle_switches():
                     # Long-press completed: dispatch long_release if configured
                     if long_release_cfg:
                         _send_action_from_cfg(long_release_cfg, btn_num, idx)
+                    
+                    # For momentary mode, set LED off after long press
+                    if mode == "momentary":
+                        set_button_state(btn_num, False)
                 else:
                     # Short press: handle deferred actions
                     if long_enabled:
@@ -1010,14 +1046,22 @@ def handle_switches():
                                 new_state = True if btn_state.keytimes > 1 else (not btn_state.state if mode == "toggle" else True)
                                 btn_state.state = new_state
                                 set_button_state(btn_num, new_state)
-                                if new_state and mode == "select":
+                                # Handle select_group exclusivity (applies to both toggle and select modes)
+                                if new_state:
                                     sg = btn_config.get("select_group")
                                     if sg:
                                         _deselect_group(sg, idx)
-                            press_cfg = btn_config.get("press")
-                            if press_cfg:
-                                _send_action_from_cfg(press_cfg, btn_num, idx)
-                                short_action_executed[idx] = True
+                                # Dispatch press (ON) or release (OFF) based on new state
+                                action_cfg = btn_config.get("press" if new_state else "release")
+                                if action_cfg:
+                                    _send_action_from_cfg(action_cfg, btn_num, idx)
+                                    short_action_executed[idx] = True
+                            else:
+                                # Tap mode: always dispatch press
+                                press_cfg = btn_config.get("press")
+                                if press_cfg:
+                                    _send_action_from_cfg(press_cfg, btn_num, idx)
+                                    short_action_executed[idx] = True
                     
                     # Dispatch release event
                     release_cfg = btn_config.get("release")
