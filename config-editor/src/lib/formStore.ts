@@ -38,7 +38,7 @@ export const config = derived(formState, $state => $state.config);
 export const isDirty = derived(formState, $state => $state.isDirty);
 export const validationErrors = derived(formState, $state => $state.validationErrors);
 export const canUndo = derived(formState, $state => $state.historyIndex > 0);
-export const canRedo = derived(formState, $state => 
+export const canRedo = derived(formState, $state =>
   $state.historyIndex < $state.history.length - 1
 );
 
@@ -59,15 +59,15 @@ export function loadConfig(newConfig: MidiCaptainConfig) {
 function pushHistory(state: FormState): FormState {
   // Clear any future history if we're not at the end
   const newHistory = state.history.slice(0, state.historyIndex + 1);
-  
+
   // Add current config to history
   newHistory.push(structuredClone(state.config));
-  
+
   // Limit history size
   if (newHistory.length > HISTORY_LIMIT) {
     newHistory.shift();
   }
-  
+
   return {
     ...state,
     history: newHistory,
@@ -79,7 +79,7 @@ function pushHistory(state: FormState): FormState {
 export function undo() {
   formState.update(state => {
     if (state.historyIndex <= 0) return state;
-    
+
     const newIndex = state.historyIndex - 1;
     return {
       ...state,
@@ -93,7 +93,7 @@ export function undo() {
 export function redo() {
   formState.update(state => {
     if (state.historyIndex >= state.history.length - 1) return state;
-    
+
     const newIndex = state.historyIndex + 1;
     return {
       ...state,
@@ -107,15 +107,15 @@ export function redo() {
 function setNestedValue(obj: any, path: string, value: any) {
   const parts = path.split('.');
   let current = obj;
-  
+
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
     const arrayMatch = part.match(/(\w+)\[(\d+)\]/);
-    
+
     if (arrayMatch) {
       const [, key, index] = arrayMatch;
       const idx = parseInt(index);
-      
+
       // Check array exists and is valid
       if (!current[key]) {
         throw new Error(`Invalid path "${path}": ${key} does not exist`);
@@ -126,7 +126,7 @@ function setNestedValue(obj: any, path: string, value: any) {
       if (idx < 0 || idx >= current[key].length) {
         throw new Error(`Invalid path "${path}": index ${idx} out of bounds for ${key} (length ${current[key].length})`);
       }
-      
+
       current = current[key][idx];
     } else {
       // If an intermediate object property is missing, create it so nested
@@ -138,15 +138,15 @@ function setNestedValue(obj: any, path: string, value: any) {
       current = current[part];
     }
   }
-  
+
   // Same checks for the last part
   const lastPart = parts[parts.length - 1];
   const arrayMatch = lastPart.match(/(\w+)\[(\d+)\]/);
-  
+
   if (arrayMatch) {
     const [, key, index] = arrayMatch;
     const idx = parseInt(index);
-    
+
     if (!current[key]) {
       throw new Error(`Invalid path "${path}": ${key} does not exist`);
     }
@@ -156,7 +156,7 @@ function setNestedValue(obj: any, path: string, value: any) {
     if (idx < 0 || idx >= current[key].length) {
       throw new Error(`Invalid path "${path}": index ${idx} out of bounds for ${key} (length ${current[key].length})`);
     }
-    
+
     current[key][idx] = value;
   } else {
     current[lastPart] = value;
@@ -168,22 +168,22 @@ export function updateField(path: string, value: any) {
   if (debounceTimer) {
     clearTimeout(debounceTimer);
   }
-  
+
   // Update value immediately
   formState.update(state => {
     const newConfig = structuredClone(state.config);
     setNestedValue(newConfig, path, value);
-    
+
     return {
       ...state,
       config: newConfig,
       isDirty: true,
     };
   });
-  
+
   // Validate after update
   validate();
-  
+
   // Debounce history push
   debounceTimer = setTimeout(() => {
     formState.update(state => pushHistory(state));
@@ -244,19 +244,19 @@ export function setDevice(deviceType: DeviceType) {
   formState.update(state => {
     const newState = { ...state };
     const currentDevice = state.config.device;
-    
+
     // Switching TO Mini6: preserve STD10-only features
     if (deviceType === 'mini6' && currentDevice === 'std10') {
       // Preserve buttons 7-10
       if (state.config.buttons.length > 6) {
         newState._hiddenButtons = state.config.buttons.slice(6);
       }
-      
+
       // Preserve encoder config
       if (state.config.encoder) {
         newState._hiddenEncoder = structuredClone(state.config.encoder);
       }
-      
+
       // Truncate buttons array and disable encoder
       newState.config = {
         ...state.config,
@@ -265,7 +265,7 @@ export function setDevice(deviceType: DeviceType) {
         encoder: state.config.encoder ? { ...state.config.encoder, enabled: false } : undefined,
       };
     }
-    
+
     // Switching TO STD10: restore preserved features
     else if (deviceType === 'std10' && currentDevice === 'mini6') {
       // Ensure we have exactly 6 Mini6 buttons before appending 7-10
@@ -273,7 +273,7 @@ export function setDevice(deviceType: DeviceType) {
       while (mini6Buttons.length < 6) {
         mini6Buttons.push(createDefaultButton(mini6Buttons.length));
       }
-      
+
       newState.config = {
         ...state.config,
         device: 'std10',
@@ -283,12 +283,12 @@ export function setDevice(deviceType: DeviceType) {
         ],
         encoder: state._hiddenEncoder || state.config.encoder,
       };
-      
+
       // Clear preserved data
       delete newState._hiddenButtons;
       delete newState._hiddenEncoder;
     }
-    
+
     // First-time Mini6 initialization
     else if (deviceType === 'mini6' && !currentDevice) {
       const buttons = state.config.buttons.slice(0, 6);
@@ -302,7 +302,7 @@ export function setDevice(deviceType: DeviceType) {
         encoder: state.config.encoder ? { ...state.config.encoder, enabled: false } : undefined,
       };
     }
-    
+
     // First-time STD10 initialization
     else if (deviceType === 'std10' && !currentDevice) {
       const buttons = [...state.config.buttons];
@@ -315,12 +315,12 @@ export function setDevice(deviceType: DeviceType) {
         buttons,
       };
     }
-    
+
     // Same device: no-op
     else {
       newState.config = { ...state.config, device: deviceType };
     }
-    
+
     return pushHistory(newState);
   });
 }
@@ -371,17 +371,37 @@ export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
   if (normalized.display && Object.values(normalized.display).every(v => v === undefined)) {
     delete normalized.display;
   }
+
+  // Normalize select_group default selections: ensure at most one default per group
+  const groups: Record<string, number[]> = {};
+  normalized.buttons.forEach((b, i) => {
+    const g = (b as any).select_group;
+    const ds = (b as any).default_selected;
+    if (g && typeof g === 'string') {
+      if (!groups[g]) groups[g] = [];
+      if (ds) groups[g].push(i);
+    }
+  });
+  for (const g in groups) {
+    const idxs = groups[g];
+    if (idxs.length > 1) {
+      // Keep the first, clear others
+      for (let k = 1; k < idxs.length; k++) {
+        delete (normalized.buttons[idxs[k]] as any).default_selected;
+      }
+    }
+  }
   return normalized;
 }
 
 export function validate() {
   const state = get(formState);
   const result = validateConfig(state.config);
-  
+
   formState.update(s => ({
     ...s,
     validationErrors: result.errors,
   }));
-  
+
   return result.isValid;
 }

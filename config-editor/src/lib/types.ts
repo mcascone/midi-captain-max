@@ -1,10 +1,10 @@
 // MIDI Captain config types - mirrors Rust structs
 
-export type ButtonColor = 
-  | 'red' | 'green' | 'blue' | 'yellow' 
+export type ButtonColor =
+  | 'red' | 'green' | 'blue' | 'yellow'
   | 'cyan' | 'magenta' | 'orange' | 'purple' | 'white';
 
-export type ButtonMode = 'toggle' | 'momentary';
+export type ButtonMode = 'toggle' | 'momentary' | 'select';
 export type OffMode = 'dim' | 'off';
 export type MessageType = 'cc' | 'note' | 'pc' | 'pc_inc' | 'pc_dec';
 export type Polarity = 'normal' | 'inverted';
@@ -47,6 +47,10 @@ export interface ButtonConfig {
   // Keytimes cycling
   keytimes?: number;         // States to cycle through on press (1-99); 1 = no cycling
   states?: StateOverride[];  // Per-state overrides; length should match keytimes
+  // Optional select-group for mutually exclusive buttons (radio-group)
+  // v1: supported for toggle-mode only and keytimes == 1
+  select_group?: string;
+  default_selected?: boolean;
   // Optional long-press / hold actions
   // `long_press` is dispatched when a hold crosses the threshold.
   // `long_release` is dispatched when releasing after a long press.

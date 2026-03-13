@@ -385,12 +385,14 @@ for i in range(BUTTON_COUNT):
     mode = btn_config.get("mode", "toggle")
     keytimes = btn_config.get("keytimes", 1)
     button_states.append(ButtonState(cc=cc, mode=mode, keytimes=keytimes))
-    
+
     # Long-press support state
     # Per-button: time when press started (monotonic), 0 if not pressed
 press_start_times = [0.0] * BUTTON_COUNT
 # Whether long-press action was already triggered for this button during current hold
 long_press_triggered = [False] * BUTTON_COUNT
+# Guard to avoid executing the short-press action more than once per press/release
+short_action_executed = [False] * BUTTON_COUNT
 # Default threshold (ms) if not provided per-button; can be overridden in config
 DEFAULT_LONG_PRESS_MS = config.get("long_press_threshold_ms", 500)
 
@@ -521,11 +523,11 @@ display.show(main_group)
 
 def get_button_color(btn_config, keytime_index):
     """Get color for button at specific keytime state.
-    
+
     Args:
         btn_config: Button configuration dict
         keytime_index: Current keytime position (1-indexed)
-        
+
     Returns:
         RGB tuple for the color
     """
@@ -567,7 +569,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
 
 def set_button_state(switch_idx, on):
     """Update LED and display for a button (1-indexed).
-    
+
     Now uses ButtonState objects and supports keytime colors.
     """
     idx = switch_idx - 1
@@ -578,7 +580,7 @@ def set_button_state(switch_idx, on):
 
     btn_state = button_states[idx]
     btn_config = buttons[idx] if idx < len(buttons) else {"color": "white"}
-    
+
     # Get color for current keytime state
     color_rgb = get_button_color(btn_config, btn_state.get_keytime())
     off_mode = btn_config.get("off_mode", "dim")  # "dim" or "off"
@@ -639,49 +641,105 @@ def update_pc_flash_timers():
 
 
 def handle_midi():
-    """Handle incoming MIDI messages."""
+    """Handle incoming MIDI messages.
+
+    Uses attribute-based detection (duck-typing) instead of strict isinstance()
+    which avoids issues in test environments where message classes may differ.
+    """
     msg = midi.receive()
     if not msg:
         return
 
-    msg_channel = getattr(msg, 'channel', 0) or 0  # channel is None when received on default channel
+    # Defensive: coerce channel to int when possible, fallback to 0
+    raw_ch = getattr(msg, 'channel', None)
+    try:
+        msg_channel = int(raw_ch) if raw_ch is not None else 0
+    except Exception:
+        msg_channel = 0
 
-    if isinstance(msg, ControlChange):
-        cc = msg.control
-        val = msg.value
+    # ControlChange - duck-typed by presence of `control` attribute
+    if hasattr(msg, 'control'):
+        cc = getattr(msg, 'control')
+        val = getattr(msg, 'value', 0)
         print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
         for i, btn_config in enumerate(buttons):
             if btn_config.get("type", "cc") == "cc" and btn_config.get("cc") == cc and btn_config.get("channel", 0) == msg_channel:
                 new_state = button_states[i].on_midi_receive(val)
                 set_button_state(i + 1, new_state)
+                # Preserve select-group exclusivity on host-driven changes
+                if new_state:
+                    sg = btn_config.get("select_group")
+                    if sg:
+                        _deselect_group(sg, i)
                 status_label.text = f"RX CC{cc}={val}"
                 break
 
-    elif isinstance(msg, NoteOn):
-        note = msg.note
-        vel = msg.velocity
-        print(f"[MIDI RX] Ch{msg_channel+1} NoteOn{note} vel{vel}")
-        for i, btn_config in enumerate(buttons):
-            if btn_config.get("type") == "note" and btn_config.get("note") == note and btn_config.get("channel", 0) == msg_channel:
-                set_button_state(i + 1, vel > 0)
-                status_label.text = f"RX Note{note}"
-                break
+    # NoteOn/NoteOff - duck-typed by `note` and optionally `velocity`
+    elif hasattr(msg, 'note'):
+        note = getattr(msg, 'note')
+        vel = getattr(msg, 'velocity', None)
+        if vel is not None:
+            # NoteOn-like message
+            print(f"[MIDI RX] Ch{msg_channel+1} NoteOn{note} vel{vel}")
+            for i, btn_config in enumerate(buttons):
+                if btn_config.get("type") == "note" and btn_config.get("note") == note and btn_config.get("channel", 0) == msg_channel:
+                    set_button_state(i + 1, vel > 0)
+                    if vel > 0:
+                        sg = btn_config.get("select_group")
+                        if sg:
+                            _deselect_group(sg, i)
+                    status_label.text = f"RX Note{note}"
+                    break
+        else:
+            # NoteOff-like message
+            print(f"[MIDI RX] Ch{msg_channel+1} NoteOff{note}")
+            for i, btn_config in enumerate(buttons):
+                if btn_config.get("type") == "note" and btn_config.get("note") == note and btn_config.get("channel", 0) == msg_channel:
+                    set_button_state(i + 1, False)
+                    status_label.text = f"RX NoteOff{note}"
+                    break
 
-    elif isinstance(msg, NoteOff):
-        note = msg.note
-        print(f"[MIDI RX] Ch{msg_channel+1} NoteOff{note}")
-        for i, btn_config in enumerate(buttons):
-            if btn_config.get("type") == "note" and btn_config.get("note") == note and btn_config.get("channel", 0) == msg_channel:
-                set_button_state(i + 1, False)
-                status_label.text = f"RX NoteOff{note}"
-                break
-
-    elif isinstance(msg, ProgramChange):
-        program = msg.patch
+    # ProgramChange-like: look for `patch` attribute
+    elif hasattr(msg, 'patch'):
+        program = getattr(msg, 'patch')
         print(f"[MIDI RX] Ch{msg_channel+1} PC{program}")
         # pc_values is per-channel, so one assignment covers all pc_inc/pc_dec buttons on this channel
         pc_values[msg_channel] = program
         status_label.text = f"RX PC{program}"
+
+
+def _deselect_group(group_name, keep_idx):
+    """Turn off any other buttons that share select_group == group_name.
+
+    Sends OFF MIDI messages for siblings when applicable and updates visual state.
+    keep_idx is the index (0-based) of the button to keep ON.
+    """
+    if not group_name:
+        return
+    for j, bcfg in enumerate(buttons):
+        if j == keep_idx:
+            continue
+        if bcfg.get("select_group") == group_name:
+            # If sibling is currently on, turn it off
+            try:
+                if button_states[j].state:
+                    button_states[j].state = False
+                    set_button_state(j + 1, False)
+                    msg_type = bcfg.get("type", "cc")
+                    ch = bcfg.get("channel", 0)
+                    state_cfg = get_button_state_config(bcfg, button_states[j].get_keytime())
+                    if msg_type == "cc":
+                        cc = state_cfg.get("cc", 20 + j)
+                        cc_off = state_cfg.get("cc_off", 0)
+                        midi.send(ControlChange(cc, cc_off, channel=ch))
+                        print(f"[MIDI TX] Ch{ch+1} CC{cc}={cc_off} (deselect sibling {j+1}, group {group_name})")
+                    elif msg_type == "note":
+                        note = state_cfg.get("note", 60)
+                        vel_off = state_cfg.get("velocity_off", 0)
+                        midi.send(NoteOff(note, vel_off, channel=ch))
+                        print(f"[MIDI TX] Ch{ch+1} NoteOff{note} (deselect sibling {j+1}, group {group_name})")
+            except Exception:
+                pass
 
 
 def handle_switches():
@@ -708,9 +766,21 @@ def handle_switches():
         long_press_cfg = btn_config.get("long_press")
         long_release_cfg = btn_config.get("long_release")
         long_enabled = bool(long_press_cfg or long_release_cfg)
+        # Debug: log long-press detection for failing test investigation
+        if long_press_cfg or long_release_cfg:
+            pass
 
         # Helper: perform the original "pressed" behaviour (used for short press)
         def _do_short_press():
+            # Prevent multiple short-press executions within same press/release
+            if short_action_executed[idx]:
+                return
+            # If this button has long handling configured, don't run the
+            # short action while the button is still physically pressed
+            # (i.e. we should defer until release).
+            local_long = bool(btn_config.get("long_press") or btn_config.get("long_release"))
+            if local_long and press_start_times[idx]:
+                return
             if message_type == "cc":
                 btn_state.advance_keytime()
                 state_cfg = get_button_state_config(btn_config, btn_state.get_keytime())
@@ -721,10 +791,18 @@ def handle_switches():
                     # momentary: handled on press/release separately
                     pass
                 else:
-                    # toggle or keytimes
-                    new_state = True if btn_state.keytimes > 1 else not btn_state.state
+                    # toggle, select, or keytimes
+                    if mode == "select":
+                        # select: always turn on (do not toggle off on press)
+                        new_state = True
+                    else:
+                        new_state = True if btn_state.keytimes > 1 else not btn_state.state
                     btn_state.state = new_state
                     set_button_state(btn_num, new_state)
+                    # If selecting on within a select_group, deselect siblings
+                    sg = btn_config.get("select_group")
+                    if new_state and sg:
+                        _deselect_group(sg, idx)
                     val = cc_on if new_state else cc_off
                     midi.send(ControlChange(cc, val, channel=channel))
                     print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
@@ -740,9 +818,16 @@ def handle_switches():
                     # release of momentary will send NoteOff
                     pass
                 else:
-                    new_state = True if btn_state.keytimes > 1 else not btn_state.state
+                    if mode == "select":
+                        new_state = True
+                    else:
+                        new_state = True if btn_state.keytimes > 1 else not btn_state.state
                     btn_state.state = new_state
                     set_button_state(btn_num, new_state)
+                    # If selecting on within a select_group, deselect siblings
+                    sg = btn_config.get("select_group")
+                    if new_state and sg:
+                        _deselect_group(sg, idx)
                     if new_state:
                         midi.send(NoteOn(note, vel_on, channel=channel))
                         print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel_on} (switch {btn_num}, toggle on)")
@@ -760,6 +845,9 @@ def handle_switches():
                 print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
                 status_label.text = f"TX PC{program}"
                 flash_pc_button(btn_num, btn_config.get("flash_ms", PC_FLASH_DURATION_MS))
+
+                # Mark that we executed the short action for this press/release
+                short_action_executed[idx] = True
 
             elif message_type == "pc_inc":
                 btn_state.advance_keytime()
@@ -781,12 +869,22 @@ def handle_switches():
                 status_label.text = f"TX PC{pc_values[channel]}"
                 flash_pc_button(btn_num, btn_config.get("flash_ms", PC_FLASH_DURATION_MS))
 
+            # Mark executed if we reached here (guards above can return early)
+            if not short_action_executed[idx]:
+                short_action_executed[idx] = True
+
         # --- Handle edge events ---
         if changed:
             if pressed:
-                # Pressed: record start time
-                press_start_times[idx] = now
-                long_press_triggered[idx] = False
+                # Pressed: record start time only on the *transition* from
+                # unpressed->pressed. Some test harnesses return changed=True
+                # repeatedly while held; avoid resetting the timer in that
+                # case so long-press thresholds can be reached.
+                if not press_start_times[idx]:
+                    press_start_times[idx] = now
+                    long_press_triggered[idx] = False
+                    # Allow short action again for a new press/release cycle
+                    short_action_executed[idx] = False
 
                 # If long-press not configured, keep legacy immediate behaviour
                 if not long_enabled:
@@ -911,8 +1009,14 @@ def handle_switches():
                             set_button_state(btn_num, False)
                             print(f"[MIDI TX] Ch{channel+1} NoteOff{note} (switch {btn_num})")
 
+                # Note: do NOT reset the short_action_executed flag here; keep it
+                # set until the next physical press. This prevents duplicate
+                # release notifications (test harness may repeat changed=True)
+                # from re-triggering the short action.
+
         # --- Handle held buttons for threshold crossing (long-press trigger) ---
-        elif pressed and long_enabled and not long_press_triggered[idx] and press_start_times[idx]:
+        # Run this check every loop iteration (not only when `changed` is False)
+        if pressed and long_enabled and not long_press_triggered[idx] and press_start_times[idx]:
             # Determine threshold (ms)
             threshold_ms = DEFAULT_LONG_PRESS_MS
             if long_press_cfg and isinstance(long_press_cfg, dict):
@@ -931,10 +1035,10 @@ def handle_switches():
 def handle_encoder_button():
     """Handle encoder push button."""
     global encoder_push_state
-    
+
     if not ENC_PUSH_ENABLED:
         return
-    
+
     sw = switches[0]  # Encoder push is switch index 0
     changed, pressed = sw.changed()
     if changed:
@@ -957,7 +1061,7 @@ def handle_encoder_button():
 def handle_encoder():
     """Handle rotary encoder."""
     global encoder_last_pos, encoder_value, encoder_slot
-    
+
     if not ENC_ENABLED:
         return
 
@@ -965,16 +1069,16 @@ def handle_encoder():
     if pos != encoder_last_pos:
         delta = pos - encoder_last_pos
         encoder_last_pos = pos
-        
+
         # Update internal value (always 0-127)
         encoder_value = max(0, min(127, encoder_value + delta))
-        
+
         if ENC_STEPS and ENC_STEPS > 1:
             # Stepped mode: calculate which slot we're in
             # Slot boundaries: 0-25=slot0, 26-50=slot1, etc. for 5 slots
             slot_size = 128 // ENC_STEPS
             new_slot = min(encoder_value // slot_size, ENC_STEPS - 1)
-            
+
             if new_slot != encoder_slot:
                 encoder_slot = new_slot
                 # Output CC is the slot number (0 to steps-1)
@@ -1001,7 +1105,7 @@ def handle_expression():
         raw1 = exp1.value
         exp1_max = max(raw1, exp1_max)
         exp1_min = min(raw1, exp1_min)
-        
+
         if exp1_max > exp1_min:
             # Map to 0-127, then apply config range
             normalized = (raw1 - exp1_min) / (exp1_max - exp1_min)
@@ -1011,7 +1115,7 @@ def handle_expression():
             out_max = exp1_config.get("max", 127)
             val1 = int(out_min + normalized * (out_max - out_min))
             val1 = max(0, min(127, val1))  # Clamp to valid MIDI range
-            
+
             # Hysteresis: only send if change exceeds threshold
             threshold = exp1_config.get("threshold", 2)
             if abs(val1 - exp1_last) >= threshold:
@@ -1028,7 +1132,7 @@ def handle_expression():
         raw2 = exp2.value
         exp2_max = max(raw2, exp2_max)
         exp2_min = min(raw2, exp2_min)
-        
+
         if exp2_max > exp2_min:
             # Map to 0-127, then apply config range
             normalized = (raw2 - exp2_min) / (exp2_max - exp2_min)
@@ -1038,7 +1142,7 @@ def handle_expression():
             out_max = exp2_config.get("max", 127)
             val2 = int(out_min + normalized * (out_max - out_min))
             val2 = max(0, min(127, val2))  # Clamp to valid MIDI range
-            
+
             # Hysteresis: only send if change exceeds threshold
             threshold = exp2_config.get("threshold", 2)
             if abs(val2 - exp2_last) >= threshold:
@@ -1057,6 +1161,24 @@ def handle_expression():
 
 print("Initializing...")
 init_leds()
+
+# Apply select_group default selections: if a button has default_selected, turn it on
+# Keep at most one per group (normalize earlier in config.validate_config)
+group_chosen = {}
+for i, b in enumerate(buttons):
+    g = b.get("select_group")
+    if not g:
+        continue
+    if b.get("default_selected"):
+        if g in group_chosen:
+            # already handled by config normalization, but be defensive
+            continue
+        group_chosen[g] = i
+        try:
+            button_states[i].state = True
+            set_button_state(i + 1, True)
+        except Exception:
+            pass
 
 # Startup animation
 pixels.fill((0, 255, 0))

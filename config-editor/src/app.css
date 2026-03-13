@@ -4,7 +4,7 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
@@ -25,3 +25,24 @@ input, select, textarea {
   font-family: inherit;
   font-size: inherit;
 }
+
+/* Button row tweaks */
+.button-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  background: #fafafa;
+  margin-bottom: 10px;
+}
+.button-row .field { display: inline-flex; align-items: center; gap:8px; margin:4px 8px; }
+.button-row .field .field-label { min-width:88px; color:#555; font-size:13px }
+.input-cc, .input-channel, .input-cc-value { width:80px }
+.input-label { width:120px }
+.long-section { margin-top:8px; border-top:1px solid #eee; padding-top:8px }
+.long-fields { display:flex; gap:10px; align-items:center }
+.long-fields input[type='number'] { width:80px }
+.long-toggle { font-size:13px; color:#444 }
+.checkbox-inline { display:inline-flex; align-items:center; gap:8px; color:#333 }

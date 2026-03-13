@@ -26,6 +26,7 @@ pub enum ButtonMode {
     #[default]
     Toggle,
     Momentary,
+    Select,
 }
 
 /// LED behavior when button is off
@@ -138,6 +139,10 @@ pub struct ButtonConfig {
     pub long_press: Option<Action>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub long_release: Option<Action>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub select_group: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_selected: Option<bool>,
 }
 
 fn is_default_off_mode(mode: &OffMode) -> bool {
@@ -371,6 +376,21 @@ impl MidiCaptainConfig {
                 if let Some(p) = lr.program {
                     if p > 127 { errors.push(format!("Button {} long_release program {} exceeds 127", i + 1, p)); }
                 }
+            }
+            // select_group rules: not allowed with momentary or keytimes > 1
+            if let Some(ref sg) = button.select_group {
+                if button.mode == ButtonMode::Momentary {
+                    errors.push(format!("Button {} select_group not supported for momentary mode", i + 1));
+                }
+                if let Some(kt) = button.keytimes {
+                    if kt > 1 {
+                        errors.push(format!("Button {} select_group not supported with keytimes > 1", i + 1));
+                    }
+                }
+            }
+            if let Some(ds) = button.default_selected {
+                // no extra check here; normalization performed elsewhere
+                let _ = ds;
             }
         }
 
@@ -664,6 +684,26 @@ mod tests {
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(config2.dev_mode, Some(true));
+    }
+
+    #[test]
+    fn test_roundtrip_select_group() {
+        let json = r#"{
+            "buttons": [
+                {"label": "ONE", "cc": 20, "color": "green", "select_group": "scene_a", "default_selected": true}
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.select_group.as_deref(), Some("scene_a"));
+        assert_eq!(btn.default_selected, Some(true));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let btn2 = &config2.buttons[0];
+        assert_eq!(btn2.select_group.as_deref(), Some("scene_a"));
+        assert_eq!(btn2.default_selected, Some(true));
     }
 
     #[test]

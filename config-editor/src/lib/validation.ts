@@ -22,7 +22,7 @@ export const validators = {
     }
     return null;
   },
-  
+
   cc: (value: number, config?: MidiCaptainConfig): string | null => {
     if (value < 0 || value > 127) {
       return 'CC must be between 0 and 127';
@@ -32,14 +32,14 @@ export const validators = {
     }
     return null;
   },
-  
+
   range: (min: number, max: number): string | null => {
     if (min >= max) {
       return 'Min must be less than max';
     }
     return null;
   },
-  
+
   withinRange: (value: number, min: number, max: number): string | null => {
     if (value < min || value > max) {
       return `Value must be between ${min} and ${max}`;
@@ -93,7 +93,7 @@ export const validators = {
 
 export function validateConfig(config: MidiCaptainConfig): ValidationResult {
   const errors = new Map<string, string>();
-  
+
   // Device-specific validation
   if (config.device === 'mini6') {
     if (config.buttons.length > 6) {
@@ -107,7 +107,7 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       errors.set('device', 'STD10 supports only 10 buttons');
     }
   }
-  
+
   // Validate all buttons
   config.buttons.forEach((btn, idx) => {
     const labelError = validators.label(btn.label);
@@ -204,6 +204,24 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
     validateAction(btn.long_press, `buttons[${idx}].long_press`);
     validateAction(btn.long_release, `buttons[${idx}].long_release`);
 
+    // select_group validation: string name; default_selected boolean
+    if (btn.select_group !== undefined) {
+      if (typeof btn.select_group !== 'string' || btn.select_group.trim() === '') {
+        errors.set(`buttons[${idx}].select_group`, 'select_group must be a non-empty string');
+      } else {
+        // Disallow momentary or keytimes > 1 in v1
+        if (btn.mode === 'momentary') {
+          errors.set(`buttons[${idx}].select_group`, 'select_group not supported for momentary mode');
+        }
+        if ((btn.keytimes ?? 1) > 1) {
+          errors.set(`buttons[${idx}].select_group`, 'select_group not supported with keytimes > 1');
+        }
+      }
+    }
+    if (btn.default_selected !== undefined && typeof btn.default_selected !== 'boolean') {
+      errors.set(`buttons[${idx}].default_selected`, 'default_selected must be boolean');
+    }
+
     if (btn.states && (btn.keytimes === undefined || btn.keytimes <= 1)) {
       errors.set(`buttons[${idx}].states`, 'states requires keytimes > 1');
     }
@@ -255,7 +273,24 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       }
     }
   });
-  
+  // Cross-button validation: ensure at most one default_selected per select_group
+  const groupDefaults: Record<string, number[]> = {};
+  config.buttons.forEach((btn, idx) => {
+    if (btn.select_group && btn.default_selected) {
+      if (!groupDefaults[btn.select_group]) groupDefaults[btn.select_group] = [];
+      groupDefaults[btn.select_group].push(idx);
+    }
+  });
+  for (const g in groupDefaults) {
+    const idxs = groupDefaults[g];
+    if (idxs.length > 1) {
+      // Mark all but first as errors
+      for (let i = 1; i < idxs.length; i++) {
+        errors.set(`buttons[${idxs[i]}].default_selected`, `Multiple default_selected in group '${g}'`);
+      }
+    }
+  }
+
   // Validate encoder
   if (config.encoder?.enabled) {
     const ccError = validators.cc(config.encoder.cc);
@@ -294,7 +329,7 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       }
     }
   }
-  
+
   // Validate expression pedals
   for (const [key, exp] of [['exp1', config.expression?.exp1], ['exp2', config.expression?.exp2]] as const) {
     if (!exp?.enabled) continue;
@@ -313,7 +348,7 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
     const rangeError = validators.range(min, max);
     if (rangeError) errors.set(`${p}.range`, rangeError);
   }
-  
+
   return {
     isValid: errors.size === 0,
     errors,
