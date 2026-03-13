@@ -1,0 +1,89 @@
+{
+  "device": "std10",
+  "global_channel": 0,
+  "buttons": [
+    {
+      "label": "DRIVE",
+      "color": "red",
+      "mode": "toggle",
+      "press": [
+        { "type": "cc", "cc": 20, "value": 127, "channel": 0 },
+        { "type": "pc", "program": 5, "channel": 0 }
+      ],
+      "release": [
+        { "type": "cc", "cc": 20, "value": 0, "channel": 0 }
+      ]
+    },
+    {
+      "label": "CLEAN",
+      "color": "green",
+      "press": [
+        { "type": "pc", "program": 2, "channel": 0 },
+        { "type": "cc", "cc": 80, "value": 120, "channel": 0 }
+      ]
+    },
+    {
+      "label": "PANIC",
+      "color": "yellow",
+      "press": [
+        { "type": "cc", "cc": 123, "value": 0, "channel": 0 }
+      ],
+      "long_press": [
+        { "type": "cc", "cc": 123, "value": 0, "channel": 0 },
+        { "type": "cc", "cc": 123, "value": 0, "channel": 1 },
+        { "type": "cc", "cc": 123, "value": 0, "channel": 2 },
+        { "type": "pc", "program": 0, "channel": 0 }
+      ]
+    },
+    {
+      "label": "DUAL",
+      "color": "cyan",
+      "mode": "toggle",
+      "press": [
+        { "type": "cc", "cc": 30, "value": 127, "channel": 0 },
+        { "type": "note", "note": 60, "velocity": 100, "channel": 1 }
+      ]
+    },
+    {
+      "label": "OLD",
+      "color": "white",
+      "type": "cc",
+      "cc": 40,
+      "cc_on": 127,
+      "cc_off": 0,
+      "mode": "momentary"
+    },
+    {
+      "label": "CH+",
+      "color": "blue",
+      "press": [
+        { "type": "pc_inc", "pc_step": 1, "channel": 0 }
+      ]
+    },
+    {
+      "label": "CH-",
+      "color": "blue",
+      "press": [
+        { "type": "pc_dec", "pc_step": 1, "channel": 0 }
+      ]
+    },
+    {
+      "label": "8",
+      "color": "white",
+      "type": "cc",
+      "cc": 48
+    },
+    {
+      "label": "9",
+      "color": "white",
+      "type": "cc",
+      "cc": 49
+    },
+    {
+      "label": "10",
+      "color": "white",
+      "type": "cc",
+      "cc": 50
+    }
+  ]
+}

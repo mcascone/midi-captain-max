@@ -62,6 +62,83 @@ def _clamp_state_field(field, value):
     return value  # color, label — pass through as-is
 
 
+def normalize_button_config(btn, index=0, global_channel=0):
+    """Convert old single-type config to new event-array format.
+    
+    Detects old format (has 'type' but no 'press'/'release') and migrates to
+    event-based arrays. New format passes through unchanged.
+    
+    Args:
+        btn: Button config dict (old or new format)
+        index: Button index (for default values)
+        global_channel: Global MIDI channel (0-15)
+        
+    Returns:
+        Button config in new event-array format
+    """
+    # If already has event arrays, assume new format
+    if 'press' in btn or 'release' in btn:
+        # Migrate old-style long_press/long_release dicts to arrays
+        if 'long_press' in btn and isinstance(btn['long_press'], dict):
+            btn['long_press'] = [btn['long_press']]
+        if 'long_release' in btn and isinstance(btn['long_release'], dict):
+            btn['long_release'] = [btn['long_release']]
+        return btn
+    
+    # Old format: convert based on type and mode
+    msg_type = btn.get('type', 'cc')
+    mode = btn.get('mode', 'toggle')
+    channel = btn.get('channel', global_channel)
+    
+    press_cmds = []
+    release_cmds = []
+    
+    if msg_type == 'cc':
+        cc = btn.get('cc', 20 + index)
+        cc_on = btn.get('cc_on', 127)
+        cc_off = btn.get('cc_off', 0)
+        press_cmds = [{'type': 'cc', 'cc': cc, 'value': cc_on, 'channel': channel}]
+        if mode == 'momentary':
+            release_cmds = [{'type': 'cc', 'cc': cc, 'value': cc_off, 'channel': channel}]
+        # toggle/select/tap modes: state change on press only, release does nothing
+        
+    elif msg_type == 'note':
+        note = btn.get('note', 60)
+        vel_on = btn.get('velocity_on', 127)
+        vel_off = btn.get('velocity_off', 0)
+        press_cmds = [{'type': 'note', 'note': note, 'velocity': vel_on, 'channel': channel}]
+        if mode == 'momentary':
+            # NoteOff on release
+            release_cmds = [{'type': 'note', 'note': note, 'velocity': vel_off, 'channel': channel}]
+            
+    elif msg_type == 'pc':
+        program = btn.get('program', 0)
+        press_cmds = [{'type': 'pc', 'program': program, 'channel': channel}]
+        # PC has no release action
+        
+    elif msg_type == 'pc_inc':
+        pc_step = btn.get('pc_step', 1)
+        press_cmds = [{'type': 'pc_inc', 'pc_step': pc_step, 'channel': channel}]
+        
+    elif msg_type == 'pc_dec':
+        pc_step = btn.get('pc_step', 1)
+        press_cmds = [{'type': 'pc_dec', 'pc_step': pc_step, 'channel': channel}]
+    
+    # Migrate long_press/long_release if present
+    if 'long_press' in btn and isinstance(btn['long_press'], dict):
+        btn['long_press'] = [btn['long_press']]
+    if 'long_release' in btn and isinstance(btn['long_release'], dict):
+        btn['long_release'] = [btn['long_release']]
+    
+    # Add event arrays to button config
+    if press_cmds:
+        btn['press'] = press_cmds
+    if release_cmds:
+        btn['release'] = release_cmds
+    
+    return btn
+
+
 def validate_button(btn, index=0, global_channel=None):
     """Validate a button config dict, filling in defaults.
 
@@ -122,38 +199,69 @@ def validate_button(btn, index=0, global_channel=None):
         validated["pc_step"] = btn.get("pc_step", 1)
 
     # Long-press / hold actions (optional)
-    # Accepts dicts with shape similar to a button action: type = cc|note|pc and type-specific fields.
+    # Accepts dicts OR arrays of dicts with shape: type = cc|note|pc|pc_inc|pc_dec and type-specific fields.
     def _validate_action_field(field_name):
         action = btn.get(field_name)
-        if not isinstance(action, dict):
+        if action is None:
             return None
-        # Basic action validation
-        a_type = action.get("type", "cc")
-        if a_type not in ("cc", "note", "pc"):
-            a_type = "cc"
-        a = {"type": a_type, "channel": action.get("channel", default_channel)}
-        if a_type == "cc":
-            a["cc"] = _clamp_state_field("cc", action.get("cc", 20 + index))
-            # 'value' used as the CC value for the action; fall back to cc_on if present
-            a["value"] = _clamp_state_field("cc_on", action.get("value", action.get("cc_on", 127)))
-        elif a_type == "note":
-            a["note"] = _clamp_state_field("note", action.get("note", 60))
-            a["value"] = _clamp_state_field("velocity_on", action.get("value", action.get("velocity_on", 127)))
-        elif a_type == "pc":
-            a["program"] = _clamp_state_field("program", action.get("program", 0))
-        # Optional threshold in milliseconds
-        thresh = action.get("threshold_ms", action.get("threshold", None))
-        if isinstance(thresh, int) and thresh > 0:
-            a["threshold_ms"] = thresh
-        return a
+        
+        # Handle array of commands (new format)
+        if isinstance(action, list):
+            validated_cmds = []
+            for cmd in action:
+                if not isinstance(cmd, dict):
+                    continue
+                # Basic action validation
+                a_type = cmd.get("type", "cc")
+                if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
+                    a_type = "cc"
+                a = {"type": a_type, "channel": cmd.get("channel", default_channel)}
+                if a_type == "cc":
+                    a["cc"] = _clamp_state_field("cc", cmd.get("cc", 20 + index))
+                    a["value"] = _clamp_state_field("cc_on", cmd.get("value", cmd.get("cc_on", 127)))
+                elif a_type == "note":
+                    a["note"] = _clamp_state_field("note", cmd.get("note", 60))
+                    a["velocity"] = _clamp_state_field("velocity_on", cmd.get("velocity", cmd.get("velocity_on", 127)))
+                elif a_type == "pc":
+                    a["program"] = _clamp_state_field("program", cmd.get("program", 0))
+                elif a_type in ("pc_inc", "pc_dec"):
+                    a["pc_step"] = _clamp_state_field("pc_step", cmd.get("pc_step", 1))
+                # Optional threshold in milliseconds (for long_press events)
+                thresh = cmd.get("threshold_ms", cmd.get("threshold", None))
+                if isinstance(thresh, int) and thresh > 0:
+                    a["threshold_ms"] = thresh
+                validated_cmds.append(a)
+            return validated_cmds if validated_cmds else None
+        
+        # Handle single command dict (legacy format)
+        elif isinstance(action, dict):
+            a_type = action.get("type", "cc")
+            if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
+                a_type = "cc"
+            a = {"type": a_type, "channel": action.get("channel", default_channel)}
+            if a_type == "cc":
+                a["cc"] = _clamp_state_field("cc", action.get("cc", 20 + index))
+                a["value"] = _clamp_state_field("cc_on", action.get("value", action.get("cc_on", 127)))
+            elif a_type == "note":
+                a["note"] = _clamp_state_field("note", action.get("note", 60))
+                a["velocity"] = _clamp_state_field("velocity_on", action.get("value", action.get("velocity_on", 127)))
+            elif a_type == "pc":
+                a["program"] = _clamp_state_field("program", action.get("program", 0))
+            elif a_type in ("pc_inc", "pc_dec"):
+                a["pc_step"] = _clamp_state_field("pc_step", action.get("pc_step", 1))
+            # Optional threshold in milliseconds
+            thresh = action.get("threshold_ms", action.get("threshold", None))
+            if isinstance(thresh, int) and thresh > 0:
+                a["threshold_ms"] = thresh
+            return [a]  # Convert to array for consistency
+        
+        return None
 
-    lp = _validate_action_field("long_press")
-    if lp is not None:
-        validated["long_press"] = lp
-
-    lr = _validate_action_field("long_release")
-    if lr is not None:
-        validated["long_release"] = lr
+    # Validate event arrays: press, release, long_press, long_release
+    for event_name in ("press", "release", "long_press", "long_release"):
+        validated_event = _validate_action_field(event_name)
+        if validated_event is not None:
+            validated[event_name] = validated_event
 
     # Select-group (optional) - mutually exclusive group name for toggle-style buttons
     # v1: only support for non-momentary (toggle/select) buttons and keytimes == 1
@@ -221,9 +329,12 @@ def validate_config(cfg, button_count=10):
     while len(buttons) < button_count:
         buttons.append({})
 
-    # Validate each button with global channel context
+    # Normalize old-format configs to new event-based format, then validate
+    normalized_buttons = [
+        normalize_button_config(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
+    ]
     validated_buttons = [
-        validate_button(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
+        validate_button(btn, i, global_channel) for i, btn in enumerate(normalized_buttons)
     ]
 
     result = {}

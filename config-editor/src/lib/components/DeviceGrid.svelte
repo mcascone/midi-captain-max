@@ -10,32 +10,89 @@
   let cols = $derived(deviceType === 'mini6' ? 3 : 5);
 
   function typeLabel(btn: ButtonConfig): string {
-    const type = btn.type ?? 'cc';
-    if (type === 'cc')     return `CC${btn.cc ?? '?'}`;
-    if (type === 'note')   return `Note${btn.note ?? '?'}`;
-    if (type === 'pc')     return `PC${btn.program ?? '?'}`;
-    if (type === 'pc_inc') return 'PC+';
-    if (type === 'pc_dec') return 'PC-';
-    return type.toUpperCase();
+    // Extract info from first press command (multi-command mode)
+    const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+    if (!firstCmd) return '—';
+    
+    const type = firstCmd.type ?? 'cc';
+    const cmdCount = btn.press?.length ?? 0;
+    const countBadge = cmdCount > 1 ? ` ×${cmdCount}` : '';
+    
+    if (type === 'cc')     return `CC${firstCmd.cc ?? '?'}${countBadge}`;
+    if (type === 'note')   return `Note${firstCmd.note ?? '?'}${countBadge}`;
+    if (type === 'pc')     return `PC${firstCmd.program ?? '?'}${countBadge}`;
+    if (type === 'pc_inc') return `PC+${countBadge}`;
+    if (type === 'pc_dec') return `PC-${countBadge}`;
+    return type.toUpperCase() + countBadge;
   }
 
   function colorHex(btn: ButtonConfig): string {
     return BUTTON_COLORS[btn.color] ?? '#ffffff';
   }
 
+  function isMultiCommand(btn: ButtonConfig): boolean {
+    return (btn.press?.length ?? 0) > 1 || 
+           (btn.release?.length ?? 0) > 0 || 
+           (btn.long_press?.length ?? 0) > 0 || 
+           (btn.long_release?.length ?? 0) > 0;
+  }
+
+  function commandTooltip(btn: ButtonConfig): string {
+    const formatCmd = (c: any) => {
+      const t = c.type ?? 'cc';
+      if (t === 'cc') return `CC${c.cc}=${c.value}`;
+      if (t === 'note') return `Note${c.note} vel${c.velocity}`;
+      if (t === 'pc') return `PC${c.program}`;
+      if (t === 'pc_inc') return `PC+${c.pc_step ?? 1}`;
+      if (t === 'pc_dec') return `PC-${c.pc_step ?? 1}`;
+      return t;
+    };
+
+    const lines: string[] = [];
+    if (btn.press?.length) {
+      lines.push(`Press: ${btn.press.map(formatCmd).join(', ')}`);
+    }
+    if (btn.release?.length) {
+      lines.push(`Release: ${btn.release.map(formatCmd).join(', ')}`);
+    }
+    if (btn.long_press?.length) {
+      lines.push(`Long: ${btn.long_press.map(formatCmd).join(', ')}`);
+    }
+    if (btn.long_release?.length) {
+      lines.push(`Long Release: ${btn.long_release.map(formatCmd).join(', ')}`);
+    }
+    return lines.join('\n');
+  }
+
   function onValues(btn: ButtonConfig): string {
-    const type = btn.type ?? 'cc';
-    const ch = (btn.channel ?? $config.global_channel ?? 0) + 1;
-    if (type === 'cc')   return `${ch}   ${btn.cc_on ?? 127}`;
-    if (type === 'note') return `${ch}   ${btn.velocity_on ?? 127}`;
+    const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+    if (!firstCmd) return '—';
+    
+    const type = firstCmd.type ?? 'cc';
+    const ch = (firstCmd.channel ?? btn.channel ?? $config.global_channel ?? 0) + 1;
+    if (type === 'cc')   return `${ch}   ${firstCmd.value ?? 127}`;
+    if (type === 'note') return `${ch}   ${firstCmd.velocity ?? 127}`;
     return String(ch);
   }
 
   function offValues(btn: ButtonConfig): string {
-    const type = btn.type ?? 'cc';
-    if (type === 'cc')   return String(btn.cc_off ?? 0);
-    if (type === 'note') return String(btn.velocity_off ?? 0);
-    return '';
+    // Check release command first (for momentary mode or explicit release)
+    const releaseCmd = Array.isArray(btn.release) && btn.release.length > 0 ? btn.release[0] : null;
+    if (releaseCmd) {
+      const t = releaseCmd.type ?? 'cc';
+      if (t === 'cc')   return String(releaseCmd.value ?? 0);
+      if (t === 'note') return String(releaseCmd.velocity ?? 0);
+      return '—';  // PC types don't have an off value
+    }
+
+    // Fall back to inferring from press command type
+    const pressCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+    if (!pressCmd) return '';
+    
+    const type = pressCmd.type ?? 'cc';
+    if (type === 'cc')   return '0';  // Default CC off value
+    if (type === 'note') return '0';  // Default note off velocity
+    return '';  // PC types have no off value
   }
 </script>
 
@@ -50,6 +107,8 @@
       <button
         class="btn-card"
         class:selected={$selectedButtonIndex === i}
+        class:multi-command={isMultiCommand(btn)}
+        title={isMultiCommand(btn) ? commandTooltip(btn) : ''}
         onclick={() => selectedButtonIndex.set(i)}
       >
         <div class="btn-led" style="background: {colorHex(btn)}"></div>
@@ -58,8 +117,8 @@
         <div class="btn-type">{typeLabel(btn)}</div>
 
         <div class="btn-vals">
-          <span>{(btn.channel ?? $config.global_channel ?? 0) + 1}</span>
-          <span>{(btn.channel ?? $config.global_channel ?? 0) + 1}</span>
+          <span>{onValues(btn)}</span>
+          <span>{offValues(btn)}</span>
         </div>
 
         <div class="btn-num">{i + 1}</div>
@@ -143,6 +202,22 @@
   .btn-card.selected {
     border-color: #6366f1;
     background: #1e1e38;
+  }
+
+  .btn-card.multi-command {
+    border-color: #4338ca;
+    background: linear-gradient(135deg, #1a1a2e 0%, #1e1e38 100%);
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.2);
+  }
+
+  .btn-card.multi-command:hover {
+    border-color: #5b54e6;
+    background: linear-gradient(135deg, #1e1e38 0%, #222244 100%);
+  }
+
+  .btn-card.multi-command.selected {
+    border-color: #818cf8;
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.4), 0 0 12px rgba(99, 102, 241, 0.3);
   }
 
   .btn-card.empty {

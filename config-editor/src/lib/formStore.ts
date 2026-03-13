@@ -325,44 +325,29 @@ export function setDevice(deviceType: DeviceType) {
   });
 }
 
-// Strip type-specific fields that don't belong to the button's current type.
-// Prevents stale cc/note/program/etc. from accumulating in the saved JSON when
-// the user switches a button's type.
+// Convert action objects to arrays and strip legacy single-action fields
+// Since we always use multi-command arrays now, remove obsolete fields
 function normalizeButton(btn: ButtonConfig): ButtonConfig {
-  const type = btn.type ?? 'cc';
-  const { cc, cc_on, cc_off, note, velocity_on, velocity_off, program, pc_step, flash_ms, ...common } = btn;
+  const ensureArray = (field: any): any[] | undefined => {
+    if (!field) return undefined;
+    if (Array.isArray(field)) return field;
+    return [field]; // Convert single object to array
+  };
 
-  switch (type) {
-    case 'cc':
-      return {
-        ...common,
-        ...(cc !== undefined && { cc }),
-        ...(cc_on !== undefined && { cc_on }),
-        ...(cc_off !== undefined && { cc_off }),
-      };
-    case 'note':
-      return {
-        ...common,
-        ...(note !== undefined && { note }),
-        ...(velocity_on !== undefined && { velocity_on }),
-        ...(velocity_off !== undefined && { velocity_off }),
-      };
-    case 'pc':
-      return {
-        ...common,
-        ...(program !== undefined && { program }),
-        ...(flash_ms !== undefined && { flash_ms }),
-      };
-    case 'pc_inc':
-    case 'pc_dec':
-      return {
-        ...common,
-        ...(pc_step !== undefined && { pc_step }),
-        ...(flash_ms !== undefined && { flash_ms }),
-      };
-    default:
-      return btn;
-  }
+  // Strip legacy fields that are no longer used in multi-command mode
+  const { 
+    type, cc, cc_on, cc_off, note, velocity_on, velocity_off, 
+    program, pc_step, flash_ms, 
+    ...cleanButton 
+  } = btn;
+
+  return {
+    ...cleanButton,
+    press: ensureArray(btn.press) as any,
+    release: ensureArray(btn.release) as any,
+    long_press: ensureArray(btn.long_press) as any,
+    long_release: ensureArray(btn.long_release) as any,
+  };
 }
 
 export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {

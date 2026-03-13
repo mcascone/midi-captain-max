@@ -10,6 +10,24 @@ export type MessageType = 'cc' | 'note' | 'pc' | 'pc_inc' | 'pc_dec';
 export type Polarity = 'normal' | 'inverted';
 export type DeviceType = 'std10' | 'mini6';
 
+// Multi-command per action support
+export interface MidiCommand {
+  type: MessageType;
+  channel?: number;    // 0-15 (optional, defaults to button channel or global_channel)
+  // CC fields
+  cc?: number;
+  value?: number;      // CC value (replaces cc_on for simplicity)
+  // Note fields
+  note?: number;
+  velocity?: number;   // Note velocity (replaces velocity_on for simplicity)
+  // PC fields
+  program?: number;
+  // PC inc/dec fields
+  pc_step?: number;
+  // Optional threshold for long-press detection (on first command only)
+  threshold_ms?: number;
+}
+
 export interface StateOverride {
   cc?: number;
   cc_on?: number;
@@ -26,6 +44,16 @@ export interface StateOverride {
 export interface ButtonConfig {
   label: string;
   color: ButtonColor;
+  
+  // ===== NEW: Multi-command event arrays =====
+  // These take precedence over legacy type-based fields
+  press?: MidiCommand[];      // Commands dispatched on button press
+  release?: MidiCommand[];    // Commands dispatched on button release (short press)
+  long_press?: MidiCommand[]; // Commands dispatched when hold threshold crossed
+  long_release?: MidiCommand[]; // Commands dispatched on release after long press
+  
+  // ===== LEGACY: Single-type fields (for backwards compatibility) =====
+  // These are automatically migrated to event arrays by the firmware
   type?: MessageType;      // defaults to 'cc'
   mode?: ButtonMode;
   off_mode?: OffMode;
@@ -44,6 +72,8 @@ export interface ButtonConfig {
   pc_step?: number;        // Step size (default: 1)
   // PC flash feedback (all PC types)
   flash_ms?: number;       // LED flash duration in ms (default: 200)
+  
+  // ===== COMMON FIELDS =====
   // Keytimes cycling
   keytimes?: number;         // States to cycle through on press (1-99); 1 = no cycling
   states?: StateOverride[];  // Per-state overrides; length should match keytimes
@@ -51,29 +81,6 @@ export interface ButtonConfig {
   // v1: supported for toggle-mode only and keytimes == 1
   select_group?: string;
   default_selected?: boolean;
-  // Optional long-press / hold actions
-  // `long_press` is dispatched when a hold crosses the threshold.
-  // `long_release` is dispatched when releasing after a long press.
-  long_press?: {
-    type: 'cc' | 'note' | 'pc';
-    // cc fields
-    cc?: number;
-    value?: number; // CC value or note velocity
-    // note fields
-    note?: number;
-    // pc fields
-    program?: number;
-    channel?: number; // 0-15
-    threshold_ms?: number; // optional per-button threshold in ms
-  };
-  long_release?: {
-    type: 'cc' | 'note' | 'pc';
-    cc?: number;
-    value?: number;
-    note?: number;
-    program?: number;
-    channel?: number;
-  };
   // Optional LED mode for visual feedback (e.g., 'tap' for blinking while active)
   led_mode?: 'tap';
   // Blink/tap rate in milliseconds when `led_mode` is 'tap'
