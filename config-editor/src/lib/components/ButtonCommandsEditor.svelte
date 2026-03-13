@@ -246,14 +246,16 @@
   
   input[type="number"],
   select {
-    padding: 6px 8px;
+    padding: 7px 10px;
     background: #13131f;
     border: 1px solid #2a2a3e;
     border-radius: 4px;
     color: #e5e7eb;
-    font-size: 12px;
+    font-size: 13px;
     width: 100%;
     min-width: 0;
+    height: 36px;
+    line-height: 1.4;
     transition: border-color 0.15s;
   }
   
