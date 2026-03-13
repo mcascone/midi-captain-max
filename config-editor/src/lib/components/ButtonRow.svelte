@@ -52,6 +52,16 @@
     onUpdate('long_press.type', target.value);
   }
 
+  function handleLongPressEnableChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (target.checked) {
+      const ch = button.long_press?.channel !== undefined ? button.long_press.channel : (button.channel !== undefined ? button.channel : globalChannel);
+      onUpdate('long_press', { type: 'cc', cc: button.cc ?? 20 + index, value: 127, channel: ch, threshold_ms: button.long_press?.threshold_ms ?? 600 });
+    } else {
+      onUpdate('long_press', undefined);
+    }
+  }
+
   function handleLongPressNumberField(field: string, e: Event) {
     const target = e.target as HTMLInputElement;
     const value = target.value === '' ? undefined : parseInt(target.value);
@@ -61,6 +71,16 @@
   function handleLongReleaseTypeChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     onUpdate('long_release.type', target.value);
+  }
+
+  function handleLongReleaseEnableChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (target.checked) {
+      const ch = button.long_release?.channel !== undefined ? button.long_release.channel : (button.channel !== undefined ? button.channel : globalChannel);
+      onUpdate('long_release', { type: 'cc', cc: button.cc ?? 20 + index, value: 0, channel: ch });
+    } else {
+      onUpdate('long_release', undefined);
+    }
   }
 
   function handleLongReleaseNumberField(field: string, e: Event) {
@@ -141,6 +161,16 @@
     syncButtonStates(index, value);
   }
 
+  function handleSelectGroupChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    onUpdate('select_group', target.value === '' ? undefined : target.value);
+  }
+
+  function handleDefaultSelectedChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    onUpdate('default_selected', target.checked);
+  }
+
   function handleStateFieldChange(si: number, field: string, e: Event) {
     const target = e.target as HTMLInputElement;
     const value = target.value === '' ? undefined : parseInt(target.value);
@@ -179,6 +209,11 @@
   // Display button channel as 1-16 if set (stored as 0-15)
   let displayChannel = $derived(
     button.channel !== undefined ? button.channel + 1 : undefined
+  );
+
+  // Show default checkbox only when select_group is set and allowed (non-momentary, keytimes==1)
+  let showDefaultCheckbox = $derived(
+    !!(button.select_group && (button.mode ?? 'toggle') !== 'momentary' && (button.keytimes ?? 1) <= 1)
   );
 
 </script>
@@ -332,12 +367,23 @@
     />
   </div>
 
+  <div class="field">
+    <label class="field-label">Select Group:</label>
+    <input type="text" class="input-cc" value={button.select_group ?? ''} onblur={handleSelectGroupChange} disabled={disabled} placeholder="group name" />
+    {#if showDefaultCheckbox}
+      <label style="font-size:0.8rem;margin-left:0.5rem;"><input type="checkbox" checked={button.default_selected ?? false} onchange={handleDefaultSelectedChange} disabled={disabled}/> Default</label>
+    {:else}
+      <label style="font-size:0.8rem;margin-left:0.5rem;color:#888">Default</label>
+    {/if}
+  </div>
+
   {#if showMode}
     <div class="field">
       <label class="field-label">Switch Mode:</label>
       <select class="select" value={button.mode || 'toggle'} onchange={handleModeChange} disabled={disabled}>
         <option value="toggle">Toggle</option>
         <option value="momentary">Momentary</option>
+        <option value="select">Select</option>
       </select>
     </div>
   {/if}
@@ -353,6 +399,10 @@
   <details class="long-section" open>
     <summary>Long Press ▸</summary>
     <small class="hint">Optional action fired when the switch is held beyond the threshold.</small>
+    <div style="margin-bottom:0.5rem;">
+      <label style="font-size:0.9rem;"><input type="checkbox" checked={!!button.long_press} onchange={handleLongPressEnableChange} disabled={disabled}/> Enable long press</label>
+    </div>
+    {#if button.long_press}
     <div class="field long-fields">
       <label class="field-label">Type:</label>
       <select class="select" value={button.long_press?.type ?? 'cc'} onchange={handleLongPressTypeChange} disabled={disabled} title="Message type for long press">
@@ -372,11 +422,16 @@
       {/if}
       <input type="number" class="input-channel" value={button.long_press?.channel !== undefined ? button.long_press.channel + 1 : ''} onblur={(e)=>handleLongPressNumberField('channel', e)} disabled={disabled} min="1" max="16" placeholder="Ch" title="MIDI channel (1-16)" />
     </div>
+    {/if}
   </details>
 
   <details class="long-section">
     <summary>Long Release ▸</summary>
     <small class="hint">Optional action fired when the long-press is released.</small>
+    <div style="margin-bottom:0.5rem;">
+      <label style="font-size:0.9rem;"><input type="checkbox" checked={!!button.long_release} onchange={handleLongReleaseEnableChange} disabled={disabled}/> Enable long release</label>
+    </div>
+    {#if button.long_release}
     <div class="field long-fields">
       <label class="field-label">Type:</label>
       <select class="select" value={button.long_release?.type ?? 'cc'} onchange={handleLongReleaseTypeChange} disabled={disabled} title="Message type for long-release">
@@ -395,6 +450,7 @@
       {/if}
       <input type="number" class="input-channel" value={button.long_release?.channel !== undefined ? button.long_release.channel + 1 : ''} onblur={(e)=>handleLongReleaseNumberField('channel', e)} disabled={disabled} min="1" max="16" placeholder="Ch" title="MIDI channel (1-16)" />
     </div>
+    {/if}
   </details>
 
   {#if hasKeytimes && !disabled}

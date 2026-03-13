@@ -16,24 +16,24 @@ STATE_OVERRIDE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "veloci
 
 def load_config(config_path="/config.json", button_count=10):
     """Load button configuration from JSON file.
-    
+
     Args:
         config_path: Path to config file (default: /config.json)
         button_count: Number of buttons for fallback defaults
-    
+
     Returns:
         Configuration dict with 'buttons' array and optional other keys
     """
     if json is None:
         return _default_config(button_count)
-    
+
     try:
         with open(config_path, "r") as f:
             cfg = json.load(f)
             return cfg
     except Exception:
         pass
-    
+
     return _default_config(button_count)
 
 
@@ -154,6 +154,20 @@ def validate_button(btn, index=0, global_channel=None):
     if lr is not None:
         validated["long_release"] = lr
 
+    # Select-group (optional) - mutually exclusive group name for toggle-style buttons
+    # v1: only support for non-momentary (toggle/select) buttons and keytimes == 1
+    select_group = btn.get("select_group")
+    default_selected = bool(btn.get("default_selected", False))
+    if isinstance(select_group, str) and select_group:
+        # Reject momentary or multi-keytimes configurations for select_group in v1
+        if validated.get("mode") == "momentary" or keytimes > 1:
+            # Not supported: ignore the select_group and default_selected, caller will be warned
+            print(f"Warning: button {index+1} select_group ignored (momentary or keytimes>1)")
+        else:
+            validated["select_group"] = select_group
+            if default_selected:
+                validated["default_selected"] = True
+
     # For keytimes > 1, validate and pass through states array
     if keytimes > 1:
         states = btn.get("states", [])
@@ -174,31 +188,31 @@ def validate_button(btn, index=0, global_channel=None):
 
 def validate_config(cfg, button_count=10):
     """Validate entire config, filling in defaults.
-    
+
     Args:
         cfg: Raw config dict
         button_count: Expected number of buttons
-        
+
     Returns:
         Validated config with all required fields
     """
     buttons = cfg.get("buttons", [])
-    
+
     # Get global channel (0-15 = MIDI Ch 1-16), default to 0
     global_channel = cfg.get("global_channel", 0)
     # Clamp to valid range
     if not isinstance(global_channel, int) or global_channel < 0 or global_channel > 15:
         global_channel = 0
-    
+
     # Extend buttons array if needed
     while len(buttons) < button_count:
         buttons.append({})
-    
+
     # Validate each button with global channel context
     validated_buttons = [
         validate_button(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
     ]
-    
+
     result = {}
     for k, v in cfg.items():
         result[k] = v
@@ -207,6 +221,25 @@ def validate_config(cfg, button_count=10):
     # Preserve optional global long-press threshold (ms)
     if isinstance(cfg.get("long_press_threshold_ms"), int):
         result["long_press_threshold_ms"] = cfg.get("long_press_threshold_ms")
+
+    # Normalize select_group default selections: ensure at most one default per group
+    groups = {}
+    for i, b in enumerate(result["buttons"]):
+        g = b.get("select_group")
+        if not g:
+            continue
+        if g not in groups:
+            groups[g] = []
+        if b.get("default_selected"):
+            groups[g].append(i)
+
+    for g, indices in groups.items():
+        if len(indices) > 1:
+            # Keep the first default-selected, clear others
+            first = indices[0]
+            for idx in indices[1:]:
+                result["buttons"][idx].pop("default_selected", None)
+            print(f"Warning: multiple default_selected in group '{g}'; keeping button {first+1}")
     return result
 
 
@@ -240,17 +273,17 @@ def get_button_state_config(btn_config, keytime_index):
 
 def get_encoder_config(cfg):
     """Extract encoder configuration with defaults.
-    
+
     Args:
         cfg: Full config dict
-        
+
     Returns:
         Encoder config dict
     """
     enc = cfg.get("encoder", {})
     push = enc.get("push", {})
     global_channel = cfg.get("global_channel", 0)
-    
+
     return {
         "enabled": enc.get("enabled", True),
         "cc": enc.get("cc", 11),
@@ -360,46 +393,46 @@ def get_dev_mode(cfg):
 
 def validate_usb_drive_name(name):
     """Validate USB drive name for FAT32 compatibility.
-    
+
     FAT32 volume labels have strict requirements:
     - Maximum 11 characters
     - Uppercase alphanumeric + underscore only
     - No spaces or special characters
-    
+
     Args:
         name: Proposed drive name string
-        
+
     Returns:
         Valid drive name (sanitized) or "MIDICAPTAIN" if invalid
     """
     if not name or not isinstance(name, str):
         return "MIDICAPTAIN"
-    
+
     # Convert to uppercase and strip whitespace
     name = name.upper().strip()
-    
+
     # Filter to valid characters (alphanumeric + underscore).
     # Avoid str.isalnum() — not available in CircuitPython 7.x.
     # name is already uppercased, so only A-Z, 0-9, and _ are valid.
     name = "".join(c for c in name if ('A' <= c <= 'Z') or ('0' <= c <= '9') or c == '_')
-    
+
     # Truncate to 11 characters
     if len(name) > 11:
         name = name[:11]
-    
+
     # Must have at least 1 character
     if len(name) == 0:
         return "MIDICAPTAIN"
-    
+
     return name
 
 
 def get_usb_drive_name(cfg):
     """Extract and validate USB drive name from config.
-    
+
     Args:
         cfg: Full config dict
-        
+
     Returns:
         Validated USB drive name string
     """
