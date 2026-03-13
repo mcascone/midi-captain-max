@@ -558,10 +558,16 @@
     cursor: pointer;
   }
 
+  .mode-toggle-label input[type="checkbox"] {
+    margin-top: 2px; /* Align with title text baseline */
+    flex-shrink: 0;
+  }
+
   .mode-toggle-container {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 12px;
     padding: 12px;
     background: #1f1f35;
     border: 1px solid #3a3a55;
@@ -577,7 +583,7 @@
 
   .mode-toggle-label {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     cursor: pointer;
     flex: 1;
@@ -618,6 +624,8 @@
     padding: 3px 8px;
     border-radius: 4px;
     letter-spacing: 0.05em;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .mode-hint {
