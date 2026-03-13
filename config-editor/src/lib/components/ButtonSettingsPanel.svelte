@@ -525,6 +525,8 @@
     font-size: 13px;
     width: 100%;
     min-width: 0;
+    height: 36px;
+    line-height: 1.4;
     transition: border-color 0.15s;
   }
 
