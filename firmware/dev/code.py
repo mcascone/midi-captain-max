@@ -596,36 +596,77 @@ def get_button_color(btn_config, keytime_index):
 
 
 def _send_action_from_cfg(action_cfg, btn_num, idx):
-    """Send MIDI described by an action config dict.
-
-    action_cfg expected shape (example):
-      {"type":"cc","cc":20,"value":127,"channel":0}
-    Supports type: cc, note, pc
+    """Send MIDI from action config (single dict or list of dicts).
+    
+    Supports:
+    - Single command: {"type":"cc","cc":20,"value":127,"channel":0}
+    - Multiple commands: [{"type":"cc",...}, {"type":"pc",...}]
+    
+    Command types: cc, note, pc, pc_inc, pc_dec
     """
-    if not action_cfg or not isinstance(action_cfg, dict):
+    if not action_cfg:
         return
-    msg_type = action_cfg.get("type", "cc")
-    channel = action_cfg.get("channel", 0)
-
-    if msg_type == "cc":
-        cc = action_cfg.get("cc", 20 + idx)
-        val = action_cfg.get("value", action_cfg.get("cc_on", 127))
-        midi.send(ControlChange(cc, val, channel=channel))
-        print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num})")
-        status_label.text = f"TX CC{cc}={val}"
-
-    elif msg_type == "note":
-        note = action_cfg.get("note", 60)
-        vel = action_cfg.get("value", action_cfg.get("velocity_on", 127))
-        midi.send(NoteOn(note, vel, channel=channel))
-        print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel} (switch {btn_num})")
-        status_label.text = f"TX Note{note}"
-
-    elif msg_type == "pc":
-        program = action_cfg.get("program", 0)
-        midi.send(ProgramChange(program, channel=channel))
-        print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
-        status_label.text = f"TX PC{program}"
+    
+    # Normalize to list
+    if isinstance(action_cfg, dict):
+        commands = [action_cfg]
+    elif isinstance(action_cfg, list):
+        commands = action_cfg
+    else:
+        print(f"[WARN] Invalid action_cfg type (button {btn_num}): {type(action_cfg)}")
+        return
+    
+    # Execute each command in sequence
+    for cmd in commands:
+        if not isinstance(cmd, dict):
+            print(f"[WARN] Invalid command in action (button {btn_num}): {cmd}")
+            continue
+        
+        msg_type = cmd.get("type", "cc")
+        channel = cmd.get("channel", 0)
+        
+        try:
+            if msg_type == "cc":
+                cc = cmd.get("cc", 20 + idx)
+                val = cmd.get("value", cmd.get("cc_on", 127))
+                midi.send(ControlChange(cc, val, channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num})")
+                status_label.text = f"TX CC{cc}={val}"
+                
+            elif msg_type == "note":
+                note = cmd.get("note", 60)
+                vel = cmd.get("velocity", cmd.get("velocity_on", 127))
+                midi.send(NoteOn(note, vel, channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel} (switch {btn_num})")
+                status_label.text = f"TX Note{note}"
+                
+            elif msg_type == "pc":
+                program = cmd.get("program", 0)
+                midi.send(ProgramChange(program, channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
+                status_label.text = f"TX PC{program}"
+                
+            elif msg_type == "pc_inc":
+                step = cmd.get("pc_step", 1)
+                pc_values[channel] = clamp_pc_value(pc_values[channel] + step)
+                midi.send(ProgramChange(pc_values[channel], channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} +{step} (switch {btn_num})")
+                status_label.text = f"TX PC{pc_values[channel]}"
+                
+            elif msg_type == "pc_dec":
+                step = cmd.get("pc_step", 1)
+                pc_values[channel] = clamp_pc_value(pc_values[channel] - step)
+                midi.send(ProgramChange(pc_values[channel], channel=channel))
+                print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} -{step} (switch {btn_num})")
+                status_label.text = f"TX PC{pc_values[channel]}"
+                
+            else:
+                print(f"[WARN] Unknown command type '{msg_type}' (button {btn_num})")
+                
+        except Exception as e:
+            print(f"[ERROR] Failed to send command (button {btn_num}): {e}")
+            # Continue to next command
+            continue
 
 
 def set_button_state(switch_idx, on):
