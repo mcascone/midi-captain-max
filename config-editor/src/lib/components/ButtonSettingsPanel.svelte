@@ -213,9 +213,9 @@
             <span class="toggle-title">Multi-Command Mode</span>
             <span class="toggle-description">
               {#if advancedMode}
-                Click "+ Add Command" to send multiple MIDI messages per action
+                Use "+ Add Command" to send multiple MIDI commands per action
               {:else}
-                Enable to send multiple MIDI messages from one button press
+                Send multiple MIDI commands from one button press
               {/if}
             </span>
           </div>
