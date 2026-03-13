@@ -289,6 +289,90 @@ pub fn write_config_raw(path: String, json: String) -> Result<(), ConfigError> {
     Ok(())
 }
 
+/// Safely eject/unmount the device volume
+#[command]
+pub fn eject_device(path: String) -> Result<(), ConfigError> {
+    validate_device_path(&path)?;
+
+    let path_obj = Path::new(&path);
+    verify_device_connected(path_obj)?;
+
+    let volume_path = get_volume_path(path_obj).ok_or_else(|| ConfigError {
+        message: "Could not determine volume path for device".to_string(),
+        details: None,
+    })?;
+
+    eject_volume(&volume_path)
+}
+
+/// Platform-specific volume ejection
+#[cfg(target_os = "macos")]
+fn eject_volume(volume_path: &Path) -> Result<(), ConfigError> {
+    use std::process::Command;
+    let output = Command::new("diskutil")
+        .arg("eject")
+        .arg(volume_path)
+        .output()
+        .map_err(|e| ConfigError {
+            message: format!("Failed to run diskutil eject: {}", e),
+            details: None,
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(ConfigError {
+            message: format!("Eject failed: {}", stderr.trim()),
+            details: None,
+        });
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn eject_volume(volume_path: &Path) -> Result<(), ConfigError> {
+    use std::process::Command;
+    // Try gio mount (GNOME/freedesktop, works in user space)
+    let output = Command::new("gio")
+        .arg("mount")
+        .arg("-u")
+        .arg(volume_path)
+        .output();
+
+    if let Ok(o) = output {
+        if o.status.success() {
+            return Ok(());
+        }
+    }
+
+    // Fall back to umount
+    let output = Command::new("umount")
+        .arg(volume_path)
+        .output()
+        .map_err(|e| ConfigError {
+            message: format!("Failed to unmount: {}", e),
+            details: None,
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(ConfigError {
+            message: format!("Unmount failed: {}", stderr.trim()),
+            details: None,
+        });
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn eject_volume(_volume_path: &Path) -> Result<(), ConfigError> {
+    // Windows volume ejection requires Win32 API calls.
+    // For now, instruct the user to use "Safely Remove Hardware".
+    Err(ConfigError {
+        message: "Automatic eject is not yet supported on Windows. Please use 'Safely Remove Hardware' in the system tray.".to_string(),
+        details: None,
+    })
+}
+
 /// Validate JSON without writing
 #[command]
 pub fn validate_config(json: String) -> Result<(), ConfigError> {
