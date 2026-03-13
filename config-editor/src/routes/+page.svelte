@@ -5,7 +5,8 @@
   import { getVersion } from '@tauri-apps/api/app';
   import {
     devices, selectedDevice, currentConfigRaw,
-    hasUnsavedChanges, validationErrors, statusMessage, isLoading
+    hasUnsavedChanges, validationErrors, statusMessage, isLoading,
+    toasts, showToast, removeToast
   } from '$lib/stores';
   import {
     scanDevices, startDeviceWatcher, readConfigRaw, writeConfigRaw,
@@ -14,6 +15,7 @@
   import type { DetectedDevice } from '$lib/types';
   import DeviceGrid from '$lib/components/DeviceGrid.svelte';
   import ButtonSettingsPanel from '$lib/components/ButtonSettingsPanel.svelte';
+  import Toast from '$lib/components/Toast.svelte';
   import { loadConfig, validate, normalizeConfig, config, isDirty, canUndo, canRedo, undo, redo, updateField } from '$lib/formStore';
 
   let appVersion = $state('');
@@ -129,7 +131,7 @@
   async function saveToDevice() {
     if (!$selectedDevice) return;
     if (!validate()) {
-      await message('Please fix validation errors before saving', { title: 'Validation Error', kind: 'error' });
+      showToast('Please fix validation errors before saving', 'error');
       return;
     }
     $isLoading = true;
@@ -140,9 +142,10 @@
       $currentConfigRaw = configJson;
       $hasUnsavedChanges = false;
       $statusMessage = 'Config saved successfully';
+      showToast('Config saved successfully', 'success');
     } catch (e: any) {
       $statusMessage = `Error saving config: ${e.message || e}`;
-      await message($statusMessage, { title: 'Error', kind: 'error' });
+      showToast($statusMessage, 'error', 5000);
     } finally {
       $isLoading = false;
     }
@@ -281,6 +284,16 @@
     </div>
   </div>
 {/if}
+
+<!-- Toast notifications -->
+{#each $toasts as toast (toast.id)}
+  <Toast
+    message={toast.message}
+    type={toast.type}
+    duration={toast.duration}
+    onClose={() => removeToast(toast.id)}
+  />
+{/each}
 
 <style>
   :global(*) { box-sizing: border-box; margin: 0; padding: 0; }
