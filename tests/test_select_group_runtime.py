@@ -33,8 +33,19 @@ def test_select_group_short_press_and_long_press(tmp_path, monkeypatch):
     cfg = {
         "device": "std10",
         "buttons": [
-            {"label": "A", "cc": 20, "color": "green", "select_group": "scene_a"},
-            {"label": "B", "cc": 21, "color": "red", "select_group": "scene_a", "long_press": {"type": "cc", "cc": 22, "value": 100, "threshold_ms": 150}}
+            {
+                "label": "A",
+                "color": "green",
+                "select_group": "scene_a",
+                "press": [{"type": "cc", "cc": 20, "value": 127}]
+            },
+            {
+                "label": "B",
+                "color": "red",
+                "select_group": "scene_a",
+                "press": [{"type": "cc", "cc": 21, "value": 127}],
+                "long_press": [{"type": "cc", "cc": 22, "value": 100, "threshold_ms": 150}]
+            }
         ]
     }
 

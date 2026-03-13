@@ -226,6 +226,10 @@ def validate_button(btn, index=0, global_channel=None):
                     a["program"] = _clamp_state_field("program", cmd.get("program", 0))
                 elif a_type in ("pc_inc", "pc_dec"):
                     a["pc_step"] = _clamp_state_field("pc_step", cmd.get("pc_step", 1))
+                # Optional threshold in milliseconds (for long_press events)
+                thresh = cmd.get("threshold_ms", cmd.get("threshold", None))
+                if isinstance(thresh, int) and thresh > 0:
+                    a["threshold_ms"] = thresh
                 validated_cmds.append(a)
             return validated_cmds if validated_cmds else None
         

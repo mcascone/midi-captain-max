@@ -18,10 +18,13 @@ def test_validate_button_long_press_cc():
 
     assert "long_press" in btn
     lp = btn["long_press"]
-    assert lp["type"] == "cc"
-    assert lp["cc"] == 40
-    assert lp["value"] == 100
-    assert lp["threshold_ms"] == 600
+    assert isinstance(lp, list), "long_press should be converted to array"
+    assert len(lp) == 1
+    cmd = lp[0]
+    assert cmd["type"] == "cc"
+    assert cmd["cc"] == 40
+    assert cmd["value"] == 100
+    assert cmd["threshold_ms"] == 600
 
 
 def test_validate_button_long_press_note():
@@ -31,9 +34,12 @@ def test_validate_button_long_press_note():
 
     assert "long_press" in btn
     lp = btn["long_press"]
-    assert lp["type"] == "note"
-    assert lp["note"] == 36
-    assert lp["value"] == 80
+    assert isinstance(lp, list), "long_press should be converted to array"
+    assert len(lp) == 1
+    cmd = lp[0]
+    assert cmd["type"] == "note"
+    assert cmd["note"] == 36
+    assert cmd["velocity"] == 80  # 'value' is converted to 'velocity' for note type
 
 
 def test_validate_config_preserves_global_threshold():

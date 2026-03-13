@@ -37,7 +37,12 @@ def test_long_press_action_triggers(tmp_path, monkeypatch):
     cfg = {
         "device": "std10",
         "buttons": [
-            {"label": "LP", "cc": 40, "color": "red", "long_press": {"type": "cc", "cc": 41, "value": 100, "threshold_ms": 200}}
+            {
+                "label": "LP",
+                "color": "red",
+                "press": [{"type": "cc", "cc": 40, "value": 127}],
+                "long_press": [{"type": "cc", "cc": 41, "value": 100, "threshold_ms": 200}]
+            }
         ]
     }
     validated = validate_config(cfg, button_count=fw.BUTTON_COUNT)
@@ -74,7 +79,12 @@ def test_short_press_does_not_trigger_longpress(tmp_path, monkeypatch):
     cfg = {
         "device": "std10",
         "buttons": [
-            {"label": "SP", "cc": 50, "color": "green", "long_press": {"type": "cc", "cc": 51, "value": 100, "threshold_ms": 500}}
+            {
+                "label": "SP",
+                "color": "green",
+                "press": [{"type": "cc", "cc": 50, "value": 127}],
+                "long_press": [{"type": "cc", "cc": 51, "value": 100, "threshold_ms": 500}]
+            }
         ]
     }
     validated = validate_config(cfg, button_count=fw.BUTTON_COUNT)
