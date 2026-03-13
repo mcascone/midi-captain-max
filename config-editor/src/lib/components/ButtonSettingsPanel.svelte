@@ -2,7 +2,8 @@
   import { config, updateField, syncButtonStates } from '$lib/formStore';
   import { selectedButtonIndex } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
-  import type { MessageType } from '$lib/types';
+  import ButtonCommandsEditor from './ButtonCommandsEditor.svelte';
+  import type { MessageType, MidiCommand } from '$lib/types';
 
   let btn    = $derived($config.buttons[$selectedButtonIndex] ?? null);
   let buttons = $derived($config.buttons);
@@ -17,6 +18,26 @@
 
   let effectiveChannel = $derived((btn?.channel !== undefined ? btn.channel : globalCh) + 1);
   let displayChannel   = $derived(btn?.channel !== undefined ? btn.channel + 1 : undefined);
+
+  // Multi-command mode state
+  let advancedMode = $state(false);
+  
+  // Detect if button uses new multi-command format
+  let hasMultiCommands = $derived(
+    btn && (
+      (Array.isArray(btn.press) && btn.press.length > 1) ||
+      (Array.isArray(btn.release) && btn.release.length > 0) ||
+      (Array.isArray(btn.long_press) && btn.long_press.length > 0) ||
+      (Array.isArray(btn.long_release) && btn.long_release.length > 0)
+    )
+  );
+  
+  // Auto-enable advanced mode if button has multi-commands
+  $effect(() => {
+    if (hasMultiCommands) {
+      advancedMode = true;
+    }
+  });
 
   function update(field: string, value: unknown) {
     updateField(`buttons[${$selectedButtonIndex}].${field}`, value);
@@ -182,6 +203,17 @@
         <span class="section-title">Behavior</span>
       </div>
 
+      <!-- Mode Toggle -->
+      <div class="field-row">
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={advancedMode} />
+          Multi-Command Mode
+        </label>
+        {#if hasMultiCommands}
+          <span class="mode-hint">(button uses multi-commands)</span>
+        {/if}
+      </div>
+
       <div class="field-row">
         {#if showMode}
           <div class="field">
@@ -220,75 +252,119 @@
       </div>
     </div>
 
-    <!-- ── LED Section ───────────────────────── -->
-    <div class="section">
-      <div class="section-header">
-        <span class="section-icon">⟳</span>
-        <span class="section-title">LED</span>
-      </div>
-
-      <label class="checkbox-label">
-        <input type="checkbox" checked={!!btn.long_press}
-          onchange={(e) => {
-            if ((e.target as HTMLInputElement).checked) {
-              update('long_press', { type: 'cc', cc: btn.cc ?? 20, value: 127, channel: btn.channel ?? globalCh, threshold_ms: 600 });
-            } else {
-              update('long_press', undefined);
-            }
-          }}
-        />
-        Enable long press
-      </label>
-
-      {#if btn.long_press}
-        <div class="field-row">
-          <div class="field">
-            <label>Type:</label>
-            <select value={btn.long_press.type ?? 'cc'}
-              onchange={(e) => update('long_press.type', strVal(e))}>
-              <option value="cc">CC</option>
-              <option value="note">Note</option>
-              <option value="pc">PC</option>
-            </select>
-          </div>
-
-          {#if btn.long_press.type === 'cc' || !btn.long_press.type}
-            <div class="field narrow">
-              <label>CC:</label>
-              <input type="number" min="0" max="127"
-                value={btn.long_press.cc ?? ''}
-                onblur={(e) => update('long_press.cc', numVal(e))} />
-            </div>
-            <div class="field narrow">
-              <label>Value:</label>
-              <input type="number" min="0" max="127"
-                value={btn.long_press.value ?? ''}
-                onblur={(e) => update('long_press.value', numVal(e))} />
-            </div>
-          {:else if btn.long_press.type === 'note'}
-            <div class="field narrow">
-              <label>Note:</label>
-              <input type="number" min="0" max="127"
-                value={btn.long_press.note ?? ''}
-                onblur={(e) => update('long_press.note', numVal(e))} />
-            </div>
-            <div class="field narrow">
-              <label>Vel:</label>
-              <input type="number" min="0" max="127"
-                value={btn.long_press.value ?? ''}
-                onblur={(e) => update('long_press.value', numVal(e))} />
-            </div>
-          {:else}
-            <div class="field narrow">
-              <label>Program:</label>
-              <input type="number" min="0" max="127"
-                value={btn.long_press.program ?? ''}
-                onblur={(e) => update('long_press.program', numVal(e))} />
-            </div>
-          {/if}
+    <!-- ── Actions Section ───────────────────── -->
+    {#if advancedMode}
+      <div class="section">
+        <div class="section-header">
+          <span class="section-icon">⚡</span>
+          <span class="section-title">Actions</span>
         </div>
-      {/if}
-    </div>
+
+        <!-- Press Event -->
+        <ButtonCommandsEditor
+          eventLabel="Press"
+          commands={btn.press ?? []}
+          globalChannel={globalCh}
+          onUpdate={(cmds) => update('press', cmds.length > 0 ? cmds : undefined)}
+        />
+
+        <!-- Release Event (only for momentary) -->
+        {#if (btn.mode ?? 'toggle') === 'momentary'}
+          <ButtonCommandsEditor
+            eventLabel="Release"
+            commands={btn.release ?? []}
+            globalChannel={globalCh}
+            onUpdate={(cmds) => update('release', cmds.length > 0 ? cmds : undefined)}
+          />
+        {/if}
+
+        <!-- Long Press Event -->
+        <ButtonCommandsEditor
+          eventLabel="Long Press"
+          commands={btn.long_press ?? []}
+          globalChannel={globalCh}
+          onUpdate={(cmds) => update('long_press', cmds.length > 0 ? cmds : undefined)}
+        />
+
+        <!-- Long Release Event -->
+        <ButtonCommandsEditor
+          eventLabel="Long Release"
+          commands={btn.long_release ?? []}
+          globalChannel={globalCh}
+          onUpdate={(cmds) => update('long_release', cmds.length > 0 ? cmds : undefined)}
+        />
+      </div>
+    {:else}
+      <!-- ── LED Section (Simple Mode) ─────────── -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-icon">⟳</span>
+          <span class="section-title">LED</span>
+        </div>
+
+        <label class="checkbox-label">
+          <input type="checkbox" checked={!!btn.long_press}
+            onchange={(e) => {
+              if ((e.target as HTMLInputElement).checked) {
+                update('long_press', { type: 'cc', cc: btn.cc ?? 20, value: 127, channel: btn.channel ?? globalCh, threshold_ms: 600 });
+              } else {
+                update('long_press', undefined);
+              }
+            }}
+          />
+          Enable long press
+        </label>
+
+        {#if btn.long_press}
+          <div class="field-row">
+            <div class="field">
+              <label>Type:</label>
+              <select value={btn.long_press.type ?? 'cc'}
+                onchange={(e) => update('long_press.type', strVal(e))}>
+                <option value="cc">CC</option>
+                <option value="note">Note</option>
+                <option value="pc">PC</option>
+              </select>
+            </div>
+
+            {#if btn.long_press.type === 'cc' || !btn.long_press.type}
+              <div class="field narrow">
+                <label>CC:</label>
+                <input type="number" min="0" max="127"
+                  value={btn.long_press.cc ?? ''}
+                  onblur={(e) => update('long_press.cc', numVal(e))} />
+              </div>
+              <div class="field narrow">
+                <label>Value:</label>
+                <input type="number" min="0" max="127"
+                  value={btn.long_press.value ?? ''}
+                  onblur={(e) => update('long_press.value', numVal(e))} />
+              </div>
+            {:else if btn.long_press.type === 'note'}
+              <div class="field narrow">
+                <label>Note:</label>
+                <input type="number" min="0" max="127"
+                  value={btn.long_press.note ?? ''}
+                  onblur={(e) => update('long_press.note', numVal(e))} />
+              </div>
+              <div class="field narrow">
+                <label>Vel:</label>
+                <input type="number" min="0" max="127"
+                  value={btn.long_press.value ?? ''}
+                  onblur={(e) => update('long_press.value', numVal(e))} />
+              </div>
+            {:else}
+              <div class="field narrow">
+                <label>Program:</label>
+                <input type="number" min="0" max="127"
+                  value={btn.long_press.program ?? ''}
+                  onblur={(e) => update('long_press.program', numVal(e))} />
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/if}
 
   {:else}
     <div class="empty-state">Select a button to edit settings</div>
@@ -467,6 +543,13 @@
     height: 15px;
     margin: 0;
     accent-color: #6366f1;
+  }
+
+  .mode-hint {
+    font-size: 11px;
+    color: #6b7280;
+    font-style: italic;
+    margin-left: auto;
   }
 
   .empty-state {
