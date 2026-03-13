@@ -239,6 +239,18 @@ For historical context on reverse engineering, see [docs/midicaptain_reverse_eng
 - ST7789 240×240 display (same params as STD10)
 - No encoder or expression inputs
 
+### 5-pin DIN MIDI
+
+- **TX pin**: `board.GP16`, **RX pin**: `board.GP17`, **baud**: `31250`, **timeout**: `0.003`
+- `busio.UART` is available in CircuitPython 7.x; use `receiver_buffer_size=64` (512 is fine too)
+- Wrap init in `try/except` — if UART is unavailable the firmware must still boot (`midi_serial = None`)
+- The original Helmut firmware had DIN MIDI; the dev rewrite initially dropped it (now restored)
+- **Pattern**: use a `midi_send(msg)` helper that calls both `midi.send(msg)` (USB) and `midi_serial.send(msg)` (DIN), rather than duplicating every send site
+- **MIDI Thru**: `handle_midi()` reads both ports; USB→DIN and DIN→USB forwarding happens there; both directions also drive LED/button state via `_process_midi_msg()`
+- **Full bidirectionality**: a hardware device on the DIN port can control Captain LEDs/LCD exactly like a USB DAW host — `_process_midi_msg` is source-agnostic (`source` arg is debug-print only). CC value >63 = ON, ≤63 = OFF (`on_midi_receive` in `button.py`). NoteOn/Off and PC are also handled.
+- **Keytimes caveat**: `on_midi_receive` sets boolean on/off state only — it does not advance the keytime slot. A host can illuminate the correct keytime color but cannot remotely cycle keytime positions.
+- For now, USB and DIN outputs are always mirrored — separate configuration is deferred (complexity not worth it yet)
+
 ### Device Auto-Detection
 Two-tier detection (config first, then hardware probe):
 1. **Config-based**: reads `"device"` field from `/config.json` (`"mini6"` or `"std10"`)
@@ -382,6 +394,12 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 - [x] Dev vs Performance mode (`dev_mode` in config + GUI checkbox)
 
 ### Future
+- [x] 5-pin DIN MIDI output + thru (mirrored from USB; GP16 TX / GP17 RX / 31250 baud) — 2026-03-13
+- [ ] Separate USB vs DIN MIDI configuration (deferred — adds complexity, low priority)
+- [ ] **Scripting / MIDI Transform Engine** — allow users to define rules that trigger on incoming MIDI and produce outgoing MIDI or internal actions. The Captain becomes a standalone MIDI brain: transpose, remap, filter, merge, split, and transform MIDI between DIN and USB without a computer. Analogous to Gig Performer GP Script, Bome MIDI Translator, MIDIStroke, LoopBe, etc. — but running on the device itself.
+  - Config-driven first: a `scripts` or `rules` section in `config.json` mapping trigger conditions to actions (e.g. `{ "on": {"type": "cc", "cc": 5, "value": ">63"}, "send": {"type": "pc", "program": 2} }`)
+  - Scripting language second (higher complexity): a minimal interpreted DSL in CircuitPython (line-by-line eval or pre-compiled to a simple bytecode). Look at GP Script / Pawn / Lua as inspiration for syntax.
+  - Marketing angle: *"The Captain is the brain of your rig"* — not just a footswitch, but a real-time MIDI processor and rules engine that replaces desktop MIDI utility apps on stage.
 - [ ] CI workflow DRY: `Setup Node.js` + `Install frontend dependencies` duplicated between `build-config-editor-macos` and `build-config-editor-windows` — could be a composite action
 - [ ] Release workflow DRY: find/rename/warn pattern in `Prepare release assets` repeats 3× (DMG, MSI, NSIS) — could be a shell function
 - [ ] Windows Signing Cert
@@ -583,7 +601,7 @@ PC buttons flash the LED on press for feedback (they have no persistent on/off s
 
 ```python
 while True:
-    handle_midi()       # RX: process incoming CC/Note/PC, update LED state
+    handle_midi()       # RX: USB + DIN; thru forwarding; update LED state
     handle_switches()   # TX: scan footswitches, dispatch MIDI on change
     update_pc_flash_timers()
     if HAS_ENCODER:
@@ -594,6 +612,14 @@ while True:
 ```
 
 No sleep — runs as fast as possible. Timing-sensitive code must use `time.monotonic()`.
+
+### MIDI Output Pattern
+
+All outgoing MIDI goes through `midi_send(msg)` which writes to both USB and 5-pin DIN simultaneously. Never call `midi.send()` directly from handler functions — always use `midi_send()`.
+
+`handle_midi()` is split into:
+- `_process_midi_msg(msg, source)` — updates LED/button state from any received message (source-agnostic)
+- `handle_midi()` — reads USB and DIN ports, calls `_process_midi_msg`, handles thru forwarding
 
 ### Button Dispatch (in `handle_switches`)
 
@@ -671,6 +697,17 @@ if enable_usb_drive:
 | `config-editor/src-tauri/src/config.rs` | Rust config structs + validation + round-trip tests |
 | `config-editor/src-tauri/src/commands.rs` | Tauri IPC commands: read/write/validate, path security |
 | `config-editor/src-tauri/src/device.rs` | USB device detection and hot-plug watcher |
+
+---
+
+## Memory & Knowledge Persistence (Guiding Principle)
+
+**Always write findings to memory — never relearn something twice.**
+
+- After any investigation, bug fix, or feature implementation, record what was discovered in `AGENTS.md` under the relevant section.
+- If a finding is generic enough to apply across all repos (workflow insight, platform quirk, tooling pattern), also write it to `~/.claude/CLAUDE.md` (global persona memory).
+- Update existing sections rather than appending stale duplicates — keep entries current and accurate.
+- This applies to: hardware pin confirmations, CircuitPython quirks, architectural decisions, things that were broken and why, things tried that didn't work, and any non-obvious implementation detail.
 
 ---
 
