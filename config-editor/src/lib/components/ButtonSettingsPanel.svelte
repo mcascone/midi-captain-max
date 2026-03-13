@@ -603,6 +603,8 @@
     line-height: 1.4;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    white-space: normal;
+    max-width: 100%;
   }
 
   .mode-badge {
