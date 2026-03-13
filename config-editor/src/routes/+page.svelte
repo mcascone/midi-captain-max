@@ -12,58 +12,44 @@
     onDeviceConnected, onDeviceDisconnected
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
-  import ConfigForm from '$lib/components/ConfigForm.svelte';
-  import DeviceSection from '$lib/components/DeviceSection.svelte';
-  import ButtonsSection from '$lib/components/ButtonsSection.svelte';
-  import EncoderSection from '$lib/components/EncoderSection.svelte';
-  import ExpressionSection from '$lib/components/ExpressionSection.svelte';
-  import DisplaySection from '$lib/components/DisplaySection.svelte';
-  import { loadConfig, validate, normalizeConfig, config } from '$lib/formStore';
+  import DeviceGrid from '$lib/components/DeviceGrid.svelte';
+  import ButtonSettingsPanel from '$lib/components/ButtonSettingsPanel.svelte';
+  import { loadConfig, validate, normalizeConfig, config, isDirty, canUndo, canRedo, undo, redo, updateField } from '$lib/formStore';
 
   let appVersion = $state('');
-  
-  // Event listener cleanup functions
+  let showJsonModal = $state(false);
+  let jsonText = $state('');
   let unlistenConnect: (() => void) | undefined;
   let unlistenDisconnect: (() => void) | undefined;
-  
+
+  let devMode = $derived($config.dev_mode ?? false);
+  let hasErrors = $derived($validationErrors.length > 0);
+  let statusDot = $derived(
+    $statusMessage.toLowerCase().includes('error') ? 'error'
+    : $statusMessage.toLowerCase().includes('saved') || $statusMessage.toLowerCase().includes('success') ? 'success'
+    : 'idle'
+  );
+
   onMount(async () => {
     try {
       appVersion = await getVersion();
-
-      // Initial device scan
       $devices = await scanDevices();
-      console.log('Devices found:', $devices);
-      
-      // Start watching for device changes
       await startDeviceWatcher();
-      
-      // Listen for device events (store cleanup functions)
+
       unlistenConnect = await onDeviceConnected(async (device) => {
-        // Deduplicate: check if device is already in the list
         const exists = $devices.some(d => d.path === device.path);
         if (!exists) {
           $devices = [...$devices, device];
           $statusMessage = `Device connected: ${device.name}`;
-          
-          // Auto-select if device was previously selected or if it's the only one
-          const shouldAutoSelect = $devices.length === 1 || 
+          const shouldAutoSelect = $devices.length === 1 ||
             ($selectedDevice && $selectedDevice.path === device.path);
-          
           if (shouldAutoSelect) {
-            // Small delay to ensure device is fully mounted before loading config
             await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Force reload config by reading directly from device
             $selectedDevice = device;
             $isLoading = true;
-            
             try {
               const configRaw = await readConfigRaw(device.config_path);
-              const configObj = JSON.parse(configRaw);
-              
-              // Load into form store
-              loadConfig(configObj);
-              
+              loadConfig(JSON.parse(configRaw));
               $currentConfigRaw = configRaw;
               $hasUnsavedChanges = false;
               $validationErrors = [];
@@ -77,129 +63,83 @@
           }
         }
       });
-      
+
       unlistenDisconnect = await onDeviceDisconnected(async (name) => {
         const wasSelected = $selectedDevice?.name === name;
-        
-        // Remove device by name
         $devices = $devices.filter(d => d.name !== name);
-        
         if (wasSelected) {
           if ($hasUnsavedChanges) {
-            await message(
-              `Device "${name}" was disconnected. Your unsaved changes have been lost.`,
-              { title: 'Device Disconnected', kind: 'warning' }
-            );
+            await message(`Device "${name}" was disconnected. Unsaved changes lost.`,
+              { title: 'Device Disconnected', kind: 'warning' });
           }
-          // Don't clear selectedDevice - keep it so we can auto-select when it reconnects
           $currentConfigRaw = '';
           $hasUnsavedChanges = false;
         }
-        
         $statusMessage = `Device disconnected: ${name}`;
       });
-      
-      // Auto-select if only one device
-      if ($devices.length === 1) {
-        await selectDevice($devices[0]);
-      }
-      
-      // Add keyboard shortcut handler (⌘S to save)
+
+      if ($devices.length === 1) await selectDevice($devices[0]);
+
       const handleKeydown = async (e: KeyboardEvent) => {
-        if (e.metaKey && e.key === 's') {
+        const isCmd = e.metaKey || e.ctrlKey;
+        if (isCmd && e.key === 's') {
           e.preventDefault();
-          if ($selectedDevice && $hasUnsavedChanges) {
-            await saveToDevice();
-          }
+          if ($selectedDevice && $isDirty) await saveToDevice();
+        } else if (isCmd && e.key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey && $canRedo) redo();
+          else if ($canUndo) undo();
         }
       };
-      
       document.addEventListener('keydown', handleKeydown);
-      
-      // Clean up keyboard listener
-      return () => {
-        document.removeEventListener('keydown', handleKeydown);
-      };
+      return () => document.removeEventListener('keydown', handleKeydown);
     } catch (e: any) {
       $statusMessage = `Error initializing: ${e.message || e}`;
     }
   });
-  
+
   onDestroy(() => {
-    // Clean up event listeners to prevent memory leaks
     unlistenConnect?.();
     unlistenDisconnect?.();
   });
-  
+
   async function selectDevice(device: DetectedDevice) {
-    console.log('selectDevice called with:', device);
-    
-    if ($hasUnsavedChanges) {
-      if (!confirm('You have unsaved changes. Discard them?')) {
-        return;
-      }
-    }
-    
+    if ($hasUnsavedChanges && !confirm('You have unsaved changes. Discard them?')) return;
     $selectedDevice = device;
     $isLoading = true;
-    
     try {
       if (device.has_config) {
-        console.log('Reading config from:', device.config_path);
         const configRaw = await readConfigRaw(device.config_path);
-        console.log('Config raw loaded, length:', configRaw.length);
-        const configObj = JSON.parse(configRaw);
-        console.log('Config parsed:', configObj);
-        
-        // Load into form store
-        loadConfig(configObj);
-        console.log('Config loaded into form store');
-        
+        loadConfig(JSON.parse(configRaw));
         $currentConfigRaw = configRaw;
         $hasUnsavedChanges = false;
         $validationErrors = [];
         $statusMessage = 'Config loaded successfully';
       } else {
-        console.log('No config found on device');
         $currentConfigRaw = '';
         $statusMessage = 'No config.json found on device';
       }
     } catch (e: any) {
-      console.error('Error loading config:', e);
       $statusMessage = `Error reading config: ${e.message || e}`;
     } finally {
       $isLoading = false;
     }
   }
-  
+
   async function saveToDevice() {
     if (!$selectedDevice) return;
-    
-    const isValid = validate();
-    if (!isValid) {
-      await message('Please fix validation errors before saving', { 
-        title: 'Validation Error', 
-        kind: 'error' 
-      });
+    if (!validate()) {
+      await message('Please fix validation errors before saving', { title: 'Validation Error', kind: 'error' });
       return;
     }
-    
     $isLoading = true;
-    
     try {
       const configObj = normalizeConfig(get(config));
       const configJson = JSON.stringify(configObj, null, 2);
-      
       await writeConfigRaw($selectedDevice.config_path, configJson);
-      
       $currentConfigRaw = configJson;
       $hasUnsavedChanges = false;
       $statusMessage = 'Config saved successfully';
-      
-      await message('Config saved to device successfully!', { 
-        title: 'Success', 
-        kind: 'info' 
-      });
     } catch (e: any) {
       $statusMessage = `Error saving config: ${e.message || e}`;
       await message($statusMessage, { title: 'Error', kind: 'error' });
@@ -207,309 +147,259 @@
       $isLoading = false;
     }
   }
-  
+
   async function reloadFromDevice() {
-    console.log('reloadFromDevice called, selectedDevice:', $selectedDevice);
     if (!$selectedDevice) return;
-    
     $isLoading = true;
     try {
       if ($selectedDevice.has_config) {
-        console.log('Reloading config from:', $selectedDevice.config_path);
         const configRaw = await readConfigRaw($selectedDevice.config_path);
-        console.log('Config reloaded, length:', configRaw.length);
-        const configObj = JSON.parse(configRaw);
-        
-        // Load into form store
-        loadConfig(configObj);
-        
+        loadConfig(JSON.parse(configRaw));
         $currentConfigRaw = configRaw;
         $hasUnsavedChanges = false;
         $validationErrors = [];
         $statusMessage = 'Config reloaded from device';
       }
     } catch (e: any) {
-      console.error('Error reloading config:', e);
       $statusMessage = `Error reloading config: ${e.message || e}`;
     } finally {
       $isLoading = false;
     }
   }
-  
+
   async function resetDevice() {
     if (!$selectedDevice) return;
-    
-    try {
-      await message(
-        'To apply config changes, reset your MIDI Captain device:\n\n' +
-        '1. Unplug the USB cable\n' +
-        '2. Wait 2 seconds\n' +
-        '3. Plug it back in\n\n' +
-        'The device will restart with the new configuration.',
-        { title: 'Reset Device', kind: 'info' }
-      );
-      
-      $statusMessage = 'Waiting for device to reconnect...';
-    } catch (e: any) {
-      console.error('Error showing reset dialog:', e);
-      $statusMessage = `Error showing dialog: ${e.message || e}`;
-    }
+    await message(
+      'To apply config changes, reset your MIDI Captain device:\n\n' +
+      '1. Unplug the USB cable\n2. Wait 2 seconds\n3. Plug it back in',
+      { title: 'Reset Device', kind: 'info' }
+    );
+    $statusMessage = 'Waiting for device to reconnect...';
   }
-  
-  function handleEditorChange(newValue: string) {
-    editorContent = newValue;
-    $hasUnsavedChanges = newValue !== $currentConfigRaw;
+
+  function viewJson() {
+    jsonText = JSON.stringify($config, null, 2);
+    showJsonModal = true;
   }
 </script>
 
-<main>
-  <header>
-    <div class="title-group">
-      <h1>MIDI Captain MAX Config Editor</h1>
-      {#if appVersion}
-        <span class="version">v{appVersion}</span>
-      {/if}
+<div class="app">
+  <!-- header -->
+  <header class="header">
+    <div class="header-left">
+      <h1 class="app-title">MIDI Captain MAX Config Editor</h1>
+      {#if appVersion}<span class="version">v{appVersion}</span>{/if}
     </div>
-    <div class="device-selector">
+    <div class="header-right">
       {#if $devices.length === 0}
-        <span class="no-device">No device connected</span>
+        <span class="no-device-text">No device connected</span>
       {:else}
-        <select 
-          value={$selectedDevice?.name ?? ''} 
-          onchange={(e) => {
-            const device = $devices.find(d => d.name === e.currentTarget.value);
-            if (device) selectDevice(device);
-          }}
-        >
-          <option value="" disabled>Select device...</option>
-          {#each $devices as device}
-            <option value={device.name}>{device.name}</option>
-          {/each}
-        </select>
+        <div class="device-pill">
+          <select class="device-select"
+            value={$selectedDevice?.name ?? ''}
+            onchange={(e) => {
+              const d = $devices.find(x => x.name === e.currentTarget.value);
+              if (d) selectDevice(d);
+            }}>
+            <option value="" disabled>Select device…</option>
+            {#each $devices as d}
+              <option value={d.name}>{d.name}</option>
+            {/each}
+          </select>
+          <span class="device-chevron">⌄</span>
+        </div>
       {/if}
     </div>
   </header>
-  
-  <div class="editor-container">
+
+  <!-- toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="tool-btn" onclick={() => undo()} disabled={!$canUndo}>Undo</button>
+      <button class="tool-btn" onclick={() => redo()} disabled={!$canRedo}>Redo</button>
+      <div class="dev-mode-row">
+        <input type="checkbox" id="dev-mode" class="dev-cb" checked={devMode}
+          onchange={(e) => updateField('dev_mode', (e.target as HTMLInputElement).checked)} />
+        <label for="dev-mode" class="dev-label">Development mode</label>
+        <span class="dev-hint">for iterative testing: USB drive mounts always on device boot. (Not recommendded for live use.)</span>
+      </div>
+    </div>
+    <div class="toolbar-right">
+      <button class="tool-btn secondary" onclick={viewJson}>View JSON</button>
+      <button class="tool-btn primary" onclick={saveToDevice}
+        disabled={!$selectedDevice || $isLoading || hasErrors}>
+        Save to Device <span class="arrow">▾</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- main content -->
+  <div class="main">
     {#if $selectedDevice && !$isLoading}
-      <ConfigForm onSave={saveToDevice}>
-        <DeviceSection />
-        <ButtonsSection />
-        <EncoderSection />
-        <ExpressionSection />
-        <DisplaySection />
-      </ConfigForm>
+      <div class="left-panel"><DeviceGrid /></div>
+      <div class="right-panel"><ButtonSettingsPanel /></div>
     {:else if $isLoading}
-      <div class="loading">Loading config...</div>
+      <div class="center-state"><div class="spinner"></div><span>Loading…</span></div>
     {:else}
-      <div class="no-device">
-        <p>No device selected</p>
-        <p>Connect a MIDI Captain device and select it above</p>
+      <div class="center-state">
+        <p class="center-title">No device selected</p>
+        <p class="center-sub">Connect a MIDI Captain and select it above</p>
       </div>
     {/if}
   </div>
-  
-  {#if $validationErrors.length > 0}
-    <div class="errors">
-      <strong>Validation Errors:</strong>
-      <ul>
-        {#each $validationErrors as error}
-          <li>{error}</li>
-        {/each}
-      </ul>
+
+  <!-- status bar -->
+  <footer class="statusbar">
+    <div class="status-left">
+      <span class="dot {statusDot}"></span>
+      <span class="status-text">{$statusMessage}</span>
     </div>
-  {/if}
-  
-  <footer>
-    <div class="status">{$statusMessage}</div>
-    <div class="actions">
-      {#if $hasUnsavedChanges}
-        <span class="unsaved">● Unsaved changes</span>
-      {/if}
-      <button 
-        class="secondary"
-        onclick={reloadFromDevice} 
-        disabled={!$selectedDevice || $isLoading}
-      >
-        Reload
-      </button>
-      <button 
-        class="secondary"
-        onclick={resetDevice} 
-        disabled={!$selectedDevice || $isLoading}
-      >
-        Reset Device
-      </button>
+    <div class="status-right">
+      <button class="ghost-btn" onclick={reloadFromDevice} disabled={!$selectedDevice || $isLoading}>Reload</button>
+      <button class="ghost-btn" onclick={resetDevice} disabled={!$selectedDevice || $isLoading}>Reset Device</button>
     </div>
   </footer>
-</main>
+</div>
+
+<!-- JSON modal -->
+{#if showJsonModal}
+  <div class="modal-backdrop" role="dialog" aria-modal="true" tabindex="0"
+    onclick={() => showJsonModal = false}
+    onkeydown={(e) => e.key === 'Escape' && (showJsonModal = false)}>
+    <div class="modal" role="document"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <span class="modal-title">Configuration JSON</span>
+        <button class="modal-close" onclick={() => showJsonModal = false}>✕</button>
+      </div>
+      <pre class="json-view">{jsonText}</pre>
+      <div class="modal-footer">
+        <button class="tool-btn secondary" onclick={() => navigator.clipboard.writeText(jsonText)}>Copy</button>
+        <button class="tool-btn" onclick={() => showJsonModal = false}>Close</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
+  :global(*) { box-sizing: border-box; margin: 0; padding: 0; }
   :global(body) {
-    margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    
-    /* Light mode defaults */
-    --bg-primary: #ffffff;
-    --bg-secondary: #f5f5f5;
-    --bg-tertiary: #e0e0e0;
-    --text-primary: #1e1e1e;
-    --text-secondary: #666666;
-    --border-color: #d0d0d0;
-    --accent: #0078d4;
-    --accent-hover: #1084d8;
-    --success: #4a7c4e;
-    --warning: #f0ad4e;
-    --error-bg: #fce4e4;
-    --error-border: #f5c6cb;
-    --error-text: #a94442;
-    --disabled-bg: #cccccc;
-    
-    background: var(--bg-primary);
-    color: var(--text-primary);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :global(body) {
-      --bg-primary: #1e1e1e;
-      --bg-secondary: #2d2d2d;
-      --bg-tertiary: #3c3c3c;
-      --text-primary: #d4d4d4;
-      --text-secondary: #888888;
-      --border-color: #404040;
-      --accent: #0078d4;
-      --accent-hover: #1084d8;
-      --success: #4a7c4e;
-      --warning: #f0ad4e;
-      --error-bg: #3c1f1f;
-      --error-border: #5c2f2f;
-      --error-text: #f48771;
-      --disabled-bg: #555555;
-    }
-  }
-  
-  main {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-  }
-  
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 20px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .title-group {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-
-  h1 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 500;
-  }
-
-  .version {
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-  
-  .device-selector select {
-    padding: 6px 12px;
     font-size: 14px;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-  }
-  
-  .no-device {
-    color: var(--text-secondary);
-    font-style: italic;
-  }
-  
-  .editor-container {
-    flex: 1;
-    padding: 20px;
+    background: #0f0f1a;
+    color: #e5e7eb;
+    height: 100vh;
     overflow: hidden;
   }
-  
-  .errors {
-    padding: 12px 20px;
-    background: var(--error-bg);
-    border-top: 1px solid var(--error-border);
-    color: var(--error-text);
+  :global(input,select,button) { font-family: inherit; font-size: inherit; }
+
+  .app { display: flex; flex-direction: column; height: 100vh; background: #0f0f1a; }
+
+  /* Header */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px; background: #12121f;
+    border-bottom: 1px solid #1e1e2e; flex-shrink: 0; min-height: 48px;
   }
-  
-  .errors ul {
-    margin: 8px 0 0 0;
-    padding-left: 20px;
+  .header-left { display: flex; align-items: baseline; gap: 8px; }
+  .app-title { font-size: 15px; font-weight: 600; color: #f3f4f6; }
+  .version { font-size: 11px; color: #6b7280; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .device-pill { position: relative; display: flex; align-items: center; }
+  .device-select {
+    appearance: none; background: #1a1a2e; border: 1px solid #2a2a40;
+    border-radius: 8px; color: #e5e7eb; padding: 6px 32px 6px 12px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
   }
-  
-  footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 20px;
-    background: var(--bg-secondary);
-    border-top: 1px solid var(--border-color);
+  .device-select:focus { outline: none; border-color: #6366f1; }
+  .device-chevron { position: absolute; right: 10px; font-size: 12px; color: #6b7280; pointer-events: none; }
+  .no-device-text { font-size: 13px; color: #6b7280; font-style: italic; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px; background: #12121f;
+    border-bottom: 1px solid #1e1e2e; flex-shrink: 0; gap: 12px;
   }
-  
-  .status {
-    color: var(--text-secondary);
-    font-size: 13px;
+  .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; }
+  .tool-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 14px; background: #1a1a2e; border: 1px solid #2a2a40;
+    border-radius: 6px; color: #d1d5db; font-size: 13px; cursor: pointer;
+    transition: background 0.15s;
   }
-  
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 16px;
+  .tool-btn:hover:not(:disabled) { background: #222238; border-color: #3d3d5c; color: #f3f4f6; }
+  .tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .tool-btn.primary { background: #4f46e5; border-color: #4f46e5; color: #fff; font-weight: 600; }
+  .tool-btn.primary:hover:not(:disabled) { background: #5a52f0; }
+  .tool-btn.secondary { background: transparent; color: #9ca3af; }
+  .tool-btn.secondary:hover:not(:disabled) { background: #1a1a2e; color: #e5e7eb; }
+  .arrow { font-size: 11px; }
+  .dev-mode-row { display: flex; align-items: center; gap: 6px; margin-left: 4px; }
+  .dev-cb { width: 15px; height: 15px; accent-color: #4f46e5; cursor: pointer; }
+  .dev-label { font-size: 13px; color: #d1d5db; cursor: pointer; user-select: none; }
+  .dev-hint { font-size: 11px; color: #6b7280; }
+
+  /* Main */
+  .main { display: flex; flex: 1; overflow: hidden; }
+  .left-panel { flex: 1; min-width: 0; overflow-y: auto; border-right: 1px solid #1e1e2e; background: #0f0f1a; }
+  .right-panel { width: 340px; flex-shrink: 0; overflow-y: auto; background: #0f0f1a; }
+
+  .center-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; }
+  .center-title { font-size: 15px; font-weight: 500; color: #6b7280; }
+  .center-sub { font-size: 13px; color: #4b5563; }
+  .spinner {
+    width: 28px; height: 28px; border: 3px solid #1e1e2e;
+    border-top-color: #4f46e5; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
   }
-  
-  .unsaved {
-    color: #dcdcaa;
-    font-size: 13px;
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Status bar */
+  .statusbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px; background: #0d0d18;
+    border-top: 1px solid #1e1e2e; flex-shrink: 0; min-height: 40px;
   }
-  
-  button {
-    padding: 8px 16px;
-    font-size: 14px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+  .status-left { display: flex; align-items: center; gap: 7px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot.success { background: #22c55e; }
+  .dot.error { background: #ef4444; }
+  .dot.idle { background: #374151; }
+  .status-text { font-size: 12px; color: #6b7280; }
+  .status-right { display: flex; gap: 8px; }
+  .ghost-btn {
+    background: transparent; border: 1px solid #2a2a40; border-radius: 6px;
+    color: #9ca3af; padding: 4px 12px; font-size: 12px; cursor: pointer;
   }
-  
-  button.secondary {
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
+  .ghost-btn:hover:not(:disabled) { background: #1a1a2e; color: #e5e7eb; }
+  .ghost-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* JSON Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
   }
-  
-  button:hover:not(:disabled) {
-    background: var(--accent-hover);
+  .modal {
+    background: #14141f; border: 1px solid #2a2a40; border-radius: 12px;
+    width: 560px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;
   }
-  
-  button.secondary:hover:not(:disabled) {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid #1e1e2e;
   }
-  
-  button:disabled {
-    background: var(--disabled-bg);
-    cursor: not-allowed;
+  .modal-title { font-size: 14px; font-weight: 600; color: #e5e7eb; }
+  .modal-close { background: none; border: none; color: #6b7280; font-size: 16px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+  .modal-close:hover { color: #e5e7eb; background: #1e1e2e; }
+  .json-view {
+    flex: 1; overflow-y: auto; padding: 16px 18px;
+    font-size: 12px; line-height: 1.6;
+    font-family: 'SF Mono', 'Fira Mono', monospace;
+    color: #a5b4fc; white-space: pre;
   }
-  
-  button.secondary:disabled {
-    background: transparent;
-    color: var(--text-secondary);
-    opacity: 0.5;
+  .modal-footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 18px; border-top: 1px solid #1e1e2e;
   }
 </style>

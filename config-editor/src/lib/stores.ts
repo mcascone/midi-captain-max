@@ -21,6 +21,9 @@ export const validationErrors = writable<string[]>([]);
 export const isLoading = writable<boolean>(false);
 export const statusMessage = writable<string>('');
 
+// Currently selected button index (for the right-panel settings editor)
+export const selectedButtonIndex = writable<number>(0);
+
 // Derived: is a device selected and has config
 export const canEdit = derived(
   [selectedDevice, currentConfigRaw],

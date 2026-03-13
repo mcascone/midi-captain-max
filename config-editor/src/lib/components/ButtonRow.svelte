@@ -399,7 +399,7 @@
         <option value="toggle">Toggle</option>
         <option value="momentary">Momentary</option>
         <option value="select">Select</option>
-          <option value="tap">Tap (always active — blinks when tapped)</option>
+        <option value="tap">Tap (always active — blinks when tapped)</option>
       </select>
     </div>
   {/if}
