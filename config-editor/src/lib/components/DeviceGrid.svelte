@@ -10,10 +10,14 @@
   let cols = $derived(deviceType === 'mini6' ? 3 : 5);
 
   function typeLabel(btn: ButtonConfig): string {
-    const type = btn.type ?? 'cc';
-    if (type === 'cc')     return `CC${btn.cc ?? '?'}`;
-    if (type === 'note')   return `Note${btn.note ?? '?'}`;
-    if (type === 'pc')     return `PC${btn.program ?? '?'}`;
+    // Extract info from first press command (multi-command mode)
+    const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+    if (!firstCmd) return '—';
+    
+    const type = firstCmd.type ?? 'cc';
+    if (type === 'cc')     return `CC${firstCmd.cc ?? '?'}`;
+    if (type === 'note')   return `Note${firstCmd.note ?? '?'}`;
+    if (type === 'pc')     return `PC${firstCmd.program ?? '?'}`;
     if (type === 'pc_inc') return 'PC+';
     if (type === 'pc_dec') return 'PC-';
     return type.toUpperCase();
@@ -24,17 +28,24 @@
   }
 
   function onValues(btn: ButtonConfig): string {
-    const type = btn.type ?? 'cc';
-    const ch = (btn.channel ?? $config.global_channel ?? 0) + 1;
-    if (type === 'cc')   return `${ch}   ${btn.cc_on ?? 127}`;
-    if (type === 'note') return `${ch}   ${btn.velocity_on ?? 127}`;
+    const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+    if (!firstCmd) return '—';
+    
+    const type = firstCmd.type ?? 'cc';
+    const ch = (firstCmd.channel ?? btn.channel ?? $config.global_channel ?? 0) + 1;
+    if (type === 'cc')   return `${ch}   ${firstCmd.value ?? 127}`;
+    if (type === 'note') return `${ch}   ${firstCmd.velocity ?? 127}`;
     return String(ch);
   }
 
   function offValues(btn: ButtonConfig): string {
-    const type = btn.type ?? 'cc';
-    if (type === 'cc')   return String(btn.cc_off ?? 0);
-    if (type === 'note') return String(btn.velocity_off ?? 0);
+    // For toggle/select modes, look for a "release" command or infer off value
+    const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+    if (!firstCmd) return '';
+    
+    const type = firstCmd.type ?? 'cc';
+    if (type === 'cc')   return '0';  // Default CC off value
+    if (type === 'note') return '0';  // Default note off velocity
     return '';
   }
 </script>
