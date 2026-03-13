@@ -122,14 +122,23 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
         return Ok(());
     }
 
-    // Accept custom-named volumes only when the config's usb_drive_name
-    // matches the actual volume name.  This prevents a stray config.json
-    // on an unrelated volume from opening the security gate.
+    // Accept volumes that contain a valid MIDI Captain config.json.
+    // If usb_drive_name is explicitly declared in the config, it must match
+    // the actual volume name — preventing a stray config.json on an unrelated
+    // volume from passing. If usb_drive_name is not declared, any valid
+    // MIDI Captain config is accepted.
     if let Some(volume_path) = get_volume_path(&canonical) {
         let config_path = volume_path.join("config.json");
-        if let Some(declared_name) = crate::device::parse_midi_captain_config(&config_path) {
-            if declared_name.eq_ignore_ascii_case(&volume_name) {
-                return Ok(());
+        if crate::device::is_midi_captain_config(&config_path) {
+            match crate::device::parse_midi_captain_config(&config_path) {
+                Some(declared_name) if declared_name.eq_ignore_ascii_case(&volume_name) => {
+                    return Ok(());
+                }
+                None => {
+                    // No custom name declared — accept any valid MIDI Captain volume
+                    return Ok(());
+                }
+                _ => {} // declared name doesn't match this volume
             }
         }
     }

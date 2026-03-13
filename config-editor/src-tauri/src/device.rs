@@ -21,13 +21,20 @@ const DEVICE_VOLUMES: &[&str] = &["CIRCUITPY", "MIDICAPTAIN"];
 /// Used as a fallback when the volume name is not in `DEVICE_VOLUMES` —
 /// i.e., the user has configured a custom `usb_drive_name` in their config.
 pub fn is_midi_captain_config(config_path: &std::path::Path) -> bool {
-    parse_midi_captain_config(config_path).is_some()
+    if !config_path.exists() {
+        return false;
+    }
+    let Ok(contents) = std::fs::read_to_string(config_path) else { return false };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) else { return false };
+    matches!(value.get("device").and_then(|v| v.as_str()), Some("std10") | Some("mini6"))
 }
 
-/// Parse a config.json and return the `usb_drive_name` if it's a valid
-/// MIDI Captain config (has `"device": "std10"` or `"mini6"`).
-/// Returns `None` if the file doesn't exist, isn't valid JSON, or isn't
-/// a MIDI Captain config.
+/// Parse a config.json and return the explicitly declared `usb_drive_name` if set,
+/// or `None` if the config is not a valid MIDI Captain config or has no custom name.
+///
+/// Returns `None` if:
+/// - the file doesn't exist, isn't valid JSON, or isn't a MIDI Captain config
+/// - the config is valid but has no `usb_drive_name` (no custom name declared)
 pub fn parse_midi_captain_config(config_path: &std::path::Path) -> Option<String> {
     if !config_path.exists() {
         return None;
@@ -38,12 +45,11 @@ pub fn parse_midi_captain_config(config_path: &std::path::Path) -> Option<String
     if device != "std10" && device != "mini6" {
         return None;
     }
-    // Return the usb_drive_name if present, otherwise the default
-    let drive_name = value
+    // Return usb_drive_name only if explicitly set — no default fallback
+    value
         .get("usb_drive_name")
         .and_then(|v| v.as_str())
-        .unwrap_or("MIDICAPTAIN");
-    Some(drive_name.to_string())
+        .map(|s| s.to_string())
 }
 
 /// Get the volumes directory for the current platform
@@ -550,11 +556,11 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_midi_captain_config_defaults_to_midicaptain() {
+    fn test_parse_midi_captain_config_returns_none_when_no_custom_name() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.json");
         std::fs::write(&path, r#"{"device": "mini6", "buttons": []}"#).unwrap();
-        assert_eq!(parse_midi_captain_config(&path).as_deref(), Some("MIDICAPTAIN"));
+        assert_eq!(parse_midi_captain_config(&path), None);
     }
 
     #[test]
