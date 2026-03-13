@@ -580,12 +580,15 @@
     cursor: pointer;
     flex: 1;
     margin: 0;
+    min-width: 0; /* Allow shrinking */
   }
 
   .toggle-content {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    flex: 1;
+    min-width: 0; /* Allow shrinking */
   }
 
   .toggle-title {
@@ -598,6 +601,8 @@
     font-size: 11px;
     color: #9ca3af;
     line-height: 1.4;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   .mode-badge {
