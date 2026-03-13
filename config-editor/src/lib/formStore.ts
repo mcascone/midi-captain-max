@@ -332,37 +332,58 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
   const type = btn.type ?? 'cc';
   const { cc, cc_on, cc_off, note, velocity_on, velocity_off, program, pc_step, flash_ms, ...common } = btn;
 
+  let normalized: ButtonConfig;
   switch (type) {
     case 'cc':
-      return {
+      normalized = {
         ...common,
         ...(cc !== undefined && { cc }),
         ...(cc_on !== undefined && { cc_on }),
         ...(cc_off !== undefined && { cc_off }),
       };
+      break;
     case 'note':
-      return {
+      normalized = {
         ...common,
         ...(note !== undefined && { note }),
         ...(velocity_on !== undefined && { velocity_on }),
         ...(velocity_off !== undefined && { velocity_off }),
       };
+      break;
     case 'pc':
-      return {
+      normalized = {
         ...common,
         ...(program !== undefined && { program }),
         ...(flash_ms !== undefined && { flash_ms }),
       };
+      break;
     case 'pc_inc':
     case 'pc_dec':
-      return {
+      normalized = {
         ...common,
         ...(pc_step !== undefined && { pc_step }),
         ...(flash_ms !== undefined && { flash_ms }),
       };
+      break;
     default:
-      return btn;
+      normalized = btn;
   }
+
+  // CRITICAL: Convert simple-mode object format to array format for backend
+  // Simple mode creates { long_press: { type: 'cc', ... } }
+  // Backend expects { long_press: [{ type: 'cc', ... }] }
+  const ensureArray = (field: any): any[] | undefined => {
+    if (!field) return undefined;
+    if (Array.isArray(field)) return field;
+    return [field]; // Convert single object to array
+  };
+
+  if (normalized.press) normalized.press = ensureArray(normalized.press) as any;
+  if (normalized.release) normalized.release = ensureArray(normalized.release) as any;
+  if (normalized.long_press) normalized.long_press = ensureArray(normalized.long_press) as any;
+  if (normalized.long_release) normalized.long_release = ensureArray(normalized.long_release) as any;
+
+  return normalized;
 }
 
 export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
