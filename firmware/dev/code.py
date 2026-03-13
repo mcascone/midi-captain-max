@@ -41,7 +41,7 @@ from adafruit_midi.note_off import NoteOff
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
-from core.config import load_config as _load_config_from_file, get_display_config, get_button_state_config
+from core.config import load_config as _load_config_from_file, validate_config, get_display_config, get_button_state_config
 from core.button import Switch, ButtonState
 
 # =============================================================================
@@ -224,6 +224,14 @@ def load_config():
 config = load_config()
 buttons = config.get("buttons", [])
 print(f"Loaded {len(buttons)} button configs")
+# Validate/normalize config so derived fields like `led_mode` are populated
+try:
+    config = validate_config(config, button_count=BUTTON_COUNT)
+    buttons = config.get("buttons", [])
+except Exception:
+    # Defensive: if validation fails, continue with raw config
+    pass
+print(f"Validated {len(buttons)} button configs")
 
 # =============================================================================
 # Fonts
@@ -384,7 +392,10 @@ for i in range(BUTTON_COUNT):
     cc = btn_config.get("cc", 0)  # 0 for non-CC types; ButtonState.cc unused by note/pc dispatch
     mode = btn_config.get("mode", "toggle")
     keytimes = btn_config.get("keytimes", 1)
-    button_states.append(ButtonState(cc=cc, mode=mode, keytimes=keytimes))
+    # For 'tap' mode we do not keep a persistent logical ON state; visual
+    # blinking is driven by recent taps. Initialize as OFF.
+    initial_on = False
+    button_states.append(ButtonState(cc=cc, mode=mode, initial_state=initial_on, keytimes=keytimes))
 
     # Long-press support state
     # Per-button: time when press started (monotonic), 0 if not pressed
@@ -402,6 +413,56 @@ PC_FLASH_DURATION_MS = 200              # Default PC button flash duration in ms
 
 encoder_value = ENC_INITIAL  # Internal value 0-127
 encoder_slot = -1  # Current slot (set on first change)
+
+# Blink/tap mode state (per-button)
+blink_state = [False] * BUTTON_COUNT        # Current visual blink state (True=show ON color, False=show OFF color)
+blink_next_toggle = [0.0] * BUTTON_COUNT    # Next monotonic time to toggle blink state
+blink_rate_ms = [config.get("tap_rate_ms", 500)] * BUTTON_COUNT
+for i in range(BUTTON_COUNT):
+    try:
+        btn_cfg = buttons[i] if i < len(buttons) else {}
+        br = btn_cfg.get("tap_rate_ms", config.get("tap_rate_ms", 500))
+        if not isinstance(br, int) or br <= 0:
+            br = 500
+        blink_rate_ms[i] = br
+    except Exception:
+        blink_rate_ms[i] = config.get("tap_rate_ms", 500)
+
+# Tap-tempo tracking: per-button recent tap timestamps (monotonic seconds)
+# We store up to TAP_HISTORY taps and compute average interval to set blink rate.
+TAP_HISTORY = 4
+tap_timestamps = [[] for _ in range(BUTTON_COUNT)]
+# Per-button tap active expiry (monotonic seconds). While now < tap_active_until[i]
+# the button will visually blink.
+tap_active_until = [0.0] * BUTTON_COUNT
+
+def record_tap_tempo(idx, now):
+    """Record a tap for button index `idx` (0-based) at monotonic time `now`.
+
+    Updates `blink_rate_ms[idx]` to the average interval (ms) between recent taps.
+    """
+    try:
+        buf = tap_timestamps[idx]
+        buf.append(now)
+        # Keep only the most recent TAP_HISTORY timestamps
+        if len(buf) > TAP_HISTORY:
+            del buf[0:len(buf)-TAP_HISTORY]
+
+        # Need at least two taps to compute an interval
+        if len(buf) < 2:
+            return
+
+        # Compute average interval between consecutive taps
+        intervals = [ (buf[i] - buf[i-1]) for i in range(1, len(buf)) ]
+        avg_interval = sum(intervals) / len(intervals)
+        # Convert to ms and clamp
+        ms = int(max(50, min(5000, avg_interval * 1000)))
+        blink_rate_ms[idx] = ms
+        # Extend the active window for this tap so blinking is visible
+        tap_active_until[idx] = now + (blink_rate_ms[idx] / 1000.0) * 2
+        print(f"[TAP] Button {idx+1} tempo set to {ms} ms ({60_000//ms} BPM approx)")
+    except Exception:
+        pass
 
 # =============================================================================
 # Display Setup
@@ -595,6 +656,22 @@ def set_button_state(switch_idx, on):
                 pixels[base + j] = rgb
         pixels.show()
 
+    # If this button uses 'tap' led_mode, manage blink state/timers
+    try:
+        idx = switch_idx - 1
+        btn_cfg = buttons[idx] if idx < len(buttons) else {}
+        if btn_cfg.get("led_mode") == "tap":
+            # Turning on: start blinking (show ON immediately)
+            if on:
+                blink_state[idx] = True
+                blink_next_toggle[idx] = time.monotonic() + (blink_rate_ms[idx] / 1000.0)
+            else:
+                # Turning off: ensure LED shows off state and stop blinking
+                blink_state[idx] = False
+                blink_next_toggle[idx] = 0.0
+    except Exception:
+        pass
+
     # Update display
     if idx < len(button_labels):
         color_hex = rgb_to_hex(color_rgb if on else get_off_color_for_display(color_rgb, off_mode))
@@ -633,6 +710,49 @@ def update_pc_flash_timers():
         if pc_flash_timers[i] > 0 and now >= pc_flash_timers[i]:
             pc_flash_timers[i] = 0.0
             set_button_state(i + 1, False)
+
+
+def update_blink_timers():
+    """Toggle blink states for buttons configured with led_mode 'tap'.
+
+    Blinking is non-blocking and driven by monotonic time checks.
+    When a button is active (logical state True) and has led_mode 'tap',
+    its LED alternates between ON color and OFF color at `tap_rate_ms`.
+    """
+    now = time.monotonic()
+    for i in range(BUTTON_COUNT):
+        try:
+            btn_cfg = buttons[i] if i < len(buttons) else {}
+            if btn_cfg.get("led_mode") != "tap":
+                # ensure any lingering blink timers are cleared
+                blink_next_toggle[i] = 0.0
+                blink_state[i] = False
+                continue
+
+            # Blink while logical state is active OR while within the recent
+            # tap active window (user tapped recently).
+            active_window = now < tap_active_until[i]
+            if not (button_states[i].state or active_window):
+                if blink_state[i]:
+                    blink_state[i] = False
+                    set_button_state(i + 1, False)
+                    blink_next_toggle[i] = 0.0
+                continue
+
+            # Active and tap mode: initialize timer if needed
+            if blink_next_toggle[i] == 0.0:
+                blink_state[i] = True
+                set_button_state(i + 1, True)
+                blink_next_toggle[i] = now + (blink_rate_ms[i] / 1000.0)
+                continue
+
+            if now >= blink_next_toggle[i]:
+                blink_state[i] = not blink_state[i]
+                set_button_state(i + 1, blink_state[i])
+                blink_next_toggle[i] = now + (blink_rate_ms[i] / 1000.0)
+        except Exception:
+            # Defensive: don't let blinking crash the loop
+            pass
 
 
 # =============================================================================
@@ -787,26 +907,50 @@ def handle_switches():
                 cc = state_cfg.get("cc", 20 + idx)
                 cc_on = state_cfg.get("cc_on", 127)
                 cc_off = state_cfg.get("cc_off", 0)
+
                 if mode == "momentary":
                     # momentary: handled on press/release separately
                     pass
                 else:
-                    # toggle, select, or keytimes
+                    # toggle, select, tap, or keytimes
                     if mode == "select":
-                        # select: always turn on (do not toggle off on press)
                         new_state = True
+                        btn_state.state = new_state
+                        set_button_state(btn_num, new_state)
+                        # If selecting on within a select_group, deselect siblings
+                        sg = btn_config.get("select_group")
+                        if new_state and sg:
+                            _deselect_group(sg, idx)
+                        val = cc_on if new_state else cc_off
+                        midi.send(ControlChange(cc, val, channel=channel))
+                        print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, select)")
+                        status_label.text = f"TX CC{cc}=ON"
+
+                    elif mode == "tap":
+                        # Tap mode: do not toggle persistent state. Trigger visual
+                        # blink for a short window and send the CC each press.
+                        now_press = time.monotonic()
+                        record_tap_tempo(idx, now_press)
+                        # Start blinking immediately
+                        blink_state[idx] = True
+                        blink_next_toggle[idx] = now_press + (blink_rate_ms[idx] / 1000.0)
+                        midi.send(ControlChange(cc, cc_on, channel=channel))
+                        print(f"[MIDI TX] Ch{channel+1} CC{cc}={cc_on} (switch {btn_num}, tap)")
+                        status_label.text = f"TX CC{cc}={cc_on}"
+
                     else:
+                        # Standard toggle or keytimes
                         new_state = True if btn_state.keytimes > 1 else not btn_state.state
-                    btn_state.state = new_state
-                    set_button_state(btn_num, new_state)
-                    # If selecting on within a select_group, deselect siblings
-                    sg = btn_config.get("select_group")
-                    if new_state and sg:
-                        _deselect_group(sg, idx)
-                    val = cc_on if new_state else cc_off
-                    midi.send(ControlChange(cc, val, channel=channel))
-                    print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
-                    status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
+                        btn_state.state = new_state
+                        set_button_state(btn_num, new_state)
+                        # If selecting on within a select_group, deselect siblings
+                        sg = btn_config.get("select_group")
+                        if new_state and sg:
+                            _deselect_group(sg, idx)
+                        val = cc_on if new_state else cc_off
+                        midi.send(ControlChange(cc, val, channel=channel))
+                        print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num}, toggle)")
+                        status_label.text = f"TX CC{cc}={'ON' if new_state else 'OFF'}"
 
             elif message_type == "note":
                 btn_state.advance_keytime()
@@ -943,6 +1087,14 @@ def handle_switches():
                     else:
                         # Other types: defer action until we know short vs long
                         pass
+
+                # If this button is in 'tap' mode, record tap tempo on press
+                try:
+                    if mode == "tap":
+                        # idx is 0-based here
+                        record_tap_tempo(idx, now)
+                except Exception:
+                    pass
 
             else:
                 # Released
@@ -1180,6 +1332,15 @@ for i, b in enumerate(buttons):
         except Exception:
             pass
 
+# Ensure tap-mode buttons are visually ON (they have no off state)
+for i, b in enumerate(buttons):
+    try:
+        if b.get("mode") == "tap" or b.get("led_mode") == "tap":
+            button_states[i].state = True
+            set_button_state(i + 1, True)
+    except Exception:
+        pass
+
 # Startup animation
 pixels.fill((0, 255, 0))
 pixels.show()
@@ -1210,6 +1371,7 @@ while True:
     handle_midi()
     handle_switches()
     update_pc_flash_timers()
+    update_blink_timers()
     if HAS_ENCODER:
         handle_encoder_button()
         handle_encoder()

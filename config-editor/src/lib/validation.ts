@@ -155,6 +155,18 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       if (fError) errors.set(`buttons[${idx}].flash_ms`, fError);
     }
 
+      // LED tap mode validation
+      if (btn.led_mode !== undefined) {
+        if (btn.led_mode !== 'tap') {
+          errors.set(`buttons[${idx}].led_mode`, 'led_mode must be "tap" if set');
+        }
+        if (btn.tap_rate_ms !== undefined) {
+          // Reuse flashMs constraints for sensible bounds
+          const tError = validators.flashMs(btn.tap_rate_ms);
+          if (tError) errors.set(`buttons[${idx}].tap_rate_ms`, tError);
+        }
+      }
+
     // Long-press / long-release actions validation
     const validateAction = (action: any, pathBase: string) => {
       if (!action) return;
@@ -212,6 +224,10 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
         // Disallow momentary or keytimes > 1 in v1
         if (btn.mode === 'momentary') {
           errors.set(`buttons[${idx}].select_group`, 'select_group not supported for momentary mode');
+        }
+        // Disallow tap mode for select_group: tap is visual-only and mutually exclusive
+        if (btn.mode === 'tap') {
+          errors.set(`buttons[${idx}].select_group`, 'select_group not supported for tap mode');
         }
         if ((btn.keytimes ?? 1) > 1) {
           errors.set(`buttons[${idx}].select_group`, 'select_group not supported with keytimes > 1');

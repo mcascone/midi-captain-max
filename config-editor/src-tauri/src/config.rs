@@ -27,6 +27,7 @@ pub enum ButtonMode {
     Toggle,
     Momentary,
     Select,
+    Tap,
 }
 
 /// LED behavior when button is off

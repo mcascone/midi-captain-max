@@ -4,7 +4,7 @@ export type ButtonColor =
   | 'red' | 'green' | 'blue' | 'yellow'
   | 'cyan' | 'magenta' | 'orange' | 'purple' | 'white';
 
-export type ButtonMode = 'toggle' | 'momentary' | 'select';
+export type ButtonMode = 'toggle' | 'momentary' | 'select' | 'tap';
 export type OffMode = 'dim' | 'off';
 export type MessageType = 'cc' | 'note' | 'pc' | 'pc_inc' | 'pc_dec';
 export type Polarity = 'normal' | 'inverted';
@@ -74,6 +74,10 @@ export interface ButtonConfig {
     program?: number;
     channel?: number;
   };
+  // Optional LED mode for visual feedback (e.g., 'tap' for blinking while active)
+  led_mode?: 'tap';
+  // Blink/tap rate in milliseconds when `led_mode` is 'tap'
+  tap_rate_ms?: number;
 }
 
 export interface EncoderPush {

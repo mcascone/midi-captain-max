@@ -91,7 +91,7 @@ Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi
 
 - 🖱️ **Visual editing** — No JSON syntax to learn
 - ✅ **Real-time validation** — Catch errors before saving
-- 🎨 **Color picker** — Visual color selection 
+- 🎨 **Color picker** — Visual color selection
 - 🔍 **Device detection** — Automatically detects connected MIDI Captain
 
 ## Manual Configuration
@@ -122,8 +122,11 @@ You can also edit `config.json` directly on the device:
 | `color` | RGB color for LED when ON `[R, G, B]` |
 | `off_mode` | LED is `off` or `dim` when in OFF state | `off`
 | `mode` | `toggle` or `momentary` button behavior | `toggle`
+| `tap` | Blink visually on each press; tempo derived from successive taps; does not set a persistent ON state | `toggle` |
 | `keytimes` | Number of states to cycle through (1-99) | `1`
 | `states` | Array of per-state configs (for keytimes > 1) | `[]`
+
+Note: `mode: "tap"` is a special visual mode — a tap-mode button does not persistently toggle ON. Each press sends the configured MIDI message and triggers a short blink; the blink tempo is derived from successive taps (tap-tempo). The Config Editor does not expose a manual `tap_rate_ms` for tap-mode.
 
 ### Advanced: Keytimes (Multi-Press Cycling)
 
@@ -138,7 +141,7 @@ You can also edit `config.json` directly on the device:
   "keytimes": 3,
   "states": [
     {"cc_on": 64, "color": "blue"},      // State 1: 50% wet
-    {"cc_on": 96, "color": "cyan"},      // State 2: 75% wet  
+    {"cc_on": 96, "color": "cyan"},      // State 2: 75% wet
     {"cc_on": 127, "color": "white"}     // State 3: 100% wet
   ]
 }
@@ -212,4 +215,3 @@ This project builds on work by **Helmut Keller** ([hfrk.de](https://hfrk.de)), w
 ## Questions, Comments, Suggestions are welcome
 
 [Open an issue](https://github.com/MC-Music-Workshop/midi-captain-max/issues) or check [AGENTS.md](AGENTS.md) for developer documentation.
-

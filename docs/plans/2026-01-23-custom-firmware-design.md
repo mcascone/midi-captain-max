@@ -128,12 +128,12 @@ class ButtonState:
     local_value: int      # Local toggle state (0 or 127)
     host_value: int       # Last value received from host
     display_value: int    # What's shown (host_value if set, else local_value)
-    
+
     def on_press(self):
         self.local_value = 127 if self.local_value == 0 else 0
         # Send CC to host
         # Update LED immediately (local feedback)
-    
+
     def on_host_update(self, value):
         self.host_value = value
         self.display_value = value  # Host overrides local
@@ -166,20 +166,20 @@ buttons:
     cc: 14
     mode: momentary
     color: cyan
-    
+
   - id: 1
     name: "Drive"
     cc: 20
     mode: toggle
     color: red
     color_off: dark_red
-    
+
   - id: 2
     name: "Delay"
     cc: 21
     mode: toggle
     color: blue
-    
+
   # ... etc
 
 display:
@@ -311,6 +311,7 @@ F0 59 14 08 44 72 69 76 65 F7
 - [ ] Implement momentary mode
 - [ ] Implement toggle mode
 - [ ] Add long-press detection
+ - [ ] Add tap mode: blink on each press (visual only), tempo derived from successive taps; tap does not set a persistent ON state
 
 ### Phase 5: Integration
 - [ ] Merge experiments into main code.py
