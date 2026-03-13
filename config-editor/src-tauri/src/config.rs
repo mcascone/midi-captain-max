@@ -310,6 +310,8 @@ pub struct DisplayConfig {
     pub status_text_size: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expression_text_size: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button_name_text_size: Option<String>,
 }
 
 /// Complete MIDI Captain configuration
@@ -467,7 +469,7 @@ impl MidiCaptainConfig {
                 }
             }
             // select_group rules: not allowed with momentary or keytimes > 1
-            if let Some(ref sg) = button.select_group {
+            if let Some(_) = button.select_group {
                 if button.mode == ButtonMode::Momentary {
                     errors.push(format!("Button {} select_group not supported for momentary mode", i + 1));
                 }

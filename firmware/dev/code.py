@@ -237,9 +237,14 @@ print(f"Validated {len(buttons)} button configs")
 # Fonts
 # =============================================================================
 
+# Font cache to avoid loading the same font multiple times
+_font_cache = {}
+
 
 def load_font(size_name):
     """Load a font based on size name, with fallback to terminalio.
+    
+    Uses a cache to avoid loading the same font multiple times, saving RAM.
 
     Args:
         size_name: One of "small", "medium", "large"
@@ -251,18 +256,28 @@ def load_font(size_name):
         print(f"Invalid font size '{size_name}', using 'small'")
         size_name = "small"
 
+    # Check cache first
+    if size_name in _font_cache:
+        return _font_cache[size_name]
+
     font_path, height = FONT_SIZE_MAP[size_name]
 
     if font_path == "terminalio":
-        return terminalio.FONT, height
+        result = (terminalio.FONT, height)
+        _font_cache[size_name] = result
+        return result
 
     try:
         loaded_font = bitmap_font.load_font(font_path)
         print(f"Loaded font: {font_path} (~{height}px)")
-        return loaded_font, height
+        result = (loaded_font, height)
+        _font_cache[size_name] = result
+        return result
     except Exception as e:
         print(f"Font load failed for '{font_path}': {e}, falling back to terminalio")
-        return terminalio.FONT, 8
+        result = (terminalio.FONT, 8)
+        _font_cache[size_name] = result
+        return result
 
 
 # Load display config
@@ -270,13 +285,15 @@ display_config = get_display_config(config)
 button_text_size = display_config["button_text_size"]
 status_text_size = display_config["status_text_size"]
 expression_text_size = display_config["expression_text_size"]
+button_name_text_size = display_config["button_name_text_size"]
 
-print(f"Display config: button={button_text_size}, status={status_text_size}, expression={expression_text_size}")
+print(f"Display config: button={button_text_size}, status={status_text_size}, expression={expression_text_size}, button_name={button_name_text_size}")
 
-# Load fonts based on config
+# Load fonts based on config (cached to avoid duplicate loads)
 BUTTON_FONT, BUTTON_FONT_HEIGHT = load_font(button_text_size)
 STATUS_FONT, STATUS_FONT_HEIGHT = load_font(status_text_size)
 EXPRESSION_FONT, EXPRESSION_FONT_HEIGHT = load_font(expression_text_size)
+BUTTON_NAME_FONT, BUTTON_NAME_FONT_HEIGHT = load_font(button_name_text_size)
 
 # =============================================================================
 # Hardware Init
@@ -549,9 +566,9 @@ for i in range(BUTTON_COUNT):
     main_group.append(lbl)
 
 # Center display area - two lines
-# Line 1: Button name (large font)
+# Line 1: Button name (configurable font, default large)
 button_name_label = label.Label(
-    load_font("large")[0],
+    BUTTON_NAME_FONT,
     text="",
     color=0xFFFFFF,
     anchor_point=(0.5, 0.5),

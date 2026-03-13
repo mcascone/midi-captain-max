@@ -47,6 +47,18 @@
         <option value="large">Large</option>
       </select>
     </div>
+
+    <div class="field-row">
+      <label>Button name (center) text size:</label>
+      <select
+        value={display?.button_name_text_size ?? 'large'}
+        onchange={(e) => handleField('button_name_text_size', e)}
+      >
+        <option value="small">Small</option>
+        <option value="medium">Medium</option>
+        <option value="large">Large</option>
+      </select>
+    </div>
   </div>
 </Accordion>
 

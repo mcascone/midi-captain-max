@@ -129,6 +129,7 @@ export interface DisplayConfig {
   button_text_size?: 'small' | 'medium' | 'large';
   status_text_size?: 'small' | 'medium' | 'large';
   expression_text_size?: 'small' | 'medium' | 'large';
+  button_name_text_size?: 'small' | 'medium' | 'large';
 }
 
 export interface MidiCaptainConfig {
