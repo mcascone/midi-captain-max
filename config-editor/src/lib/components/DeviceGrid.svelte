@@ -69,8 +69,8 @@
         <div class="btn-type">{typeLabel(btn)}</div>
 
         <div class="btn-vals">
-          <span>{(btn.channel ?? $config.global_channel ?? 0) + 1}</span>
-          <span>{(btn.channel ?? $config.global_channel ?? 0) + 1}</span>
+          <span>{onValues(btn)}</span>
+          <span>{offValues(btn)}</span>
         </div>
 
         <div class="btn-num">{i + 1}</div>
