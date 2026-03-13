@@ -76,21 +76,30 @@ pub struct StateOverride {
     pub label: Option<String>,
 }
 
-/// Action structure for long-press / long-release actions
+/// MIDI command for multi-command event arrays
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Action {
+pub struct MidiCommand {
     #[serde(rename = "type", default)]
-    pub action_type: MessageType,
+    pub command_type: MessageType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<u8>,
+    // CC fields
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cc: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<u8>,
+    // Note fields
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub program: Option<u8>,
+    pub velocity: Option<u8>,
+    // PC fields
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub channel: Option<u8>,
+    pub program: Option<u8>,
+    // PC inc/dec fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pc_step: Option<u8>,
+    // Optional threshold for long-press (on first command only)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold_ms: Option<u32>,
 }
@@ -100,6 +109,18 @@ pub struct Action {
 pub struct ButtonConfig {
     pub label: String,
     pub color: ButtonColor,
+    
+    // ===== NEW: Multi-command event arrays =====
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub press: Option<Vec<MidiCommand>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release: Option<Vec<MidiCommand>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_press: Option<Vec<MidiCommand>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_release: Option<Vec<MidiCommand>>,
+    
+    // ===== LEGACY: Single-type fields (for backwards compatibility) =====
     #[serde(rename = "type", default, skip_serializing_if = "is_default_message_type")]
     pub message_type: MessageType,
     #[serde(default)]
@@ -131,15 +152,13 @@ pub struct ButtonConfig {
     // PC flash feedback (all PC types)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flash_ms: Option<u16>,
+    
+    // ===== COMMON FIELDS =====
     // Keytimes cycling
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keytimes: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub states: Option<Vec<StateOverride>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub long_press: Option<Action>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub long_release: Option<Action>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub select_group: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -340,42 +359,71 @@ impl MidiCaptainConfig {
                     errors.push(format!("Button {} flash_ms {} out of range (50-5000)", i + 1, ms));
                 }
             }
-            // Validate long_press / long_release actions
-            if let Some(ref lp) = button.long_press {
-                if let Some(ch) = lp.channel {
+            
+            // Validate event command arrays (press, release, long_press, long_release)
+            let validate_command = |cmd: &MidiCommand, event_name: &str, cmd_idx: usize| {
+                let mut cmd_errors = Vec::new();
+                if let Some(ch) = cmd.channel {
                     if ch > 15 {
-                        errors.push(format!("Button {} long_press channel {} is invalid (must be 1-16)", i + 1, ch + 1));
+                        cmd_errors.push(format!("Button {} {}.{} channel {} invalid (must be 0-15)", i+1, event_name, cmd_idx, ch));
                     }
                 }
-                if let Some(th) = lp.threshold_ms {
-                    if th < 50 || th > 10000 {
-                        errors.push(format!("Button {} long_press threshold_ms {} out of range (50-10000)", i + 1, th));
+                if let Some(cc) = cmd.cc {
+                    if cc > 127 {
+                        cmd_errors.push(format!("Button {} {}.{} cc {} exceeds 127", i+1, event_name, cmd_idx, cc));
                     }
                 }
-                if let Some(cc) = lp.cc {
-                    if cc > 127 { errors.push(format!("Button {} long_press cc {} exceeds 127", i + 1, cc)); }
+                if let Some(val) = cmd.value {
+                    if val > 127 {
+                        cmd_errors.push(format!("Button {} {}.{} value {} exceeds 127", i+1, event_name, cmd_idx, val));
+                    }
                 }
-                if let Some(n) = lp.note {
-                    if n > 127 { errors.push(format!("Button {} long_press note {} exceeds 127", i + 1, n)); }
+                if let Some(note) = cmd.note {
+                    if note > 127 {
+                        cmd_errors.push(format!("Button {} {}.{} note {} exceeds 127", i+1, event_name, cmd_idx, note));
+                    }
                 }
-                if let Some(p) = lp.program {
-                    if p > 127 { errors.push(format!("Button {} long_press program {} exceeds 127", i + 1, p)); }
+                if let Some(vel) = cmd.velocity {
+                    if vel > 127 {
+                        cmd_errors.push(format!("Button {} {}.{} velocity {} exceeds 127", i+1, event_name, cmd_idx, vel));
+                    }
+                }
+                if let Some(prog) = cmd.program {
+                    if prog > 127 {
+                        cmd_errors.push(format!("Button {} {}.{} program {} exceeds 127", i+1, event_name, cmd_idx, prog));
+                    }
+                }
+                if let Some(step) = cmd.pc_step {
+                    if step < 1 || step > 127 {
+                        cmd_errors.push(format!("Button {} {}.{} pc_step {} out of range (1-127)", i+1, event_name, cmd_idx, step));
+                    }
+                }
+                if let Some(thresh) = cmd.threshold_ms {
+                    if thresh < 50 || thresh > 10000 {
+                        cmd_errors.push(format!("Button {} {}.{} threshold_ms {} out of range (50-10000)", i+1, event_name, cmd_idx, thresh));
+                    }
+                }
+                cmd_errors
+            };
+            
+            if let Some(ref cmds) = button.press {
+                for (idx, cmd) in cmds.iter().enumerate() {
+                    errors.extend(validate_command(cmd, "press", idx));
                 }
             }
-            if let Some(ref lr) = button.long_release {
-                if let Some(ch) = lr.channel {
-                    if ch > 15 {
-                        errors.push(format!("Button {} long_release channel {} is invalid (must be 1-16)", i + 1, ch + 1));
-                    }
+            if let Some(ref cmds) = button.release {
+                for (idx, cmd) in cmds.iter().enumerate() {
+                    errors.extend(validate_command(cmd, "release", idx));
                 }
-                if let Some(cc) = lr.cc {
-                    if cc > 127 { errors.push(format!("Button {} long_release cc {} exceeds 127", i + 1, cc)); }
+            }
+            if let Some(ref cmds) = button.long_press {
+                for (idx, cmd) in cmds.iter().enumerate() {
+                    errors.extend(validate_command(cmd, "long_press", idx));
                 }
-                if let Some(n) = lr.note {
-                    if n > 127 { errors.push(format!("Button {} long_release note {} exceeds 127", i + 1, n)); }
-                }
-                if let Some(p) = lr.program {
-                    if p > 127 { errors.push(format!("Button {} long_release program {} exceeds 127", i + 1, p)); }
+            }
+            if let Some(ref cmds) = button.long_release {
+                for (idx, cmd) in cmds.iter().enumerate() {
+                    errors.extend(validate_command(cmd, "long_release", idx));
                 }
             }
             // select_group rules: not allowed with momentary or keytimes > 1
@@ -719,5 +767,167 @@ mod tests {
 
         let reserialized = serde_json::to_string(&config).unwrap();
         assert!(!reserialized.contains("dev_mode"));
+    }
+
+    #[test]
+    fn test_roundtrip_multi_command_press() {
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "DUAL",
+                    "color": "cyan",
+                    "press": [
+                        {"type": "cc", "channel": 0, "cc": 20, "value": 127},
+                        {"type": "cc", "channel": 1, "cc": 21, "value": 64}
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert!(btn.press.is_some());
+        let press_cmds = btn.press.as_ref().unwrap();
+        assert_eq!(press_cmds.len(), 2);
+        assert_eq!(press_cmds[0].command_type, MessageType::Cc);
+        assert_eq!(press_cmds[0].cc, Some(20));
+        assert_eq!(press_cmds[0].value, Some(127));
+        assert_eq!(press_cmds[1].channel, Some(1));
+        assert_eq!(press_cmds[1].cc, Some(21));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let press_cmds2 = config2.buttons[0].press.as_ref().unwrap();
+        assert_eq!(press_cmds2.len(), 2);
+        assert_eq!(press_cmds2[0].cc, Some(20));
+        assert_eq!(press_cmds2[1].channel, Some(1));
+    }
+
+    #[test]
+    fn test_roundtrip_multi_command_all_events() {
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "FULL",
+                    "color": "white",
+                    "press": [
+                        {"type": "cc", "cc": 20, "value": 127}
+                    ],
+                    "release": [
+                        {"type": "cc", "cc": 20, "value": 0}
+                    ],
+                    "long_press": [
+                        {"type": "pc", "program": 5}
+                    ],
+                    "long_release": [
+                        {"type": "note", "note": 60, "velocity": 0}
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert!(btn.press.is_some());
+        assert!(btn.release.is_some());
+        assert!(btn.long_press.is_some());
+        assert!(btn.long_release.is_some());
+        
+        assert_eq!(btn.press.as_ref().unwrap()[0].cc, Some(20));
+        assert_eq!(btn.release.as_ref().unwrap()[0].value, Some(0));
+        assert_eq!(btn.long_press.as_ref().unwrap()[0].program, Some(5));
+        assert_eq!(btn.long_release.as_ref().unwrap()[0].note, Some(60));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let btn2 = &config2.buttons[0];
+        assert!(btn2.press.is_some());
+        assert!(btn2.release.is_some());
+        assert!(btn2.long_press.is_some());
+        assert!(btn2.long_release.is_some());
+    }
+
+    #[test]
+    fn test_roundtrip_multi_command_note_and_velocity() {
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "NOTE",
+                    "color": "blue",
+                    "press": [
+                        {"type": "note", "note": 72, "velocity": 100}
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let cmd = &config.buttons[0].press.as_ref().unwrap()[0];
+        assert_eq!(cmd.command_type, MessageType::Note);
+        assert_eq!(cmd.note, Some(72));
+        assert_eq!(cmd.velocity, Some(100));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let cmd2 = &config2.buttons[0].press.as_ref().unwrap()[0];
+        assert_eq!(cmd2.note, Some(72));
+        assert_eq!(cmd2.velocity, Some(100));
+    }
+
+    #[test]
+    fn test_roundtrip_multi_command_pc_inc_dec() {
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "INC",
+                    "color": "green",
+                    "press": [
+                        {"type": "pc_inc", "pc_step": 5}
+                    ]
+                },
+                {
+                    "label": "DEC",
+                    "color": "red",
+                    "press": [
+                        {"type": "pc_dec", "pc_step": 2}
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.buttons[0].press.as_ref().unwrap()[0].command_type, MessageType::PcInc);
+        assert_eq!(config.buttons[0].press.as_ref().unwrap()[0].pc_step, Some(5));
+        assert_eq!(config.buttons[1].press.as_ref().unwrap()[0].command_type, MessageType::PcDec);
+        assert_eq!(config.buttons[1].press.as_ref().unwrap()[0].pc_step, Some(2));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].press.as_ref().unwrap()[0].pc_step, Some(5));
+        assert_eq!(config2.buttons[1].press.as_ref().unwrap()[0].pc_step, Some(2));
+    }
+
+    #[test]
+    fn test_roundtrip_multi_command_with_threshold() {
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "LONG",
+                    "color": "purple",
+                    "long_press": [
+                        {"type": "cc", "cc": 30, "value": 127, "threshold_ms": 1000}
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let cmd = &config.buttons[0].long_press.as_ref().unwrap()[0];
+        assert_eq!(cmd.threshold_ms, Some(1000));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let cmd2 = &config2.buttons[0].long_press.as_ref().unwrap()[0];
+        assert_eq!(cmd2.threshold_ms, Some(1000));
     }
 }
