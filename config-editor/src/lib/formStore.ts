@@ -325,8 +325,8 @@ export function setDevice(deviceType: DeviceType) {
   });
 }
 
-// Convert action objects to arrays for backend compatibility
-// The UI always uses arrays, but ensure any single objects are wrapped
+// Convert action objects to arrays and strip legacy single-action fields
+// Since we always use multi-command arrays now, remove obsolete fields
 function normalizeButton(btn: ButtonConfig): ButtonConfig {
   const ensureArray = (field: any): any[] | undefined => {
     if (!field) return undefined;
@@ -334,8 +334,15 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
     return [field]; // Convert single object to array
   };
 
+  // Strip legacy fields that are no longer used in multi-command mode
+  const { 
+    type, cc, cc_on, cc_off, note, velocity_on, velocity_off, 
+    program, pc_step, flash_ms, 
+    ...cleanButton 
+  } = btn;
+
   return {
-    ...btn,
+    ...cleanButton,
     press: ensureArray(btn.press) as any,
     release: ensureArray(btn.release) as any,
     long_press: ensureArray(btn.long_press) as any,
