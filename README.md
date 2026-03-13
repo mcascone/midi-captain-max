@@ -12,12 +12,19 @@ Includes a **GUI Config Editor**!
 
 This firmware transforms your MIDI Captain into a **bidirectional MIDI controller** where your host software (DAW, plugin host) can control the device's LEDs and display, not just receive button presses.
 
-Momentary and toggle modes are currently supported. Many more issues are coming! [See here for all open features and issues](https://github.com/MC-Music-Workshop/midi-captain-max/issues).
+**Button modes:** Toggle, momentary, select (radio-button groups), and tap tempo visualization. **Long-press** detection for secondary actions.
+
+**Multi-command actions:** Each button event (press, release, long-press, long-release) can send multiple MIDI commands in sequence — change amp channel and delay preset with one footswitch!
+
+[See here for all open features and issues](https://github.com/MC-Music-Workshop/midi-captain-max/issues).
 
 ## Key Features
 - 🔄 **Bidirectional MIDI** — Host can update LEDs/display state
-- ⚙️ **Config-driven** — Customize button labels, CC numbers, colors with the GUI Config Editor.
+- ⚡ **Multi-command actions** — Send multiple MIDI messages per button press/release
+- ⚙️ **Config-driven** — Visual GUI Config Editor for all settings
 - 🎨 **Visual feedback** — LEDs and LCD reflect actual host state
+- 🔘 **Flexible modes** — Toggle, momentary, select groups, tap tempo
+- ⏱️ **Long-press support** — Secondary actions on hold
 - 🎛️ **Full input support** — Footswitches, rotary encoder, expression pedals
 - 🔁 **Keytimes** — Multi-press cycling through states (like OEM SuperMode)
 - 🎸 **Stage-ready** — No unexpected resets, no crashes, no surprises
@@ -96,37 +103,76 @@ Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi
 
 ## Manual Configuration
 
-You can also edit `config.json` directly on the device:
+You can also edit `config.json` directly on the device. The firmware uses an **event-based** format where each button can define multiple commands per action:
 
 ```json
 {
   "buttons": [
-    {"label": "DELAY", "cc": 20, "color": [0, 0, 255]},
-    {"label": "REVERB", "cc": 21, "color": [0, 255, 0]},
-    {"label": "CHORUS", "cc": 22, "color": [255, 0, 255]},
-    {"label": "DRIVE", "cc": 23, "color": [255, 128, 0]},
-    {"label": "COMP", "cc": 24, "color": [0, 255, 255]},
-    {"label": "MOD", "cc": 25, "color": [255, 255, 0]},
-    {"label": "LOOP", "cc": 26, "color": [255, 0, 0]},
-    {"label": "TUNER", "cc": 27, "color": [255, 255, 255]},
-    {"label": "BANK-", "cc": 28, "color": [128, 128, 128]},
-    {"label": "BANK+", "cc": 29, "color": [128, 128, 128]}
+    {
+      "label": "DELAY",
+      "color": "blue",
+      "mode": "toggle",
+      "press": [
+        {"type": "cc", "cc": 20, "value": 127}
+      ],
+      "release": [
+        {"type": "cc", "cc": 20, "value": 0}
+      ]
+    },
+    {
+      "label": "DRIVE",
+      "color": "orange",
+      "press": [
+        {"type": "cc", "cc": 23, "value": 127},
+        {"type": "pc", "program": 5}
+      ],
+      "long_press": [
+        {"type": "cc", "cc": 40, "value": 127, "threshold_ms": 700}
+      ]
+    }
   ]
 }
 ```
 
-| Field | Description | Default |
-|-------|-------------| ---------|
-| `label` | Text shown on LCD (max ~6 chars) |
-| `cc` | MIDI CC number sent on press (0-127) |
-| `color` | RGB color for LED when ON `[R, G, B]` |
-| `off_mode` | LED is `off` or `dim` when in OFF state | `off`
-| `mode` | `toggle` or `momentary` button behavior | `toggle`
-| `tap` | Blink visually on each press; tempo derived from successive taps; does not set a persistent ON state | `toggle` |
-| `keytimes` | Number of states to cycle through (1-99) | `1`
-| `states` | Array of per-state configs (for keytimes > 1) | `[]`
+### Button Configuration Fields
 
-Note: `mode: "tap"` is a special visual mode — a tap-mode button does not persistently toggle ON. Each press sends the configured MIDI message and triggers a short blink; the blink tempo is derived from successive taps (tap-tempo). The Config Editor does not expose a manual `tap_rate_ms` for tap-mode.
+| Field | Description | Default |
+|-------|-------------|---------|
+| `label` | Text shown on LCD (max 6 chars) | Button number |
+| `color` | Named color: `red`, `green`, `blue`, `yellow`, `cyan`, `magenta`, `orange`, `purple`, `white` | `white` |
+| `mode` | Button behavior: `toggle`, `momentary`, `select`, `tap` | `toggle` |
+| `off_mode` | LED when OFF: `dim` (30% brightness) or `off` (completely off) | `dim` |
+| `channel` | MIDI channel (0-15) | 0 |
+| `select_group` | String ID for radio-button groups (only one ON at a time) | none |
+| `keytimes` | Number of states to cycle through (1-99) | 1 |
+| `states` | Array of per-state overrides (for keytimes > 1) | `[]` |
+| `press` | Array of commands sent on press | `[]` |
+| `release` | Array of commands sent on release | `[]` |
+| `long_press` | Array of commands sent on long press (with `threshold_ms`) | `[]` |
+| `long_release` | Array of commands sent on release after long press | `[]` |
+
+### Command Object Fields
+
+| Field | Description | Types |
+|-------|-------------|-------|
+| `type` | Command type | `cc`, `note`, `pc`, `pc_inc`, `pc_dec` |
+| `channel` | MIDI channel (0-15, optional) | All |
+| `cc` | CC number (0-127) | `cc` |
+| `value` | CC value (0-127) | `cc` |
+| `note` | MIDI note (0-127) | `note` |
+| `velocity` | Note velocity (0-127) | `note` |
+| `program` | Program number (0-127) | `pc` |
+| `pc_step` | Step value for increment/decrement | `pc_inc`, `pc_dec` |
+| `threshold_ms` | Long-press threshold in milliseconds | `long_press` (first command only) |
+
+**Mode behaviors:**
+- **`toggle`**: Alternates ON/OFF, sends `press` when ON, `release` when OFF
+- **`momentary`**: ON while held, sends `press` on press, `release` on release  
+- **`select`**: Always turns ON (never toggles OFF), use with `select_group`
+- **`tap`**: Visual tap tempo, blinks on each press
+
+**Select groups:**  
+Buttons with the same `select_group` act like radio buttons — selecting one deselects others in the group. Works with both `toggle` and `select` modes.
 
 ### Advanced: Keytimes (Multi-Press Cycling)
 
@@ -137,12 +183,19 @@ Note: `mode: "tap"` is a special visual mode — a tap-mode button does not pers
 ```json
 {
   "label": "VERB",
-  "cc": 20,
+  "color": "blue",
+  "mode": "toggle",
   "keytimes": 3,
+  "press": [
+    {"type": "cc", "cc": 20, "value": 64}
+  ],
+  "release": [
+    {"type": "cc", "cc": 20, "value": 0}
+  ],
   "states": [
-    {"cc_on": 64, "color": "blue"},      // State 1: 50% wet
-    {"cc_on": 96, "color": "cyan"},      // State 2: 75% wet
-    {"cc_on": 127, "color": "white"}     // State 3: 100% wet
+    {"cc": 20, "value": 64, "color": "blue"},    // State 1: 50% wet
+    {"cc": 20, "value": 96, "color": "cyan"},    // State 2: 75% wet
+    {"cc": 20, "value": 127, "color": "white"}   // State 3: 100% wet
   ]
 }
 ```
@@ -154,22 +207,78 @@ Note: `mode: "tap"` is a special visual mode — a tap-mode button does not pers
 
 #### Per-State Options
 
-Each state in the `states` array can override:
-- `cc_on`: MIDI CC value to send (0-127)
-- `cc_off`: Value when turning off (optional)
+Each state in the `states` array can override command values from the base `press`/`release` arrays:
+- `cc`, `value`: CC command overrides
+- `note`, `velocity`: Note command overrides
+- `program`: PC command override
+- `pc_step`: PC inc/dec step override
 - `color`: LED color for this state
-- `label`: Display label for this state (future)
+- `label`: Display label for this state
 
 #### Notes
 
-- Keytimes defaults to 1 (standard toggle/momentary behavior)
+- Keytimes defaults to 1 (standard single-state behavior)
 - Maximum 99 states per button
-- Works with both toggle and momentary modes
-- When cycling, the button always sends the `cc_on` value for the current state
+- Works with toggle, momentary, and select modes
+- State overrides apply to the command values in `press`/`release` arrays
+
+### Multi-Command Actions
+
+Each button action can send **multiple MIDI commands in sequence**. This enables complex macros with a single footswitch press.
+
+#### Example: Amp Channel + Delay Preset
+
+```json
+{
+  "label": "CH2+DLY",
+  "color": "red",
+  "press": [
+    {"type": "cc", "cc": 30, "value": 127},  // Switch to channel 2
+    {"type": "pc", "program": 12}             // Load delay preset
+  ]
+}
+```
+
+#### Example: Scene Select with Expression Reset
+
+```json
+{
+  "label": "SCENE3",
+  "color": "purple",
+  "press": [
+    {"type": "pc", "program": 3},             // Load scene 3
+    {"type": "cc", "cc": 12, "value": 64}     // Reset expression to middle
+  ]
+}
+```
+
+#### Example: Long-Press for Secondary Function
+
+```json
+{
+  "label": "DELAY",
+  "color": "blue",
+  "press": [
+    {"type": "cc", "cc": 20, "value": 127}    // Short press: delay ON
+  ],
+  "long_press": [
+    {"type": "cc", "cc": 40, "value": 127, "threshold_ms": 700},  // Hold 700ms: tap tempo ON
+    {"type": "cc", "cc": 41, "value": 64}     // Reset tap rate
+  ],
+  "long_release": [
+    {"type": "cc", "cc": 40, "value": 0}      // Release: tap tempo OFF
+  ]
+}
+```
 
 ## MIDI Protocol
 
-### Device → Host (button presses)
+The firmware supports **CC (Control Change)**, **Note On/Off**, and **Program Change** messages. All MIDI mappings are fully configurable via `config.json`.
+
+### Default Device → Host Mappings
+
+These are the default CC numbers (fully customizable):
+
 | Input | MIDI Message |
 |-------|--------------|
 | Encoder wheel | CC 11 (0-127 position) |
@@ -179,7 +288,8 @@ Each state in the `states` array can override:
 | Expression 2 | CC 13 (0-127) |
 
 ### Host → Device (LED/state control)
-Send CC to the switch on its CC Number with value 0 or 127 to set button state:
+
+The device responds to incoming MIDI to update button states. Send CC messages matching your button's configured `press` commands:
 - `CC 20, value 127` → Button 1 turns ON (LED lights up)
 - `CC 20, value 0` → Button 1 turns OFF (LED off/dim)
 
