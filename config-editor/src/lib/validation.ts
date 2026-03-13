@@ -155,6 +155,55 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       if (fError) errors.set(`buttons[${idx}].flash_ms`, fError);
     }
 
+    // Long-press / long-release actions validation
+    const validateAction = (action: any, pathBase: string) => {
+      if (!action) return;
+      if (typeof action !== 'object') {
+        errors.set(pathBase, 'Action must be an object');
+        return;
+      }
+      const aType = action.type ?? 'cc';
+      if (!['cc', 'note', 'pc'].includes(aType)) {
+        errors.set(`${pathBase}.type`, 'Action type must be cc, note, or pc');
+      }
+      if (aType === 'cc') {
+        if (action.cc !== undefined) {
+          const e = validators.cc(action.cc);
+          if (e) errors.set(`${pathBase}.cc`, e);
+        }
+        if (action.value !== undefined) {
+          const e = validators.withinRange(action.value, 0, 127);
+          if (e) errors.set(`${pathBase}.value`, e);
+        }
+      } else if (aType === 'note') {
+        if (action.note !== undefined) {
+          const e = validators.note(action.note);
+          if (e) errors.set(`${pathBase}.note`, e);
+        }
+        if (action.value !== undefined) {
+          const e = validators.velocity(action.value);
+          if (e) errors.set(`${pathBase}.value`, e);
+        }
+      } else if (aType === 'pc') {
+        if (action.program !== undefined) {
+          const e = validators.program(action.program);
+          if (e) errors.set(`${pathBase}.program`, e);
+        }
+      }
+      if (action.channel !== undefined) {
+        const ch = validators.channel(action.channel);
+        if (ch) errors.set(`${pathBase}.channel`, ch);
+      }
+      if (action.threshold_ms !== undefined) {
+        if (!Number.isInteger(action.threshold_ms) || action.threshold_ms < 50 || action.threshold_ms > 10000) {
+          errors.set(`${pathBase}.threshold_ms`, 'threshold_ms must be integer 50-10000');
+        }
+      }
+    };
+
+    validateAction(btn.long_press, `buttons[${idx}].long_press`);
+    validateAction(btn.long_release, `buttons[${idx}].long_release`);
+
     if (btn.states && (btn.keytimes === undefined || btn.keytimes <= 1)) {
       errors.set(`buttons[${idx}].states`, 'states requires keytimes > 1');
     }

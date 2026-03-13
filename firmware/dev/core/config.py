@@ -120,6 +120,40 @@ def validate_button(btn, index=0, global_channel=None):
     elif msg_type in ("pc_inc", "pc_dec"):
         validated["pc_step"] = btn.get("pc_step", 1)
 
+    # Long-press / hold actions (optional)
+    # Accepts dicts with shape similar to a button action: type = cc|note|pc and type-specific fields.
+    def _validate_action_field(field_name):
+        action = btn.get(field_name)
+        if not isinstance(action, dict):
+            return None
+        # Basic action validation
+        a_type = action.get("type", "cc")
+        if a_type not in ("cc", "note", "pc"):
+            a_type = "cc"
+        a = {"type": a_type, "channel": action.get("channel", default_channel)}
+        if a_type == "cc":
+            a["cc"] = _clamp_state_field("cc", action.get("cc", 20 + index))
+            # 'value' used as the CC value for the action; fall back to cc_on if present
+            a["value"] = _clamp_state_field("cc_on", action.get("value", action.get("cc_on", 127)))
+        elif a_type == "note":
+            a["note"] = _clamp_state_field("note", action.get("note", 60))
+            a["value"] = _clamp_state_field("velocity_on", action.get("value", action.get("velocity_on", 127)))
+        elif a_type == "pc":
+            a["program"] = _clamp_state_field("program", action.get("program", 0))
+        # Optional threshold in milliseconds
+        thresh = action.get("threshold_ms", action.get("threshold", None))
+        if isinstance(thresh, int) and thresh > 0:
+            a["threshold_ms"] = thresh
+        return a
+
+    lp = _validate_action_field("long_press")
+    if lp is not None:
+        validated["long_press"] = lp
+
+    lr = _validate_action_field("long_release")
+    if lr is not None:
+        validated["long_release"] = lr
+
     # For keytimes > 1, validate and pass through states array
     if keytimes > 1:
         states = btn.get("states", [])
@@ -170,6 +204,9 @@ def validate_config(cfg, button_count=10):
         result[k] = v
     result["buttons"] = validated_buttons
     result["global_channel"] = global_channel
+    # Preserve optional global long-press threshold (ms)
+    if isinstance(cfg.get("long_press_threshold_ms"), int):
+        result["long_press_threshold_ms"] = cfg.get("long_press_threshold_ms")
     return result
 
 

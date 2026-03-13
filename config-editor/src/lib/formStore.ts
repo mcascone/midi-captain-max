@@ -129,9 +129,11 @@ function setNestedValue(obj: any, path: string, value: any) {
       
       current = current[key][idx];
     } else {
-      // Check object property exists
+      // If an intermediate object property is missing, create it so nested
+      // fields (e.g. `long_press`) can be added via the form without having
+      // to pre-initialize every nested object. Arrays must already exist.
       if (current[part] === undefined || current[part] === null) {
-        throw new Error(`Invalid path "${path}": ${part} does not exist`);
+        current[part] = {};
       }
       current = current[part];
     }
