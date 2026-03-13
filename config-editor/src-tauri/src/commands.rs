@@ -331,36 +331,40 @@ fn eject_volume(volume_path: &Path) -> Result<(), ConfigError> {
 #[cfg(target_os = "linux")]
 fn eject_volume(volume_path: &Path) -> Result<(), ConfigError> {
     use std::process::Command;
-    // Try gio mount (GNOME/freedesktop, works in user space)
-    let output = Command::new("gio")
+
+    // Try gio mount first (GNOME/freedesktop, works in user space)
+    let gio = Command::new("gio")
         .arg("mount")
         .arg("-u")
         .arg(volume_path)
         .output();
-
-    if let Ok(o) = output {
+    if let Ok(o) = gio {
         if o.status.success() {
             return Ok(());
         }
     }
 
-    // Fall back to umount
-    let output = Command::new("umount")
+    // Fall back to udisksctl (also user-space, no sudo required)
+    let udisks = Command::new("udisksctl")
+        .arg("unmount")
+        .arg("-b")
         .arg(volume_path)
-        .output()
-        .map_err(|e| ConfigError {
-            message: format!("Failed to unmount: {}", e),
-            details: None,
-        })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        .output();
+    if let Ok(o) = udisks {
+        if o.status.success() {
+            return Ok(());
+        }
+        let stderr = String::from_utf8_lossy(&o.stderr);
         return Err(ConfigError {
-            message: format!("Unmount failed: {}", stderr.trim()),
+            message: format!("Could not unmount device: {}", stderr.trim()),
             details: None,
         });
     }
-    Ok(())
+
+    Err(ConfigError {
+        message: "Could not unmount device: neither gio nor udisksctl is available. Please eject manually.".to_string(),
+        details: None,
+    })
 }
 
 #[cfg(target_os = "windows")]

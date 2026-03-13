@@ -203,7 +203,9 @@
       );
 
       if (shouldEject) {
+        $isLoading = false;
         await handleEjectAndRestart();
+        return;
       }
     } catch (e: any) {
       $statusMessage = `Error saving config: ${e.message || e}`;
@@ -255,9 +257,12 @@
     try {
       await ejectDevice($selectedDevice.config_path);
 
-      // Clear selection — the device is gone. The device-disconnected event
-      // will also fire and remove it from $devices, but we clear selection
-      // proactively so the UI doesn't flash a stale form.
+      // Proactively remove the ejected device from $devices. The async
+      // device-disconnected watcher event will also fire, but it arrives
+      // after an OS round-trip. Without this, $devices[0] below would still
+      // be the just-ejected device and selectDevice would try to read a
+      // config from an unmounted volume.
+      $devices = $devices.filter(d => d.name !== ejectedName);
       $selectedDevice = null;
       $currentConfigRaw = '';
       $hasUnsavedChanges = false;
