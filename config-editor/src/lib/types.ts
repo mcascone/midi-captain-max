@@ -47,6 +47,29 @@ export interface ButtonConfig {
   // Keytimes cycling
   keytimes?: number;         // States to cycle through on press (1-99); 1 = no cycling
   states?: StateOverride[];  // Per-state overrides; length should match keytimes
+  // Optional long-press / hold actions
+  // `long_press` is dispatched when a hold crosses the threshold.
+  // `long_release` is dispatched when releasing after a long press.
+  long_press?: {
+    type: 'cc' | 'note' | 'pc';
+    // cc fields
+    cc?: number;
+    value?: number; // CC value or note velocity
+    // note fields
+    note?: number;
+    // pc fields
+    program?: number;
+    channel?: number; // 0-15
+    threshold_ms?: number; // optional per-button threshold in ms
+  };
+  long_release?: {
+    type: 'cc' | 'note' | 'pc';
+    cc?: number;
+    value?: number;
+    note?: number;
+    program?: number;
+    channel?: number;
+  };
 }
 
 export interface EncoderPush {
@@ -98,6 +121,8 @@ export interface MidiCaptainConfig {
   global_channel?: number;  // Stored as 0-15, displayed as 1-16
   usb_drive_name?: string;  // Custom USB drive label (max 11 chars, alphanumeric + underscore)
   dev_mode?: boolean;       // true = USB always mounts; false (default) = switch-gated
+  // Optional global default threshold for long-press in milliseconds
+  long_press_threshold_ms?: number;
   buttons: ButtonConfig[];
   encoder?: EncoderConfig;
   expression?: ExpressionPedals;

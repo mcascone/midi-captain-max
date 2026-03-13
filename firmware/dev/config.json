@@ -19,6 +19,15 @@
     {"label": "PLATE", "cc": 28, "color": "purple"},
     {"label": "ROOM", "cc": 29, "color": "white", "mode": "momentary"}
   ],
+  "long_press_threshold_ms": 600,
+  "buttons_example_longpress": {
+    "note": "Example long-press usage: add per-button `long_press` or `long_release` entries",
+    "example_button_1": {
+      "label": "EDGE",
+      "short_press": {"type": "cc", "cc": 30, "value": 127},
+      "long_press": {"type": "cc", "cc": 31, "value": 127, "threshold_ms": 700}
+    }
+  },
   "encoder": {
     "enabled": true,
     "cc": 11,

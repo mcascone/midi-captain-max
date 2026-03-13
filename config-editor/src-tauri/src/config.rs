@@ -74,6 +74,25 @@ pub struct StateOverride {
     pub label: Option<String>,
 }
 
+/// Action structure for long-press / long-release actions
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Action {
+    #[serde(rename = "type", default)]
+    pub action_type: MessageType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub program: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub threshold_ms: Option<u32>,
+}
+
 /// Button configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonConfig {
@@ -115,6 +134,10 @@ pub struct ButtonConfig {
     pub keytimes: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub states: Option<Vec<StateOverride>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_press: Option<Action>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_release: Option<Action>,
 }
 
 fn is_default_off_mode(mode: &OffMode) -> bool {
@@ -246,6 +269,8 @@ pub struct MidiCaptainConfig {
     pub expression: Option<ExpressionPedals>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display: Option<DisplayConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_press_threshold_ms: Option<u32>,
 }
 
 impl MidiCaptainConfig {
@@ -307,6 +332,44 @@ impl MidiCaptainConfig {
             if let Some(ms) = button.flash_ms {
                 if ms < 50 || ms > 5000 {
                     errors.push(format!("Button {} flash_ms {} out of range (50-5000)", i + 1, ms));
+                }
+            }
+            // Validate long_press / long_release actions
+            if let Some(ref lp) = button.long_press {
+                if let Some(ch) = lp.channel {
+                    if ch > 15 {
+                        errors.push(format!("Button {} long_press channel {} is invalid (must be 1-16)", i + 1, ch + 1));
+                    }
+                }
+                if let Some(th) = lp.threshold_ms {
+                    if th < 50 || th > 10000 {
+                        errors.push(format!("Button {} long_press threshold_ms {} out of range (50-10000)", i + 1, th));
+                    }
+                }
+                if let Some(cc) = lp.cc {
+                    if cc > 127 { errors.push(format!("Button {} long_press cc {} exceeds 127", i + 1, cc)); }
+                }
+                if let Some(n) = lp.note {
+                    if n > 127 { errors.push(format!("Button {} long_press note {} exceeds 127", i + 1, n)); }
+                }
+                if let Some(p) = lp.program {
+                    if p > 127 { errors.push(format!("Button {} long_press program {} exceeds 127", i + 1, p)); }
+                }
+            }
+            if let Some(ref lr) = button.long_release {
+                if let Some(ch) = lr.channel {
+                    if ch > 15 {
+                        errors.push(format!("Button {} long_release channel {} is invalid (must be 1-16)", i + 1, ch + 1));
+                    }
+                }
+                if let Some(cc) = lr.cc {
+                    if cc > 127 { errors.push(format!("Button {} long_release cc {} exceeds 127", i + 1, cc)); }
+                }
+                if let Some(n) = lr.note {
+                    if n > 127 { errors.push(format!("Button {} long_release note {} exceeds 127", i + 1, n)); }
+                }
+                if let Some(p) = lr.program {
+                    if p > 127 { errors.push(format!("Button {} long_release program {} exceeds 127", i + 1, p)); }
                 }
             }
         }

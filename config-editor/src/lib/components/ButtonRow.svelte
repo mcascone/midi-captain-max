@@ -46,6 +46,29 @@
     onUpdate('off_mode', target.value as OffMode);
   }
 
+  // Long-press handlers
+  function handleLongPressTypeChange(e: Event) {
+    const target = e.target as HTMLSelectElement;
+    onUpdate('long_press.type', target.value);
+  }
+
+  function handleLongPressNumberField(field: string, e: Event) {
+    const target = e.target as HTMLInputElement;
+    const value = target.value === '' ? undefined : parseInt(target.value);
+    onUpdate(`long_press.${field}`, value);
+  }
+
+  function handleLongReleaseTypeChange(e: Event) {
+    const target = e.target as HTMLSelectElement;
+    onUpdate('long_release.type', target.value);
+  }
+
+  function handleLongReleaseNumberField(field: string, e: Event) {
+    const target = e.target as HTMLInputElement;
+    const value = target.value === '' ? undefined : parseInt(target.value);
+    onUpdate(`long_release.${field}`, value);
+  }
+
   function handleChannelChange(e: Event) {
     const target = e.target as HTMLInputElement;
     if (target.value === '') {
@@ -327,6 +350,53 @@
     </select>
   </div>
 
+  <details class="long-section" open>
+    <summary>Long Press ▸</summary>
+    <small class="hint">Optional action fired when the switch is held beyond the threshold.</small>
+    <div class="field long-fields">
+      <label class="field-label">Type:</label>
+      <select class="select" value={button.long_press?.type ?? 'cc'} onchange={handleLongPressTypeChange} disabled={disabled} title="Message type for long press">
+        <option value="cc">CC</option>
+        <option value="note">Note</option>
+        <option value="pc">PC</option>
+      </select>
+      {#if (button.long_press?.type ?? 'cc') === 'cc'}
+        <input type="number" class="input-cc" value={button.long_press?.cc ?? ''} onblur={(e)=>handleLongPressNumberField('cc', e)} disabled={disabled} min="0" max="127" placeholder="CC" title="CC number (0-127)" />
+        <input type="number" class="input-cc-value" value={button.long_press?.value ?? ''} onblur={(e)=>handleLongPressNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Value" title="Value (0-127)" />
+        <input type="number" class="input-cc" value={button.long_press?.threshold_ms ?? ''} onblur={(e)=>handleLongPressNumberField('threshold_ms', e)} disabled={disabled} min="50" max="10000" placeholder="Thr ms" title="Threshold in ms (hold duration)" />
+      {:else if (button.long_press?.type ?? '') === 'note'}
+        <input type="number" class="input-cc" value={button.long_press?.note ?? ''} onblur={(e)=>handleLongPressNumberField('note', e)} disabled={disabled} min="0" max="127" placeholder="Note" title="Note number (0-127)" />
+        <input type="number" class="input-cc-value" value={button.long_press?.value ?? ''} onblur={(e)=>handleLongPressNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Vel" title="Velocity (0-127)" />
+      {:else}
+        <input type="number" class="input-cc" value={button.long_press?.program ?? ''} onblur={(e)=>handleLongPressNumberField('program', e)} disabled={disabled} min="0" max="127" placeholder="Program" title="Program number (0-127)" />
+      {/if}
+      <input type="number" class="input-channel" value={button.long_press?.channel !== undefined ? button.long_press.channel + 1 : ''} onblur={(e)=>handleLongPressNumberField('channel', e)} disabled={disabled} min="1" max="16" placeholder="Ch" title="MIDI channel (1-16)" />
+    </div>
+  </details>
+
+  <details class="long-section">
+    <summary>Long Release ▸</summary>
+    <small class="hint">Optional action fired when the long-press is released.</small>
+    <div class="field long-fields">
+      <label class="field-label">Type:</label>
+      <select class="select" value={button.long_release?.type ?? 'cc'} onchange={handleLongReleaseTypeChange} disabled={disabled} title="Message type for long-release">
+        <option value="cc">CC</option>
+        <option value="note">Note</option>
+        <option value="pc">PC</option>
+      </select>
+      {#if (button.long_release?.type ?? 'cc') === 'cc'}
+        <input type="number" class="input-cc" value={button.long_release?.cc ?? ''} onblur={(e)=>handleLongReleaseNumberField('cc', e)} disabled={disabled} min="0" max="127" placeholder="CC" title="CC number (0-127)" />
+        <input type="number" class="input-cc-value" value={button.long_release?.value ?? ''} onblur={(e)=>handleLongReleaseNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Value" title="Value (0-127)" />
+      {:else if (button.long_release?.type ?? '') === 'note'}
+        <input type="number" class="input-cc" value={button.long_release?.note ?? ''} onblur={(e)=>handleLongReleaseNumberField('note', e)} disabled={disabled} min="0" max="127" placeholder="Note" title="Note number (0-127)" />
+        <input type="number" class="input-cc-value" value={button.long_release?.value ?? ''} onblur={(e)=>handleLongReleaseNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Vel" title="Velocity (0-127)" />
+      {:else}
+        <input type="number" class="input-cc" value={button.long_release?.program ?? ''} onblur={(e)=>handleLongReleaseNumberField('program', e)} disabled={disabled} min="0" max="127" placeholder="Program" title="Program number (0-127)" />
+      {/if}
+      <input type="number" class="input-channel" value={button.long_release?.channel !== undefined ? button.long_release.channel + 1 : ''} onblur={(e)=>handleLongReleaseNumberField('channel', e)} disabled={disabled} min="1" max="16" placeholder="Ch" title="MIDI channel (1-16)" />
+    </div>
+  </details>
+
   {#if hasKeytimes && !disabled}
     <div class="states-section">
       <span class="states-label">States ({button.states?.length ?? 0}):</span>
@@ -558,6 +628,40 @@
     color: #888;
     min-width: 28px;
     padding-top: 1.5rem;
+  }
+
+  /* Long-press UI tweaks */
+  .long-section {
+    width: 100%;
+    margin-top: 0.25rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 4px;
+    background: #ffffff;
+    border: 1px solid #f0f0f0;
+  }
+
+  .long-section summary {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #333;
+    list-style: none;
+    cursor: pointer;
+    outline: none;
+    margin-bottom: 0.25rem;
+  }
+
+  .long-section .hint {
+    font-size: 0.75rem;
+    color: #666;
+    margin-bottom: 0.35rem;
+    display: block;
+  }
+
+  .long-fields {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .disabled-overlay {
