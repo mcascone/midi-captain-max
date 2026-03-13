@@ -20,6 +20,7 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 
 ## Key Features
 - 🔄 **Bidirectional MIDI** — Host can update LEDs/display state
+- 📺 **Center display** — Shows button names and MIDI info with smart timeout
 - ⚡ **Multi-command actions** — Send multiple MIDI messages per button press/release
 - ⚙️ **Config-driven** — Visual GUI Config Editor for all settings
 - 🎨 **Visual feedback** — LEDs and LCD reflect actual host state

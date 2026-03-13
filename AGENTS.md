@@ -498,6 +498,11 @@ From firmware `code.py`:
   - When a button with `select_group` turns ON, all other buttons in the same group are turned OFF
   - Applies to both `toggle` and `select` modes
   - Deselected buttons send their `release` event (or fall back to legacy `cc_off`/`velocity_off`)
+- **`default_selected`**: Boolean flag for startup state
+  - When `true`, button turns ON at boot and sends its `press` MIDI messages
+  - Only one button per `select_group` should have `default_selected: true`
+  - Button label is displayed on center screen at startup
+  - Console prints: `[STARTUP] Activated default_selected button N: LABEL`
 
 ---
 
@@ -514,6 +519,7 @@ Full button config fields:
   "off_mode": "dim|off",
   "channel": 0,
   "select_group": "optional string",
+  "default_selected": false,
   "keytimes": 3,
   "press": [
     { "type": "cc", "cc": 20, "value": 127, "channel": 0 },
@@ -603,6 +609,31 @@ The font is loaded at startup based on `display_config["status_text_size"]`. `la
 
 ## Firmware Patterns
 
+### Center Display with Smart Timeout
+
+The center display shows a dual-line layout with intelligent timeout behavior:
+
+**Layout:**
+- **Line 1 (button_name_label)**: Button name in large font (60px, PTSans-Bold) at (120, 100)
+- **Line 2 (status_label)**: MIDI/status info in medium font (20px, PTSans-Regular) at (120, 145)
+
+**Smart Timeout Behavior:**
+- **Select buttons**: Display stays on their label (no timeout)
+- **Non-select buttons**: Show for 3 seconds, then return to active select button
+- **Encoder/encoder push**: Show for 3 seconds, then return to active select button
+- **No select button**: Falls back to empty label + "Ready" status
+
+**Implementation:**
+- `label_timeout_return_to_select`: Global expiry time (monotonic), 0 = no timeout active
+- `LABEL_RETURN_TIMEOUT_SEC = 3.0`: Timeout duration
+- `find_selected_button()`: Searches for button with `select_group` and `state=True`
+- `show_selected_button_label()`: Updates display to show selected button or "Ready"
+- `update_label_timeout()`: Called in main loop, checks expiry and updates display
+- `set_label_text(label, text)`: Helper that clears label (`""`) before setting new text to prevent CircuitPython displayio.Label text persistence
+
+**Text Clearing:**
+CircuitPython's `displayio.Label` does not automatically clear old characters when text changes. The `set_label_text()` helper prevents overlap by setting `label.text = ""` before `label.text = new_text`. All label updates throughout the firmware use this helper.
+
 ### PC Button Flash
 
 PC buttons flash the LED on press for feedback (they have no persistent on/off state). Implementation:
@@ -620,6 +651,8 @@ while True:
     handle_midi()       # RX: process incoming CC/Note/PC, update LED state
     handle_switches()   # TX: scan footswitches, dispatch MIDI on change
     update_pc_flash_timers()
+    update_blink_timers()
+    update_label_timeout()
     if HAS_ENCODER:
         handle_encoder_button()
         handle_encoder()

@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2026-03-13
 
 ### Added
+- **Center display with dual-line layout**: Button name (large, 60px font) + MIDI info (medium, 20px font) centered on screen.
+- **Smart label timeout**: Non-select buttons display for 3 seconds then automatically return to showing the active select button.
+- **Startup default selection**: Buttons with `default_selected: true` now send their `press` MIDI messages on device boot.
+- **Display state management**: `find_selected_button()` and `show_selected_button_label()` helper functions for intelligent display updates.
 - **Multi-command arrays**: All button events (Press, Release, Long Press, Long Release) now support executing multiple MIDI commands per event.
 - **Multi-command visual indicators** in DeviceGrid:
   - Count badge showing number of commands (e.g., `CC20 ×2`)
@@ -26,8 +30,13 @@ All notable changes to this project will be documented in this file.
 - Editor: `config-editor/src/lib/types.ts`, `ButtonRow.svelte` — added `select` option and long-press UX improvements.
 - Firmware: `firmware/dev/code.py`, `firmware/dev/core/config.py` — enforced select-group exclusivity and normalized select-related config.
 - Rust backend: `config-editor/src-tauri/src/config.rs` — added `Select` enum variant and multi-command validation.
+- **Expression pedal labels removed from display** for cleaner center display focus (pedals still functional).
+- **Display timeout in main loop**: `update_label_timeout()` called every iteration to check for expired timeouts.
+- **Ready state fallback**: Display shows "Ready" when no select buttons are configured or active.
 
 ### Fixed
+- **Text overlap on display**: Added `set_label_text()` helper that clears labels before updating to prevent CircuitPython displayio.Label text persistence issue.
+- Display showing stale text when new text was shorter than previous text.
 - DeviceGrid showing "CC?" when legacy fields were missing - now extracts from press command arrays.
 - DeviceGrid showing channel twice ("1 1") - now displays channel+value and off value correctly.
 - Simple mode action objects causing JSON parse errors - normalization converts to arrays.
