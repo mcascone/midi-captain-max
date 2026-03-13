@@ -152,10 +152,10 @@ fn get_volume_name(path: &PathBuf) -> Option<String> {
 ///
 /// Accepts:
 /// 1. Volumes with a known name (CIRCUITPY, MIDICAPTAIN), or
-/// 2. Volumes whose config.json identifies as MIDI Captain **and** whose
-///    `usb_drive_name` matches the actual volume name (case-insensitive).
-///    This prevents treating arbitrary volumes as devices just because
-///    someone placed a config.json on them.
+/// 2. Volumes whose config.json identifies as a MIDI Captain device
+///    (has `"device": "std10"` or `"mini6"`).
+///    This covers user-renamed drives (e.g. renamed in Finder) where the
+///    volume name no longer matches the default "MIDICAPTAIN".
 fn check_volume(path: &PathBuf) -> Option<DetectedDevice> {
     let name = get_volume_name(path)?;
     let config_path = path.join("config.json");
@@ -163,16 +163,7 @@ fn check_volume(path: &PathBuf) -> Option<DetectedDevice> {
 
     let is_known_name = DEVICE_VOLUMES.iter().any(|v| name.eq_ignore_ascii_case(v));
 
-    // For unknown volume names, require the config's usb_drive_name to match
-    // the actual volume name. This limits the security surface: a config.json
-    // on an arbitrary volume won't pass unless its declared name matches.
-    let config_matches_volume = || {
-        parse_midi_captain_config(&config_path)
-            .map(|declared_name| declared_name.eq_ignore_ascii_case(&name))
-            .unwrap_or(false)
-    };
-
-    if is_known_name || config_matches_volume() {
+    if is_known_name || is_midi_captain_config(&config_path) {
         Some(DetectedDevice {
             name: name.to_string(),
             path: path.clone(),
@@ -524,9 +515,10 @@ mod tests {
 
     #[test]
     #[cfg(not(target_os = "windows"))]
-    fn test_check_volume_custom_name_mismatch_rejected() {
+    fn test_check_volume_custom_name_accepted_with_valid_config() {
         // A valid MIDI Captain config.json on a volume whose name does NOT match
-        // the config's usb_drive_name should be rejected (security constraint).
+        // the config's usb_drive_name should still be accepted — this covers
+        // drives renamed in Finder where config.json still has the old name.
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("config.json");
         std::fs::write(
@@ -536,7 +528,7 @@ mod tests {
         .unwrap();
 
         let result = check_volume(&dir.path().to_path_buf());
-        assert!(result.is_none(), "Volume with non-matching usb_drive_name should be rejected");
+        assert!(result.is_some(), "Volume with valid MIDI Captain config should be accepted regardless of name");
     }
 
     #[test]
