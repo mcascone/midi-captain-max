@@ -325,65 +325,22 @@ export function setDevice(deviceType: DeviceType) {
   });
 }
 
-// Strip type-specific fields that don't belong to the button's current type.
-// Prevents stale cc/note/program/etc. from accumulating in the saved JSON when
-// the user switches a button's type.
+// Convert action objects to arrays for backend compatibility
+// The UI always uses arrays, but ensure any single objects are wrapped
 function normalizeButton(btn: ButtonConfig): ButtonConfig {
-  const type = btn.type ?? 'cc';
-  const { cc, cc_on, cc_off, note, velocity_on, velocity_off, program, pc_step, flash_ms, ...common } = btn;
-
-  let normalized: ButtonConfig;
-  switch (type) {
-    case 'cc':
-      normalized = {
-        ...common,
-        ...(cc !== undefined && { cc }),
-        ...(cc_on !== undefined && { cc_on }),
-        ...(cc_off !== undefined && { cc_off }),
-      };
-      break;
-    case 'note':
-      normalized = {
-        ...common,
-        ...(note !== undefined && { note }),
-        ...(velocity_on !== undefined && { velocity_on }),
-        ...(velocity_off !== undefined && { velocity_off }),
-      };
-      break;
-    case 'pc':
-      normalized = {
-        ...common,
-        ...(program !== undefined && { program }),
-        ...(flash_ms !== undefined && { flash_ms }),
-      };
-      break;
-    case 'pc_inc':
-    case 'pc_dec':
-      normalized = {
-        ...common,
-        ...(pc_step !== undefined && { pc_step }),
-        ...(flash_ms !== undefined && { flash_ms }),
-      };
-      break;
-    default:
-      normalized = btn;
-  }
-
-  // CRITICAL: Convert simple-mode object format to array format for backend
-  // Simple mode creates { long_press: { type: 'cc', ... } }
-  // Backend expects { long_press: [{ type: 'cc', ... }] }
   const ensureArray = (field: any): any[] | undefined => {
     if (!field) return undefined;
     if (Array.isArray(field)) return field;
     return [field]; // Convert single object to array
   };
 
-  if (normalized.press) normalized.press = ensureArray(normalized.press) as any;
-  if (normalized.release) normalized.release = ensureArray(normalized.release) as any;
-  if (normalized.long_press) normalized.long_press = ensureArray(normalized.long_press) as any;
-  if (normalized.long_release) normalized.long_release = ensureArray(normalized.long_release) as any;
-
-  return normalized;
+  return {
+    ...btn,
+    press: ensureArray(btn.press) as any,
+    release: ensureArray(btn.release) as any,
+    long_press: ensureArray(btn.long_press) as any,
+    long_release: ensureArray(btn.long_release) as any,
+  };
 }
 
 export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {

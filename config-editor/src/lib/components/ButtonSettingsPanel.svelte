@@ -3,41 +3,13 @@
   import { selectedButtonIndex } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
   import ButtonCommandsEditor from './ButtonCommandsEditor.svelte';
-  import type { MessageType, MidiCommand } from '$lib/types';
 
   let btn    = $derived($config.buttons[$selectedButtonIndex] ?? null);
   let buttons = $derived($config.buttons);
   let globalCh = $derived($config.global_channel ?? 0);
 
-  let msgType     = $derived((btn?.type ?? 'cc') as MessageType);
-  let isCC        = $derived(msgType === 'cc');
-  let isNote      = $derived(msgType === 'note');
-  let isPC        = $derived(msgType === 'pc');
-  let isPCIncDec  = $derived(msgType === 'pc_inc' || msgType === 'pc_dec');
-  let showMode    = $derived(isCC || isNote);
-
   let effectiveChannel = $derived((btn?.channel !== undefined ? btn.channel : globalCh) + 1);
   let displayChannel   = $derived(btn?.channel !== undefined ? btn.channel + 1 : undefined);
-
-  // Multi-command mode state
-  let advancedMode = $state(false);
-  
-  // Detect if button uses new multi-command format
-  let hasMultiCommands = $derived(
-    btn && (
-      (Array.isArray(btn.press) && btn.press.length > 1) ||
-      (Array.isArray(btn.release) && btn.release.length > 0) ||
-      (Array.isArray(btn.long_press) && btn.long_press.length > 1) ||
-      (Array.isArray(btn.long_release) && btn.long_release.length > 0)
-    )
-  );
-  
-  // Auto-enable advanced mode if button has multi-commands
-  $effect(() => {
-    if (hasMultiCommands) {
-      advancedMode = true;
-    }
-  });
 
   function update(field: string, value: unknown) {
     updateField(`buttons[${$selectedButtonIndex}].${field}`, value);
@@ -103,93 +75,6 @@
         />
       </div>
 
-      {#if !advancedMode}
-        <div class="field-row">
-          <div class="field">
-            <label>Type:</label>
-            <select value={btn.type ?? 'cc'} onchange={(e) => update('type', strVal(e))}>
-              <option value="cc">CC</option>
-              <option value="note">Note</option>
-              <option value="pc">PC Fixed</option>
-              <option value="pc_inc">PC+</option>
-              <option value="pc_dec">PC-</option>
-            </select>
-          </div>
-
-          <div class="field narrow">
-            <label>Channel:</label>
-            <input
-              type="number" min="1" max="16"
-              value={displayChannel ?? ''}
-              placeholder={String(effectiveChannel)}
-              onblur={(e) => { const v = numVal(e); update('channel', v !== undefined ? v - 1 : undefined); }}
-            />
-          </div>
-
-          {#if isCC}
-            <div class="field narrow">
-              <label>CC:</label>
-              <input type="number" min="0" max="127"
-                value={btn.cc ?? ''}
-                onblur={(e) => update('cc', numVal(e))} />
-            </div>
-          {:else if isNote}
-            <div class="field narrow">
-              <label>Note:</label>
-              <input type="number" min="0" max="127"
-                value={btn.note ?? ''}
-                onblur={(e) => update('note', numVal(e))} />
-            </div>
-          {:else if isPC}
-            <div class="field narrow">
-              <label>Program:</label>
-              <input type="number" min="0" max="127"
-                value={btn.program ?? ''}
-                onblur={(e) => update('program', numVal(e))} />
-            </div>
-          {:else if isPCIncDec}
-            <div class="field narrow">
-              <label>Step:</label>
-              <input type="number" min="1" max="127"
-                value={btn.pc_step ?? 1}
-                onblur={(e) => update('pc_step', numVal(e))} />
-            </div>
-          {/if}
-        </div>
-
-        {#if isCC}
-          <div class="field-row">
-            <div class="field narrow">
-              <label>ON:</label>
-              <input type="number" min="0" max="127"
-                value={btn.cc_on ?? ''} placeholder="127"
-                onblur={(e) => update('cc_on', numVal(e))} />
-            </div>
-            <div class="field narrow">
-              <label>OFF:</label>
-              <input type="number" min="0" max="127"
-                value={btn.cc_off ?? ''} placeholder="0"
-                onblur={(e) => update('cc_off', numVal(e))} />
-            </div>
-          </div>
-        {:else if isNote}
-          <div class="field-row">
-            <div class="field narrow">
-              <label>Vel ON:</label>
-              <input type="number" min="0" max="127"
-                value={btn.velocity_on ?? ''} placeholder="127"
-                onblur={(e) => update('velocity_on', numVal(e))} />
-            </div>
-            <div class="field narrow">
-              <label>Vel OFF:</label>
-              <input type="number" min="0" max="127"
-                value={btn.velocity_off ?? ''} placeholder="0"
-                onblur={(e) => update('velocity_off', numVal(e))} />
-            </div>
-          </div>
-        {/if}
-      {/if}
-
       <div class="field-row">
         <div class="field">
           <label>Color:</label>
@@ -205,47 +90,16 @@
         <span class="section-title">Behavior</span>
       </div>
 
-      <!-- Multi-Command Mode Toggle -->
-      <div class="mode-toggle-container">
-        <label class="mode-toggle-label">
-          <input type="checkbox" bind:checked={advancedMode}
-            onchange={(e) => {
-              const enabled = (e.target as HTMLInputElement).checked;
-              if (!enabled) {
-                // Clear ONLY multi-command arrays (length > 1) when disabling
-                // Preserve single-item arrays from simple mode (long press)
-                if (Array.isArray(btn.press) && btn.press.length > 1) {
-                  update('press', undefined);
-                }
-                if (Array.isArray(btn.release) && btn.release.length > 0) {
-                  update('release', undefined);
-                }
-                if (Array.isArray(btn.long_press) && btn.long_press.length > 1) {
-                  update('long_press', undefined);
-                }
-                if (Array.isArray(btn.long_release) && btn.long_release.length > 0) {
-                  update('long_release', undefined);
-                }
-              }
-            }}
-          />
-          <div class="toggle-content">
-            <span class="toggle-title">Multi-Command Mode</span>
-            <span class="toggle-description">
-              {#if advancedMode}
-                Use "+ Add Command" to send multiple MIDI commands per action
-              {:else}
-                Send multiple MIDI commands from one button press
-              {/if}
-            </span>
-          </div>
-        </label>
-        {#if hasMultiCommands}
-          <span class="mode-badge">ACTIVE</span>
-        {/if}
-      </div>
-
-      <div class="field-row">{#if showMode}
+      <div class="field-row">
+        <div class="field">
+          <label>Switch Mode:</label>
+          <select value={btn.mode ?? 'toggle'} onchange={(e) => update('mode', strVal(e))}>
+            <option value="toggle">Toggle</option>
+            <option value="momentary">Momentary</option>
+            <option value="select">Select</option>
+            <option value="tap">Tap</option>
+          </select>
+        </div>
           <div class="field">
             <label>Switch Mode:</label>
             <select value={btn.mode ?? 'toggle'} onchange={(e) => update('mode', strVal(e))}>
@@ -254,8 +108,7 @@
               <option value="select">Select</option>
               <option value="tap">Tap</option>
             </select>
-          </div>
-        {/if}
+        </div>
         <div class="field narrow">
           <label>Keytimes:</label>
           <input type="number" min="1" max="99"
@@ -283,118 +136,46 @@
     </div>
 
     <!-- ── Actions Section ───────────────────── -->
-    {#if advancedMode}
-      <div class="section">
-        <div class="section-header">
-          <span class="section-icon">⚡</span>
-          <span class="section-title">Actions</span>
-        </div>
-
-        <!-- Press Event -->
-        <ButtonCommandsEditor
-          eventLabel="Press"
-          commands={btn.press ?? []}
-          globalChannel={globalCh}
-          onUpdate={(cmds) => update('press', cmds.length > 0 ? cmds : undefined)}
-        />
-
-        <!-- Release Event (only for momentary) -->
-        {#if (btn.mode ?? 'toggle') === 'momentary'}
-          <ButtonCommandsEditor
-            eventLabel="Release"
-            commands={btn.release ?? []}
-            globalChannel={globalCh}
-            onUpdate={(cmds) => update('release', cmds.length > 0 ? cmds : undefined)}
-          />
-        {/if}
-
-        <!-- Long Press Event -->
-        <ButtonCommandsEditor
-          eventLabel="Long Press"
-          commands={btn.long_press ?? []}
-          globalChannel={globalCh}
-          onUpdate={(cmds) => update('long_press', cmds.length > 0 ? cmds : undefined)}
-        />
-
-        <!-- Long Release Event -->
-        <ButtonCommandsEditor
-          eventLabel="Long Release"
-          commands={btn.long_release ?? []}
-          globalChannel={globalCh}
-          onUpdate={(cmds) => update('long_release', cmds.length > 0 ? cmds : undefined)}
-        />
+    <div class="section">
+      <div class="section-header">
+        <span class="section-icon">⚡</span>
+        <span class="section-title">Actions</span>
       </div>
-    {:else}
-      <!-- ── LED Section (Simple Mode) ─────────── -->
-      <div class="section">
-        <div class="section-header">
-          <span class="section-icon">⟳</span>
-          <span class="section-title">LED</span>
-        </div>
 
-        <label class="checkbox-label">
-          <input type="checkbox" checked={!!btn.long_press}
-            onchange={(e) => {
-              if ((e.target as HTMLInputElement).checked) {
-                update('long_press', { type: 'cc', cc: btn.cc ?? 20, value: 127, channel: btn.channel ?? globalCh, threshold_ms: 600 });
-              } else {
-                update('long_press', undefined);
-              }
-            }}
-          />
-          Enable long press
-        </label>
+      <!-- Press Event -->
+      <ButtonCommandsEditor
+        eventLabel="Press"
+        commands={btn.press ?? []}
+        globalChannel={globalCh}
+        onUpdate={(cmds) => update('press', cmds.length > 0 ? cmds : undefined)}
+      />
 
-        {#if btn.long_press}
-          <div class="field-row">
-            <div class="field">
-              <label>Type:</label>
-              <select value={btn.long_press.type ?? 'cc'}
-                onchange={(e) => update('long_press.type', strVal(e))}>
-                <option value="cc">CC</option>
-                <option value="note">Note</option>
-                <option value="pc">PC</option>
-              </select>
-            </div>
+      <!-- Release Event (only for momentary) -->
+      {#if (btn.mode ?? 'toggle') === 'momentary'}
+        <ButtonCommandsEditor
+          eventLabel="Release"
+          commands={btn.release ?? []}
+          globalChannel={globalCh}
+          onUpdate={(cmds) => update('release', cmds.length > 0 ? cmds : undefined)}
+        />
+      {/if}
 
-            {#if btn.long_press.type === 'cc' || !btn.long_press.type}
-              <div class="field narrow">
-                <label>CC:</label>
-                <input type="number" min="0" max="127"
-                  value={btn.long_press.cc ?? ''}
-                  onblur={(e) => update('long_press.cc', numVal(e))} />
-              </div>
-              <div class="field narrow">
-                <label>Value:</label>
-                <input type="number" min="0" max="127"
-                  value={btn.long_press.value ?? ''}
-                  onblur={(e) => update('long_press.value', numVal(e))} />
-              </div>
-            {:else if btn.long_press.type === 'note'}
-              <div class="field narrow">
-                <label>Note:</label>
-                <input type="number" min="0" max="127"
-                  value={btn.long_press.note ?? ''}
-                  onblur={(e) => update('long_press.note', numVal(e))} />
-              </div>
-              <div class="field narrow">
-                <label>Vel:</label>
-                <input type="number" min="0" max="127"
-                  value={btn.long_press.value ?? ''}
-                  onblur={(e) => update('long_press.value', numVal(e))} />
-              </div>
-            {:else}
-              <div class="field narrow">
-                <label>Program:</label>
-                <input type="number" min="0" max="127"
-                  value={btn.long_press.program ?? ''}
-                  onblur={(e) => update('long_press.program', numVal(e))} />
-              </div>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    {/if}
+      <!-- Long Press Event -->
+      <ButtonCommandsEditor
+        eventLabel="Long Press"
+        commands={btn.long_press ?? []}
+        globalChannel={globalCh}
+        onUpdate={(cmds) => update('long_press', cmds.length > 0 ? cmds : undefined)}
+      />
+
+      <!-- Long Release Event -->
+      <ButtonCommandsEditor
+        eventLabel="Long Release"
+        commands={btn.long_release ?? []}
+        globalChannel={globalCh}
+        onUpdate={(cmds) => update('long_release', cmds.length > 0 ? cmds : undefined)}
+      />
+    </div>
 
   {:else}
     <div class="empty-state">Select a button to edit settings</div>
@@ -576,83 +357,6 @@
     margin: 0;
     accent-color: #6366f1;
     cursor: pointer;
-  }
-
-  .mode-toggle-label input[type="checkbox"] {
-    margin-top: 2px; /* Align with title text baseline */
-    flex-shrink: 0;
-  }
-
-  .mode-toggle-container {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px;
-    background: #1f1f35;
-    border: 1px solid #3a3a55;
-    border-radius: 8px;
-    margin-bottom: 14px;
-    transition: all 0.2s;
-  }
-
-  .mode-toggle-container:hover {
-    border-color: #4a4a65;
-    background: #252540;
-  }
-
-  .mode-toggle-label {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    cursor: pointer;
-    flex: 1;
-    margin: 0;
-    min-width: 0; /* Allow shrinking */
-  }
-
-  .toggle-content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex: 1;
-    min-width: 0; /* Allow shrinking */
-  }
-
-  .toggle-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #e5e7eb;
-  }
-
-  .toggle-description {
-    font-size: 11px;
-    color: #9ca3af;
-    line-height: 1.4;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    white-space: normal;
-    max-width: 100%;
-  }
-
-  .mode-badge {
-    font-size: 10px;
-    font-weight: 700;
-    color: #6366f1;
-    background: rgba(99, 102, 241, 0.1);
-    border: 1px solid #6366f1;
-    padding: 3px 8px;
-    border-radius: 4px;
-    letter-spacing: 0.05em;
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-
-  .mode-hint {
-    font-size: 11px;
-    color: #6b7280;
-    font-style: italic;
-    margin-left: auto;
   }
 
   .empty-state {
