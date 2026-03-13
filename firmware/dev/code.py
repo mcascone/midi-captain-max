@@ -541,13 +541,24 @@ for i in range(BUTTON_COUNT):
     button_labels.append(lbl)
     main_group.append(lbl)
 
-# Status area (center)
+# Center display area - two lines
+# Line 1: Button name (large font)
+button_name_label = label.Label(
+    load_font("large")[0],
+    text="",
+    color=0xFFFFFF,
+    anchor_point=(0.5, 0.5),
+    anchored_position=(120, 100),
+)
+main_group.append(button_name_label)
+
+# Line 2: MIDI/status info (smaller font, below button name)
 status_label = label.Label(
     STATUS_FONT,
     text="Ready",
-    color=0xFFFFFF,
+    color=0x888888,  # Dimmer color for technical info
     anchor_point=(0.5, 0.5),
-    anchored_position=(120, 120),
+    anchored_position=(120, 145),
 )
 main_group.append(status_label)
 
@@ -615,6 +626,10 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
     else:
         print(f"[WARN] Invalid action_cfg type (button {btn_num}): {type(action_cfg)}")
         return
+    
+    # Display button name in center (large font)
+    btn_config = buttons[idx] if idx < len(buttons) else {}
+    button_name_label.text = btn_config.get("label", str(btn_num))
     
     # Track if any PC command executed (for LED flash feedback)
     pc_command_sent = False
@@ -842,6 +857,7 @@ def handle_midi():
                     sg = btn_config.get("select_group")
                     if sg:
                         _deselect_group(sg, i)
+                button_name_label.text = btn_config.get("label", str(i + 1))
                 status_label.text = f"RX CC{cc}={val}"
                 break
 
@@ -859,6 +875,7 @@ def handle_midi():
                         sg = btn_config.get("select_group")
                         if sg:
                             _deselect_group(sg, i)
+                    button_name_label.text = btn_config.get("label", str(i + 1))
                     status_label.text = f"RX Note{note}"
                     break
         else:
@@ -867,6 +884,7 @@ def handle_midi():
             for i, btn_config in enumerate(buttons):
                 if btn_config.get("type") == "note" and btn_config.get("note") == note and btn_config.get("channel", 0) == msg_channel:
                     set_button_state(i + 1, False)
+                    button_name_label.text = btn_config.get("label", str(i + 1))
                     status_label.text = f"RX NoteOff{note}"
                     break
 
@@ -1108,12 +1126,14 @@ def handle_encoder_button():
                 cc_val = ENC_PUSH_CC_ON if encoder_push_state else ENC_PUSH_CC_OFF
                 midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
                 print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, toggle)")
+                button_name_label.text = ENC_PUSH_LABEL
                 status_label.text = f"TX CC{CC_ENCODER_PUSH}={'ON' if encoder_push_state else 'OFF'}"
         else:
             # Momentary mode: send on press and release
             cc_val = ENC_PUSH_CC_ON if pressed else ENC_PUSH_CC_OFF
             midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
             print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, momentary)")
+            button_name_label.text = ENC_PUSH_LABEL
             status_label.text = f"TX CC{CC_ENCODER_PUSH}={cc_val}"
 
 
@@ -1143,11 +1163,13 @@ def handle_encoder():
                 # Output CC is the slot number (0 to steps-1)
                 midi.send(ControlChange(CC_ENCODER, encoder_slot, channel=ENC_CHANNEL))
                 print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_slot} (slot)")
+                button_name_label.text = ENC_LABEL
                 status_label.text = f"ENC slot {encoder_slot}"
         else:
             # Normal mode: send every change
             midi.send(ControlChange(CC_ENCODER, encoder_value, channel=ENC_CHANNEL))
             print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_value}")
+            button_name_label.text = ENC_LABEL
             status_label.text = f"ENC={encoder_value}"
 
 
