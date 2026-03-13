@@ -15,16 +15,54 @@
     if (!firstCmd) return '—';
     
     const type = firstCmd.type ?? 'cc';
-    if (type === 'cc')     return `CC${firstCmd.cc ?? '?'}`;
-    if (type === 'note')   return `Note${firstCmd.note ?? '?'}`;
-    if (type === 'pc')     return `PC${firstCmd.program ?? '?'}`;
-    if (type === 'pc_inc') return 'PC+';
-    if (type === 'pc_dec') return 'PC-';
-    return type.toUpperCase();
+    const cmdCount = btn.press?.length ?? 0;
+    const countBadge = cmdCount > 1 ? ` ×${cmdCount}` : '';
+    
+    if (type === 'cc')     return `CC${firstCmd.cc ?? '?'}${countBadge}`;
+    if (type === 'note')   return `Note${firstCmd.note ?? '?'}${countBadge}`;
+    if (type === 'pc')     return `PC${firstCmd.program ?? '?'}${countBadge}`;
+    if (type === 'pc_inc') return `PC+${countBadge}`;
+    if (type === 'pc_dec') return `PC-${countBadge}`;
+    return type.toUpperCase() + countBadge;
   }
 
   function colorHex(btn: ButtonConfig): string {
     return BUTTON_COLORS[btn.color] ?? '#ffffff';
+  }
+
+  function isMultiCommand(btn: ButtonConfig): boolean {
+    return (btn.press?.length ?? 0) > 1 || 
+           (btn.release?.length ?? 0) > 0 || 
+           (btn.long_press?.length ?? 0) > 0 || 
+           (btn.long_release?.length ?? 0) > 0;
+  }
+
+  function commandTooltip(btn: ButtonConfig): string {
+    const lines: string[] = [];
+    if (btn.press?.length) {
+      lines.push(`Press: ${btn.press.map(c => {
+        const t = c.type ?? 'cc';
+        if (t === 'cc') return `CC${c.cc}=${c.value}`;
+        if (t === 'note') return `Note${c.note} vel${c.velocity}`;
+        if (t === 'pc') return `PC${c.program}`;
+        return t;
+      }).join(', ')}`);
+    }
+    if (btn.release?.length) {
+      lines.push(`Release: ${btn.release.map(c => {
+        const t = c.type ?? 'cc';
+        if (t === 'cc') return `CC${c.cc}=${c.value}`;
+        return t;
+      }).join(', ')}`);
+    }
+    if (btn.long_press?.length) {
+      lines.push(`Long: ${btn.long_press.map(c => {
+        const t = c.type ?? 'cc';
+        if (t === 'cc') return `CC${c.cc}=${c.value}`;
+        return t;
+      }).join(', ')}`);
+    }
+    return lines.join('\n');
   }
 
   function onValues(btn: ButtonConfig): string {
@@ -61,6 +99,8 @@
       <button
         class="btn-card"
         class:selected={$selectedButtonIndex === i}
+        class:multi-command={isMultiCommand(btn)}
+        title={isMultiCommand(btn) ? commandTooltip(btn) : ''}
         onclick={() => selectedButtonIndex.set(i)}
       >
         <div class="btn-led" style="background: {colorHex(btn)}"></div>
@@ -154,6 +194,22 @@
   .btn-card.selected {
     border-color: #6366f1;
     background: #1e1e38;
+  }
+
+  .btn-card.multi-command {
+    border-color: #4338ca;
+    background: linear-gradient(135deg, #1a1a2e 0%, #1e1e38 100%);
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.2);
+  }
+
+  .btn-card.multi-command:hover {
+    border-color: #5b54e6;
+    background: linear-gradient(135deg, #1e1e38 0%, #222244 100%);
+  }
+
+  .btn-card.multi-command.selected {
+    border-color: #818cf8;
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.4), 0 0 12px rgba(99, 102, 241, 0.3);
   }
 
   .btn-card.empty {
