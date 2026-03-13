@@ -208,7 +208,18 @@
       <!-- Multi-Command Mode Toggle -->
       <div class="mode-toggle-container">
         <label class="mode-toggle-label">
-          <input type="checkbox" bind:checked={advancedMode} />
+          <input type="checkbox" bind:checked={advancedMode}
+            onchange={(e) => {
+              const enabled = (e.target as HTMLInputElement).checked;
+              if (!enabled) {
+                // Clear multi-command arrays when disabling advanced mode
+                update('press', undefined);
+                update('release', undefined);
+                update('long_press', undefined);
+                update('long_release', undefined);
+              }
+            }}
+          />
           <div class="toggle-content">
             <span class="toggle-title">Multi-Command Mode</span>
             <span class="toggle-description">
