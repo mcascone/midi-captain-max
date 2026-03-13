@@ -103,89 +103,91 @@
         />
       </div>
 
-      <div class="field-row">
-        <div class="field">
-          <label>Type:</label>
-          <select value={btn.type ?? 'cc'} onchange={(e) => update('type', strVal(e))}>
-            <option value="cc">CC</option>
-            <option value="note">Note</option>
-            <option value="pc">PC Fixed</option>
-            <option value="pc_inc">PC+</option>
-            <option value="pc_dec">PC-</option>
-          </select>
-        </div>
+      {#if !advancedMode}
+        <div class="field-row">
+          <div class="field">
+            <label>Type:</label>
+            <select value={btn.type ?? 'cc'} onchange={(e) => update('type', strVal(e))}>
+              <option value="cc">CC</option>
+              <option value="note">Note</option>
+              <option value="pc">PC Fixed</option>
+              <option value="pc_inc">PC+</option>
+              <option value="pc_dec">PC-</option>
+            </select>
+          </div>
 
-        <div class="field narrow">
-          <label>Channel:</label>
-          <input
-            type="number" min="1" max="16"
-            value={displayChannel ?? ''}
-            placeholder={String(effectiveChannel)}
-            onblur={(e) => { const v = numVal(e); update('channel', v !== undefined ? v - 1 : undefined); }}
-          />
+          <div class="field narrow">
+            <label>Channel:</label>
+            <input
+              type="number" min="1" max="16"
+              value={displayChannel ?? ''}
+              placeholder={String(effectiveChannel)}
+              onblur={(e) => { const v = numVal(e); update('channel', v !== undefined ? v - 1 : undefined); }}
+            />
+          </div>
+
+          {#if isCC}
+            <div class="field narrow">
+              <label>CC:</label>
+              <input type="number" min="0" max="127"
+                value={btn.cc ?? ''}
+                onblur={(e) => update('cc', numVal(e))} />
+            </div>
+          {:else if isNote}
+            <div class="field narrow">
+              <label>Note:</label>
+              <input type="number" min="0" max="127"
+                value={btn.note ?? ''}
+                onblur={(e) => update('note', numVal(e))} />
+            </div>
+          {:else if isPC}
+            <div class="field narrow">
+              <label>Program:</label>
+              <input type="number" min="0" max="127"
+                value={btn.program ?? ''}
+                onblur={(e) => update('program', numVal(e))} />
+            </div>
+          {:else if isPCIncDec}
+            <div class="field narrow">
+              <label>Step:</label>
+              <input type="number" min="1" max="127"
+                value={btn.pc_step ?? 1}
+                onblur={(e) => update('pc_step', numVal(e))} />
+            </div>
+          {/if}
         </div>
 
         {#if isCC}
-          <div class="field narrow">
-            <label>CC:</label>
-            <input type="number" min="0" max="127"
-              value={btn.cc ?? ''}
-              onblur={(e) => update('cc', numVal(e))} />
+          <div class="field-row">
+            <div class="field narrow">
+              <label>ON:</label>
+              <input type="number" min="0" max="127"
+                value={btn.cc_on ?? ''} placeholder="127"
+                onblur={(e) => update('cc_on', numVal(e))} />
+            </div>
+            <div class="field narrow">
+              <label>OFF:</label>
+              <input type="number" min="0" max="127"
+                value={btn.cc_off ?? ''} placeholder="0"
+                onblur={(e) => update('cc_off', numVal(e))} />
+            </div>
           </div>
         {:else if isNote}
-          <div class="field narrow">
-            <label>Note:</label>
-            <input type="number" min="0" max="127"
-              value={btn.note ?? ''}
-              onblur={(e) => update('note', numVal(e))} />
-          </div>
-        {:else if isPC}
-          <div class="field narrow">
-            <label>Program:</label>
-            <input type="number" min="0" max="127"
-              value={btn.program ?? ''}
-              onblur={(e) => update('program', numVal(e))} />
-          </div>
-        {:else if isPCIncDec}
-          <div class="field narrow">
-            <label>Step:</label>
-            <input type="number" min="1" max="127"
-              value={btn.pc_step ?? 1}
-              onblur={(e) => update('pc_step', numVal(e))} />
+          <div class="field-row">
+            <div class="field narrow">
+              <label>Vel ON:</label>
+              <input type="number" min="0" max="127"
+                value={btn.velocity_on ?? ''} placeholder="127"
+                onblur={(e) => update('velocity_on', numVal(e))} />
+            </div>
+            <div class="field narrow">
+              <label>Vel OFF:</label>
+              <input type="number" min="0" max="127"
+                value={btn.velocity_off ?? ''} placeholder="0"
+                onblur={(e) => update('velocity_off', numVal(e))} />
+            </div>
           </div>
         {/if}
-      </div>
-
-      {#if isCC}
-        <div class="field-row">
-          <div class="field narrow">
-            <label>ON:</label>
-            <input type="number" min="0" max="127"
-              value={btn.cc_on ?? ''} placeholder="127"
-              onblur={(e) => update('cc_on', numVal(e))} />
-          </div>
-          <div class="field narrow">
-            <label>OFF:</label>
-            <input type="number" min="0" max="127"
-              value={btn.cc_off ?? ''} placeholder="0"
-              onblur={(e) => update('cc_off', numVal(e))} />
-          </div>
-        </div>
-      {:else if isNote}
-        <div class="field-row">
-          <div class="field narrow">
-            <label>Vel ON:</label>
-            <input type="number" min="0" max="127"
-              value={btn.velocity_on ?? ''} placeholder="127"
-              onblur={(e) => update('velocity_on', numVal(e))} />
-          </div>
-          <div class="field narrow">
-            <label>Vel OFF:</label>
-            <input type="number" min="0" max="127"
-              value={btn.velocity_off ?? ''} placeholder="0"
-              onblur={(e) => update('velocity_off', numVal(e))} />
-          </div>
-        </div>
       {/if}
 
       <div class="field-row">
