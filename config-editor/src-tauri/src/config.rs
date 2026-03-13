@@ -104,6 +104,46 @@ pub struct MidiCommand {
     pub threshold_ms: Option<u32>,
 }
 
+/// Helper type to deserialize either a single MidiCommand object or an array
+/// Supports backward compatibility with legacy configs that use single objects
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum OneOrMany {
+    One(MidiCommand),
+    Many(Vec<MidiCommand>),
+}
+
+impl OneOrMany {
+    fn into_vec(self) -> Vec<MidiCommand> {
+        match self {
+            OneOrMany::One(cmd) => vec![cmd],
+            OneOrMany::Many(cmds) => cmds,
+        }
+    }
+}
+
+impl Serialize for OneOrMany {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // Always serialize as array
+        match self {
+            OneOrMany::One(cmd) => vec![cmd.clone()].serialize(serializer),
+            OneOrMany::Many(cmds) => cmds.serialize(serializer),
+        }
+    }
+}
+
+/// Custom deserializer for backward compatibility: accepts single object or array
+fn deserialize_one_or_many<'de, D>(deserializer: D) -> Result<Option<Vec<MidiCommand>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<OneOrMany>::deserialize(deserializer)
+        .map(|opt| opt.map(|one_or_many| one_or_many.into_vec()))
+}
+
 /// Button configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonConfig {
@@ -111,13 +151,13 @@ pub struct ButtonConfig {
     pub color: ButtonColor,
     
     // ===== NEW: Multi-command event arrays =====
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub press: Option<Vec<MidiCommand>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub release: Option<Vec<MidiCommand>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub long_press: Option<Vec<MidiCommand>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub long_release: Option<Vec<MidiCommand>>,
     
     // ===== LEGACY: Single-type fields (for backwards compatibility) =====
@@ -929,5 +969,58 @@ mod tests {
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         let cmd2 = &config2.buttons[0].long_press.as_ref().unwrap()[0];
         assert_eq!(cmd2.threshold_ms, Some(1000));
+    }
+
+    #[test]
+    fn test_backward_compat_single_object_to_array() {
+        // Test that legacy configs with single objects (not arrays) can be deserialized
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "OLD",
+                    "color": "red",
+                    "long_press": {"type": "cc", "cc": 25, "value": 64}
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        assert!(config.buttons[0].long_press.is_some());
+        let long_press = config.buttons[0].long_press.as_ref().unwrap();
+        assert_eq!(long_press.len(), 1);
+        assert_eq!(long_press[0].cc, Some(25));
+        assert_eq!(long_press[0].value, Some(64));
+
+        // When reserialized, should become an array
+        let reserialized = serde_json::to_string(&config).unwrap();
+        assert!(reserialized.contains(r#""long_press":[{"#));
+        
+        // And can be deserialized again
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].long_press.as_ref().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_backward_compat_mixed_formats() {
+        // Test config with mix of old single-object and new array formats
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "MIX",
+                    "color": "cyan",
+                    "press": [{"type": "cc", "cc": 20, "value": 127}],
+                    "long_press": {"type": "cc", "cc": 30, "value": 127}
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.buttons[0].press.as_ref().unwrap().len(), 1);
+        assert_eq!(config.buttons[0].long_press.as_ref().unwrap().len(), 1);
+        
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].press.as_ref().unwrap().len(), 1);
+        assert_eq!(config2.buttons[0].long_press.as_ref().unwrap().len(), 1);
     }
 }
