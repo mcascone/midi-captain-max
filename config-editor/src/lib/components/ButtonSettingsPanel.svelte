@@ -203,19 +203,27 @@
         <span class="section-title">Behavior</span>
       </div>
 
-      <!-- Mode Toggle -->
-      <div class="field-row">
-        <label class="checkbox-label">
+      <!-- Multi-Command Mode Toggle -->
+      <div class="mode-toggle-container">
+        <label class="mode-toggle-label">
           <input type="checkbox" bind:checked={advancedMode} />
-          Multi-Command Mode
+          <div class="toggle-content">
+            <span class="toggle-title">Multi-Command Mode</span>
+            <span class="toggle-description">
+              {#if advancedMode}
+                Click "+ Add Command" to send multiple MIDI messages per action
+              {:else}
+                Enable to send multiple MIDI messages from one button press
+              {/if}
+            </span>
+          </div>
         </label>
         {#if hasMultiCommands}
-          <span class="mode-hint">(button uses multi-commands)</span>
+          <span class="mode-badge">ACTIVE</span>
         {/if}
       </div>
 
-      <div class="field-row">
-        {#if showMode}
+      <div class="field-row">{#if showMode}
           <div class="field">
             <label>Switch Mode:</label>
             <select value={btn.mode ?? 'toggle'} onchange={(e) => update('mode', strVal(e))}>
@@ -543,6 +551,62 @@
     height: 15px;
     margin: 0;
     accent-color: #6366f1;
+    cursor: pointer;
+  }
+
+  .mode-toggle-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: #1f1f35;
+    border: 1px solid #3a3a55;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    transition: all 0.2s;
+  }
+
+  .mode-toggle-container:hover {
+    border-color: #4a4a65;
+    background: #252540;
+  }
+
+  .mode-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    flex: 1;
+    margin: 0;
+  }
+
+  .toggle-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .toggle-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e5e7eb;
+  }
+
+  .toggle-description {
+    font-size: 11px;
+    color: #9ca3af;
+    line-height: 1.4;
+  }
+
+  .mode-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #6366f1;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid #6366f1;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
   }
 
   .mode-hint {
