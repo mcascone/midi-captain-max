@@ -27,7 +27,7 @@
     btn && (
       (Array.isArray(btn.press) && btn.press.length > 1) ||
       (Array.isArray(btn.release) && btn.release.length > 0) ||
-      (Array.isArray(btn.long_press) && btn.long_press.length > 0) ||
+      (Array.isArray(btn.long_press) && btn.long_press.length > 1) ||
       (Array.isArray(btn.long_release) && btn.long_release.length > 0)
     )
   );
@@ -212,11 +212,20 @@
             onchange={(e) => {
               const enabled = (e.target as HTMLInputElement).checked;
               if (!enabled) {
-                // Clear multi-command arrays when disabling advanced mode
-                update('press', undefined);
-                update('release', undefined);
-                update('long_press', undefined);
-                update('long_release', undefined);
+                // Clear ONLY multi-command arrays (length > 1) when disabling
+                // Preserve single-item arrays from simple mode (long press)
+                if (Array.isArray(btn.press) && btn.press.length > 1) {
+                  update('press', undefined);
+                }
+                if (Array.isArray(btn.release) && btn.release.length > 0) {
+                  update('release', undefined);
+                }
+                if (Array.isArray(btn.long_press) && btn.long_press.length > 1) {
+                  update('long_press', undefined);
+                }
+                if (Array.isArray(btn.long_release) && btn.long_release.length > 0) {
+                  update('long_release', undefined);
+                }
               }
             }}
           />
