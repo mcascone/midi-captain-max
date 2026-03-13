@@ -92,6 +92,18 @@ If the drive doesn't appear at all, reinstall CircuitPython:
 
 ---
 
+## Tap LED Mode
+
+If a button's `mode` is set to `tap`, the button will not toggle a persistent ON state when pressed. Instead:
+
+- The device sends the configured MIDI message on every press.
+- The button LED blinks for a short window after each press; the blink tempo is derived from successive taps (tap-tempo).
+- There is no manual `tap_rate_ms` configuration exposed in the editor — tempo is user-driven by tapping the switch.
+
+Use `mode: "tap"` in `config.json` or the Config Editor to enable this behaviour for a button.
+
+---
+
 ## What's in This Package
 
 | File / Folder | Description |

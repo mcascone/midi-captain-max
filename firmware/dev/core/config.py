@@ -99,6 +99,7 @@ def validate_button(btn, index=0, global_channel=None):
     validated = {
         "label": btn.get("label", str(index + 1)),
         "color": btn.get("color", "white"),
+        # Accept new 'tap' mode which implies LED tap/blink behavior
         "mode": btn.get("mode", "toggle"),
         "off_mode": btn.get("off_mode", "dim"),
         "channel": btn.get("channel", default_channel),
@@ -160,13 +161,19 @@ def validate_button(btn, index=0, global_channel=None):
     default_selected = bool(btn.get("default_selected", False))
     if isinstance(select_group, str) and select_group:
         # Reject momentary or multi-keytimes configurations for select_group in v1
-        if validated.get("mode") == "momentary" or keytimes > 1:
+        # Also reject tap mode: tap is visual-only and incompatible with select_group
+        if validated.get("mode") == "momentary" or validated.get("mode") == "tap" or keytimes > 1:
             # Not supported: ignore the select_group and default_selected, caller will be warned
             print(f"Warning: button {index+1} select_group ignored (momentary or keytimes>1)")
         else:
             validated["select_group"] = select_group
             if default_selected:
                 validated["default_selected"] = True
+
+    # If mode is 'tap', map that to led_mode 'tap' for runtime
+    if validated.get("mode") == "tap":
+        validated["led_mode"] = "tap"
+        # Tap mode tempo is determined by taps at runtime; do not accept a fixed tap_rate_ms
 
     # For keytimes > 1, validate and pass through states array
     if keytimes > 1:
@@ -182,6 +189,12 @@ def validate_button(btn, index=0, global_channel=None):
                     validated_states.append(validated_state)
             if validated_states:
                 validated["states"] = validated_states
+
+    # LED mode: optional (e.g., "tap") with optional per-button tap rate in ms
+    led_mode = btn.get("led_mode")
+    if isinstance(led_mode, str) and led_mode == "tap":
+        validated["led_mode"] = "tap"
+        # Legacy: ignore any provided tap_rate_ms; tempo is derived from user taps
 
     return validated
 
