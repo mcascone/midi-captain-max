@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
-  import { message } from '@tauri-apps/plugin-dialog';
+  import { message, ask } from '@tauri-apps/plugin-dialog';
   import { getVersion } from '@tauri-apps/api/app';
   import {
     devices, selectedDevice, currentConfigRaw,
@@ -9,7 +9,7 @@
   } from '$lib/stores';
   import {
     scanDevices, startDeviceWatcher, readConfigRaw, writeConfigRaw,
-    onDeviceConnected, onDeviceDisconnected
+    onDeviceConnected, onDeviceDisconnected, ejectDevice
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
   import ConfigForm from '$lib/components/ConfigForm.svelte';
@@ -195,11 +195,18 @@
       $currentConfigRaw = configJson;
       $hasUnsavedChanges = false;
       $statusMessage = 'Config saved successfully';
-      
-      await message('Config saved to device successfully!', { 
-        title: 'Success', 
-        kind: 'info' 
-      });
+
+      const shouldEject = await ask(
+        'Config saved! To apply changes, the device needs to be restarted.\n\n' +
+        'Would you like to eject the device now so you can restart it?',
+        { title: 'Config Saved', kind: 'info', okLabel: 'Eject Device', cancelLabel: 'Keep Editing' }
+      );
+
+      if (shouldEject) {
+        $isLoading = false;
+        await handleEjectAndRestart();
+        return;
+      }
     } catch (e: any) {
       $statusMessage = `Error saving config: ${e.message || e}`;
       await message($statusMessage, { title: 'Error', kind: 'error' });
@@ -236,23 +243,71 @@
     }
   }
   
+  const RESTART_INSTRUCTIONS =
+    '1. Turn off the device using the power button on the back\n' +
+    '2. Wait a moment\n' +
+    '3. Turn it back on\n\n' +
+    'The device will start up with the new configuration.';
+
+  async function handleEjectAndRestart() {
+    if (!$selectedDevice) return;
+
+    const ejectedName = $selectedDevice.name;
+
+    try {
+      await ejectDevice($selectedDevice.config_path);
+
+      // Proactively remove the ejected device from $devices. The async
+      // device-disconnected watcher event will also fire, but it arrives
+      // after an OS round-trip. Without this, $devices[0] below would still
+      // be the just-ejected device and selectDevice would try to read a
+      // config from an unmounted volume.
+      $devices = $devices.filter(d => d.name !== ejectedName);
+      $selectedDevice = null;
+      $currentConfigRaw = '';
+      $hasUnsavedChanges = false;
+      $statusMessage = `${ejectedName} ejected — restart to apply changes`;
+
+      await message(
+        `${ejectedName} ejected safely. Now restart your MIDI Captain:\n\n` +
+        RESTART_INSTRUCTIONS,
+        { title: 'Restart Your Device', kind: 'info' }
+      );
+
+      // If other devices are still connected, auto-select the first one
+      if ($devices.length > 0) {
+        await selectDevice($devices[0]);
+      }
+    } catch (e: any) {
+      console.error('Eject failed:', e);
+      // Eject failed (e.g. Windows, or permission issue) — show manual instructions
+      await message(
+        'Could not eject automatically. Please eject the device from your file manager, then restart your MIDI Captain:\n\n' +
+        RESTART_INSTRUCTIONS,
+        { title: 'Eject & Restart', kind: 'warning' }
+      );
+      $statusMessage = 'Eject failed — please eject manually and restart';
+    }
+  }
+
   async function resetDevice() {
     if (!$selectedDevice) return;
-    
-    try {
+
+    const shouldEject = await ask(
+      'To apply config changes, the device needs to be ejected and restarted.\n\n' +
+      'Would you like to eject the device now?',
+      { title: 'Reset Device', kind: 'info', okLabel: 'Eject Device', cancelLabel: 'Show Instructions' }
+    );
+
+    if (shouldEject) {
+      await handleEjectAndRestart();
+    } else {
       await message(
-        'To apply config changes, reset your MIDI Captain device:\n\n' +
-        '1. Unplug the USB cable\n' +
-        '2. Wait 2 seconds\n' +
-        '3. Plug it back in\n\n' +
-        'The device will restart with the new configuration.',
-        { title: 'Reset Device', kind: 'info' }
+        'To apply config changes, restart your MIDI Captain:\n\n' +
+        RESTART_INSTRUCTIONS,
+        { title: 'Restart Your Device', kind: 'info' }
       );
-      
       $statusMessage = 'Waiting for device to reconnect...';
-    } catch (e: any) {
-      console.error('Error showing reset dialog:', e);
-      $statusMessage = `Error showing dialog: ${e.message || e}`;
     }
   }
   

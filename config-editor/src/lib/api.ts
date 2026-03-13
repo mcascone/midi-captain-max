@@ -25,6 +25,10 @@ export async function validateConfig(json: string): Promise<void> {
   return invoke('validate_config', { json });
 }
 
+export async function ejectDevice(path: string): Promise<void> {
+  return invoke('eject_device', { path });
+}
+
 // Device operations
 export async function scanDevices(): Promise<DetectedDevice[]> {
   return invoke('scan_devices');
