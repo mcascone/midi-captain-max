@@ -41,7 +41,7 @@ from adafruit_midi.note_off import NoteOff
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
-from core.config import load_config as _load_config_from_file, get_display_config, get_button_state_config
+from core.config import load_config as _load_config_from_file, validate_config, get_display_config, get_button_state_config
 from core.button import Switch, ButtonState
 
 # =============================================================================
@@ -202,23 +202,23 @@ def load_config():
     cfg = _load_config_from_file("/config.json", button_count=BUTTON_COUNT)
     if "buttons" in cfg and len(cfg["buttons"]) > 0:
         print("Loaded config.json")
-        return cfg
+        return validate_config(cfg, button_count=BUTTON_COUNT)
 
     # Try device-specific default
     device_config = f"/config-{DETECTED_DEVICE}.json"
     cfg = _load_config_from_file(device_config, button_count=BUTTON_COUNT)
     if "buttons" in cfg and len(cfg["buttons"]) > 0:
         print(f"Loaded {device_config}")
-        return cfg
+        return validate_config(cfg, button_count=BUTTON_COUNT)
 
     # Built-in fallback
     print("No config found, using built-in defaults")
-    return {
+    return validate_config({
         "buttons": [
             {"label": str(i + 1), "cc": 20 + i, "color": "white"}
             for i in range(BUTTON_COUNT)
         ]
-    }
+    }, button_count=BUTTON_COUNT)
 
 
 config = load_config()
@@ -335,8 +335,8 @@ vbat_alpha = 0.01
 midi = adafruit_midi.MIDI(
     midi_in=usb_midi.ports[0],
     midi_out=usb_midi.ports[1],
-    in_channel=0,
-    out_channel=0,
+    in_channel=None,  # receive on all channels; per-button channel filtering done in handle_midi()
+    out_channel=0,    # default TX channel (overridden per-message via midi.send(..., channel=X))
     in_buf_size=64,
 )
 print("USB MIDI initialized")

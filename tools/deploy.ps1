@@ -78,10 +78,22 @@ Write-Host ""
 # Cache WMI volume query (reused for mount detection, device type, and eject)
 $AllVolumes = Get-CimInstance -ClassName Win32_Volume -ErrorAction SilentlyContinue
 
+# Build candidate label list: well-known defaults + usb_drive_name from local config files
+$CandidateLabels = @("CIRCUITPY", "MIDICAPTAIN")
+foreach ($cfgFile in @((Join-Path $DevDir "config.json"), (Join-Path $DevDir "config-mini6.json"))) {
+    if (Test-Path $cfgFile) {
+        try {
+            $cfgJson = Get-Content $cfgFile -Raw | ConvertFrom-Json
+            if ($cfgJson.usb_drive_name -and $CandidateLabels -notcontains $cfgJson.usb_drive_name) {
+                $CandidateLabels += $cfgJson.usb_drive_name
+            }
+        } catch { }
+    }
+}
+
 # Auto-detect mount point if not specified
 if (-not $MountPoint) {
-    # Look for CIRCUITPY or MIDICAPTAIN volumes
-    $drives = $AllVolumes | Where-Object { $_.Label -match "CIRCUITPY|MIDICAPTAIN" }
+    $drives = $AllVolumes | Where-Object { $CandidateLabels -contains $_.Label }
     if ($drives) {
         $drive = $drives | Select-Object -First 1
         $MountPoint = $drive.DriveLetter
@@ -100,19 +112,12 @@ if ($MountPoint -and $MountPoint -match "^[A-Z]:$") {
 # Check if device is mounted
 if (-not $MountPoint -or -not (Test-Path $MountPoint)) {
     Write-Host "ERROR: Device not found" -ForegroundColor Red
-    if ($MountPoint) {
-        Write-Host "  Checked: $MountPoint"
-    }
     Write-Host ""
-    Write-Host "Make sure your MIDI Captain is:"
-    Write-Host "  1. Connected via USB"
-    Write-Host "  2. Running CircuitPython (not in bootloader mode)"
-    Write-Host "  3. Mounted as CIRCUITPY or MIDICAPTAIN"
+    Write-Host "Tried labels: $($CandidateLabels -join ', ')"
     Write-Host ""
-    Write-Host "If CircuitPython is not installed:"
-    Write-Host "  1. Hold Switch 1 (top-left footswitch) while plugging in USB"
-    Write-Host "  2. Copy CircuitPython .uf2 to RPI-RP2 drive"
-    Write-Host "  3. Run this script again"
+    Write-Host "Check that your device is plugged in, then:"
+    Write-Host "  Get-Volume                             # see all mounted drives"
+    Write-Host "  .\deploy.ps1 -MountPoint E:\           # specify a drive letter directly"
     exit 1
 }
 
