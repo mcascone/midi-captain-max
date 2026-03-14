@@ -29,6 +29,13 @@ export interface MidiCommand {
 }
 
 export interface StateOverride {
+  // ===== Multi-command event arrays (per-state actions) =====
+  press?: MidiCommand[];      // Commands dispatched on button press for this state
+  release?: MidiCommand[];    // Commands dispatched on button release for this state
+  long_press?: MidiCommand[]; // Commands dispatched on long press for this state
+  long_release?: MidiCommand[]; // Commands dispatched on long release for this state
+  
+  // ===== Legacy single-type field overrides =====
   cc?: number;
   cc_on?: number;
   cc_off?: number;
@@ -37,6 +44,8 @@ export interface StateOverride {
   velocity_off?: number;
   program?: number;
   pc_step?: number;
+  
+  // ===== Visual overrides =====
   color?: ButtonColor;
   label?: string;
 }

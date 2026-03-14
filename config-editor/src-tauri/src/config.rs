@@ -54,6 +54,17 @@ pub enum MessageType {
 /// Per-state overrides for keytimes cycling
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StateOverride {
+    // Multi-command event arrays (per-state actions)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub press: Option<Vec<MidiCommand>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release: Option<Vec<MidiCommand>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_press: Option<Vec<MidiCommand>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_release: Option<Vec<MidiCommand>>,
+    
+    // Legacy single-type field overrides
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cc: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -70,6 +81,8 @@ pub struct StateOverride {
     pub program: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pc_step: Option<u8>,
+    
+    // Visual overrides
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<ButtonColor>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1027,5 +1040,90 @@ mod tests {
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(config2.buttons[0].press.as_ref().unwrap().len(), 1);
         assert_eq!(config2.buttons[0].long_press.as_ref().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_roundtrip_per_state_commands() {
+        // Test per-state command arrays in StateOverride
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "MULTI",
+                    "color": "white",
+                    "keytimes": 2,
+                    "states": [
+                        {
+                            "color": "red",
+                            "label": "ONE",
+                            "press": [
+                                {"type": "cc", "cc": 10, "value": 127},
+                                {"type": "pc", "program": 1}
+                            ],
+                            "release": [
+                                {"type": "cc", "cc": 10, "value": 0}
+                            ]
+                        },
+                        {
+                            "color": "green",
+                            "label": "TWO",
+                            "press": [
+                                {"type": "note", "note": 60, "velocity": 100}
+                            ],
+                            "release": [
+                                {"type": "note", "note": 60, "velocity": 0}
+                            ],
+                            "long_press": [
+                                {"type": "cc", "cc": 99, "value": 127}
+                            ],
+                            "long_release": [
+                                {"type": "cc", "cc": 99, "value": 0}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.keytimes, Some(2));
+        
+        let states = btn.states.as_ref().unwrap();
+        assert_eq!(states.len(), 2);
+        
+        // State 1: press and release commands
+        assert_eq!(states[0].color, Some(ButtonColor::Red));
+        assert_eq!(states[0].label.as_deref(), Some("ONE"));
+        let s1_press = states[0].press.as_ref().unwrap();
+        assert_eq!(s1_press.len(), 2);
+        assert_eq!(s1_press[0].cc, Some(10));
+        assert_eq!(s1_press[1].program, Some(1));
+        let s1_release = states[0].release.as_ref().unwrap();
+        assert_eq!(s1_release.len(), 1);
+        assert_eq!(s1_release[0].value, Some(0));
+        
+        // State 2: all event types
+        assert_eq!(states[1].color, Some(ButtonColor::Green));
+        let s2_press = states[1].press.as_ref().unwrap();
+        assert_eq!(s2_press[0].note, Some(60));
+        let s2_long_press = states[1].long_press.as_ref().unwrap();
+        assert_eq!(s2_long_press[0].cc, Some(99));
+        assert!(states[1].long_release.is_some());
+        
+        // Round-trip test
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let states2 = config2.buttons[0].states.as_ref().unwrap();
+        
+        // Verify all per-state commands survived
+        assert!(states2[0].press.is_some());
+        assert!(states2[0].release.is_some());
+        assert!(states2[1].press.is_some());
+        assert!(states2[1].release.is_some());
+        assert!(states2[1].long_press.is_some());
+        assert!(states2[1].long_release.is_some());
+        
+        assert_eq!(states2[0].press.as_ref().unwrap().len(), 2);
+        assert_eq!(states2[1].long_press.as_ref().unwrap()[0].cc, Some(99));
     }
 }

@@ -11,7 +11,7 @@ except ImportError:
     json = None
 
 VALID_TYPES = ("cc", "note", "pc", "pc_inc", "pc_dec")
-STATE_OVERRIDE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label")
+STATE_OVERRIDE_FIELDS = ("press", "release", "long_press", "long_release", "cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label")
 
 
 def load_config(config_path="/config.json", button_count=10):
