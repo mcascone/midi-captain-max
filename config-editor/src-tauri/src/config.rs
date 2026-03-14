@@ -398,6 +398,15 @@ impl MidiCaptainConfig {
                     button.label
                 ));
             }
+            if let Some(ref long_label) = button.long_press_label {
+                if long_label.len() > 6 {
+                    errors.push(format!(
+                        "Button {} long_press_label '{}' exceeds 6 chars",
+                        i + 1,
+                        long_label
+                    ));
+                }
+            }
             if let Some(ch) = button.channel {
                 if ch > 15 {
                     errors.push(format!("Button {} channel {} is invalid (must be 1-16)", i + 1, ch + 1));
@@ -1419,5 +1428,50 @@ mod tests {
         
         // Should pass validation
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_long_press_label_length() {
+        // Test that long_press_label > 6 chars is caught by validation
+        let json = r#"{
+            "device": "mini6",
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "long_press_label": "TOOLONG",
+                    "color": "blue"
+                },
+                {
+                    "label": "B2",
+                    "color": "white"
+                },
+                {
+                    "label": "B3",
+                    "color": "white"
+                },
+                {
+                    "label": "B4",
+                    "color": "white"
+                },
+                {
+                    "label": "B5",
+                    "color": "white"
+                },
+                {
+                    "label": "B6",
+                    "color": "white"
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let err_str = errors.join("\n");
+        assert!(err_str.contains("long_press_label"));
+        assert!(err_str.contains("TOOLONG"));
+        assert!(err_str.contains("exceeds 6 chars"));
     }
 }
