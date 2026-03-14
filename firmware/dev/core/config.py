@@ -62,6 +62,22 @@ def _clamp_state_field(field, value):
     return value  # color, label — pass through as-is
 
 
+def _validate_channel(channel, default_channel=0):
+    """Validate and clamp MIDI channel to 0-15 range.
+    
+    Args:
+        channel: Input channel value (any type)
+        default_channel: Fallback value if invalid (0-15)
+        
+    Returns:
+        Valid MIDI channel (0-15)
+    """
+    if not isinstance(channel, (int, float)):
+        return default_channel
+    channel_int = int(channel)
+    return max(0, min(15, channel_int))
+
+
 def _validate_command_array(action, index=0, default_channel=0):
     """Validate and normalize a command action (single dict or array).
     
@@ -86,7 +102,7 @@ def _validate_command_array(action, index=0, default_channel=0):
             a_type = cmd.get("type", "cc")
             if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
                 a_type = "cc"
-            a = {"type": a_type, "channel": cmd.get("channel", default_channel)}
+            a = {"type": a_type, "channel": _validate_channel(cmd.get("channel", default_channel), default_channel)}
             if a_type == "cc":
                 a["cc"] = _clamp_state_field("cc", cmd.get("cc", 20 + index))
                 a["value"] = _clamp_state_field("cc_on", cmd.get("value", cmd.get("cc_on", 127)))
@@ -109,7 +125,7 @@ def _validate_command_array(action, index=0, default_channel=0):
         a_type = action.get("type", "cc")
         if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
             a_type = "cc"
-        a = {"type": a_type, "channel": action.get("channel", default_channel)}
+        a = {"type": a_type, "channel": _validate_channel(action.get("channel", default_channel), default_channel)}
         if a_type == "cc":
             a["cc"] = _clamp_state_field("cc", action.get("cc", 20 + index))
             a["value"] = _clamp_state_field("cc_on", action.get("value", action.get("cc_on", 127)))
@@ -246,7 +262,7 @@ def validate_button(btn, index=0, global_channel=None):
         # Accept new 'tap' mode which implies LED tap/blink behavior
         "mode": btn.get("mode", "toggle"),
         "off_mode": btn.get("off_mode", "dim"),
-        "channel": btn.get("channel", default_channel),
+        "channel": _validate_channel(btn.get("channel", default_channel), default_channel),
         "type": msg_type,
         "keytimes": keytimes,
     }
