@@ -12,14 +12,19 @@
   function typeLabel(btn: ButtonConfig): string {
     const keytimes = btn.keytimes ?? 1;
 
-    // For multi-state buttons, check first state's press commands
+    // For multi-state buttons, check first state's press commands, fall back to button-level
     if (keytimes > 1 && btn.states && btn.states.length > 0) {
       const state = btn.states[0];
-      const firstCmd = Array.isArray(state.press) && state.press.length > 0 ? state.press[0] : null;
+      // Check state override first, then fall back to button-level (matches firmware behavior)
+      const pressCommands = (Array.isArray(state.press) && state.press.length > 0) 
+        ? state.press 
+        : btn.press;
+      
+      const firstCmd = Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
       if (!firstCmd) return '—';
 
       const type = firstCmd.type ?? 'cc';
-      const cmdCount = state.press?.length ?? 0;
+      const cmdCount = pressCommands?.length ?? 0;
       const countBadge = cmdCount > 1 ? ` ×${cmdCount}` : '';
       const stateBadge = ` [${keytimes}]`;
 
@@ -28,7 +33,7 @@
       if (type === 'pc')     return `PC${firstCmd.program ?? '?'}${countBadge}${stateBadge}`;
       if (type === 'pc_inc') return `PC+${countBadge}${stateBadge}`;
       if (type === 'pc_dec') return `PC-${countBadge}${stateBadge}`;
-      return type.toUpperCase() + countBadge + stateBadge;
+      return (type as string).toUpperCase() + countBadge + stateBadge;
     }
 
     // Extract info from first press command (multi-command mode)
@@ -44,7 +49,7 @@
     if (type === 'pc')     return `PC${firstCmd.program ?? '?'}${countBadge}`;
     if (type === 'pc_inc') return `PC+${countBadge}`;
     if (type === 'pc_dec') return `PC-${countBadge}`;
-    return type.toUpperCase() + countBadge;
+    return (type as string).toUpperCase() + countBadge;
   }
 
   function colorHex(btn: ButtonConfig): string {
@@ -121,10 +126,15 @@
   function onValues(btn: ButtonConfig): string {
     const keytimes = btn.keytimes ?? 1;
 
-    // For multi-state buttons, check first state's press commands
+    // For multi-state buttons, check first state's press commands, fall back to button-level
     if (keytimes > 1 && btn.states && btn.states.length > 0) {
       const state = btn.states[0];
-      const firstCmd = Array.isArray(state.press) && state.press.length > 0 ? state.press[0] : null;
+      // Check state override first, then fall back to button-level (matches firmware behavior)
+      const pressCommands = (Array.isArray(state.press) && state.press.length > 0) 
+        ? state.press 
+        : btn.press;
+      
+      const firstCmd = Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
       if (!firstCmd) return '—';
 
       const type = firstCmd.type ?? 'cc';
@@ -147,10 +157,15 @@
   function offValues(btn: ButtonConfig): string {
     const keytimes = btn.keytimes ?? 1;
 
-    // For multi-state buttons, check first state's release commands
+    // For multi-state buttons, check first state's release commands, fall back to button-level
     if (keytimes > 1 && btn.states && btn.states.length > 0) {
       const state = btn.states[0];
-      const releaseCmd = Array.isArray(state.release) && state.release.length > 0 ? state.release[0] : null;
+      // Check state override for release first, then fall back to button-level
+      const releaseCommands = (Array.isArray(state.release) && state.release.length > 0) 
+        ? state.release 
+        : btn.release;
+      
+      const releaseCmd = Array.isArray(releaseCommands) && releaseCommands.length > 0 ? releaseCommands[0] : null;
       if (releaseCmd) {
         const t = releaseCmd.type ?? 'cc';
         if (t === 'cc')   return String(releaseCmd.value ?? 0);
@@ -158,8 +173,12 @@
         return '—';  // PC types don't have an off value
       }
 
-      // Fall back to inferring from press command type
-      const pressCmd = Array.isArray(state.press) && state.press.length > 0 ? state.press[0] : null;
+      // Fall back to inferring from press command type (with same fallback logic)
+      const pressCommands = (Array.isArray(state.press) && state.press.length > 0) 
+        ? state.press 
+        : btn.press;
+      
+      const pressCmd = Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
       if (!pressCmd) return '';
 
       const type = pressCmd.type ?? 'cc';
