@@ -16,6 +16,21 @@
 
   const basePath = `buttons[${index}]`;
 
+  // Track which state details are open (persists across re-renders)
+  // Using a reactive object for proper bind:open two-way binding
+  let stateOpen: Record<number, boolean> = $state({ 0: true });
+
+  // Update stateOpen when keytimes changes to ensure valid indices
+  $effect(() => {
+    const maxIndex = (button.keytimes ?? 1) - 1;
+    const newStateOpen: Record<number, boolean> = {};
+    // Keep open states that are still valid
+    for (let i = 0; i <= maxIndex; i++) {
+      newStateOpen[i] = stateOpen[i] ?? (i === 0);
+    }
+    stateOpen = newStateOpen;
+  });
+
   let msgType = $derived((button.type ?? 'cc') as MessageType);
   let isCC = $derived(msgType === 'cc');
   let isNote = $derived(msgType === 'note');
@@ -490,7 +505,7 @@
     <div class="states-section">
       <span class="states-label">States ({button.states?.length ?? 0}):</span>
       {#each (button.states ?? []) as state, si}
-        <details class="state-details" open={si === 0}>
+        <details class="state-details" bind:open={stateOpen[si]}>
           <summary class="state-summary">
             <span class="state-num">State {si + 1}</span>
             <span class="state-label-preview">{state.label || button.label || `S${si + 1}`}</span>
