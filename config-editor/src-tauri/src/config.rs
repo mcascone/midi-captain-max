@@ -54,6 +54,17 @@ pub enum MessageType {
 /// Per-state overrides for keytimes cycling
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StateOverride {
+    // Multi-command event arrays (per-state actions)
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    pub press: Option<Vec<MidiCommand>>,
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    pub release: Option<Vec<MidiCommand>>,
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    pub long_press: Option<Vec<MidiCommand>>,
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    pub long_release: Option<Vec<MidiCommand>>,
+
+    // Legacy single-type field overrides
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cc: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -70,6 +81,8 @@ pub struct StateOverride {
     pub program: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pc_step: Option<u8>,
+
+    // Visual overrides
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<ButtonColor>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -148,8 +161,10 @@ where
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonConfig {
     pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_press_label: Option<String>,
     pub color: ButtonColor,
-    
+
     // ===== NEW: Multi-command event arrays =====
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub press: Option<Vec<MidiCommand>>,
@@ -159,7 +174,7 @@ pub struct ButtonConfig {
     pub long_press: Option<Vec<MidiCommand>>,
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub long_release: Option<Vec<MidiCommand>>,
-    
+
     // ===== LEGACY: Single-type fields (for backwards compatibility) =====
     #[serde(rename = "type", default, skip_serializing_if = "is_default_message_type")]
     pub message_type: MessageType,
@@ -167,6 +182,8 @@ pub struct ButtonConfig {
     pub mode: ButtonMode,
     #[serde(default, skip_serializing_if = "is_default_off_mode")]
     pub off_mode: OffMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dim_brightness: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub channel: Option<u8>,
     // CC fields
@@ -192,7 +209,7 @@ pub struct ButtonConfig {
     // PC flash feedback (all PC types)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flash_ms: Option<u16>,
-    
+
     // ===== COMMON FIELDS =====
     // Keytimes cycling
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -381,6 +398,15 @@ impl MidiCaptainConfig {
                     button.label
                 ));
             }
+            if let Some(ref long_label) = button.long_press_label {
+                if long_label.len() > 6 {
+                    errors.push(format!(
+                        "Button {} long_press_label '{}' exceeds 6 chars",
+                        i + 1,
+                        long_label
+                    ));
+                }
+            }
             if let Some(ch) = button.channel {
                 if ch > 15 {
                     errors.push(format!("Button {} channel {} is invalid (must be 1-16)", i + 1, ch + 1));
@@ -401,7 +427,12 @@ impl MidiCaptainConfig {
                     errors.push(format!("Button {} flash_ms {} out of range (50-5000)", i + 1, ms));
                 }
             }
-            
+            if let Some(brightness) = button.dim_brightness {
+                if brightness > 100 {
+                    errors.push(format!("Button {} dim_brightness {} exceeds 100 (must be 0-100)", i + 1, brightness));
+                }
+            }
+
             // Validate event command arrays (press, release, long_press, long_release)
             let validate_command = |cmd: &MidiCommand, event_name: &str, cmd_idx: usize| {
                 let mut cmd_errors = Vec::new();
@@ -447,7 +478,7 @@ impl MidiCaptainConfig {
                 }
                 cmd_errors
             };
-            
+
             if let Some(ref cmds) = button.press {
                 for (idx, cmd) in cmds.iter().enumerate() {
                     errors.extend(validate_command(cmd, "press", idx));
@@ -468,10 +499,42 @@ impl MidiCaptainConfig {
                     errors.extend(validate_command(cmd, "long_release", idx));
                 }
             }
-            // select_group rules: not allowed with momentary or keytimes > 1
+
+            // Validate per-state event arrays (states[*].press/release/long_press/long_release)
+            if let Some(ref states) = button.states {
+                for (state_idx, state) in states.iter().enumerate() {
+                    let state_num = state_idx + 1;
+                    
+                    if let Some(ref cmds) = state.press {
+                        for (cmd_idx, cmd) in cmds.iter().enumerate() {
+                            errors.extend(validate_command(cmd, &format!("states[{}].press", state_num), cmd_idx));
+                        }
+                    }
+                    if let Some(ref cmds) = state.release {
+                        for (cmd_idx, cmd) in cmds.iter().enumerate() {
+                            errors.extend(validate_command(cmd, &format!("states[{}].release", state_num), cmd_idx));
+                        }
+                    }
+                    if let Some(ref cmds) = state.long_press {
+                        for (cmd_idx, cmd) in cmds.iter().enumerate() {
+                            errors.extend(validate_command(cmd, &format!("states[{}].long_press", state_num), cmd_idx));
+                        }
+                    }
+                    if let Some(ref cmds) = state.long_release {
+                        for (cmd_idx, cmd) in cmds.iter().enumerate() {
+                            errors.extend(validate_command(cmd, &format!("states[{}].long_release", state_num), cmd_idx));
+                        }
+                    }
+                }
+            }
+
+            // select_group rules: not allowed with momentary, tap, or keytimes > 1
             if let Some(_) = button.select_group {
                 if button.mode == ButtonMode::Momentary {
                     errors.push(format!("Button {} select_group not supported for momentary mode", i + 1));
+                }
+                if button.mode == ButtonMode::Tap {
+                    errors.push(format!("Button {} select_group not supported for tap mode", i + 1));
                 }
                 if let Some(kt) = button.keytimes {
                     if kt > 1 {
@@ -877,7 +940,7 @@ mod tests {
         assert!(btn.release.is_some());
         assert!(btn.long_press.is_some());
         assert!(btn.long_release.is_some());
-        
+
         assert_eq!(btn.press.as_ref().unwrap()[0].cc, Some(20));
         assert_eq!(btn.release.as_ref().unwrap()[0].value, Some(0));
         assert_eq!(btn.long_press.as_ref().unwrap()[0].program, Some(5));
@@ -999,7 +1062,7 @@ mod tests {
         // When reserialized, should become an array
         let reserialized = serde_json::to_string(&config).unwrap();
         assert!(reserialized.contains(r#""long_press":[{"#));
-        
+
         // And can be deserialized again
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(config2.buttons[0].long_press.as_ref().unwrap().len(), 1);
@@ -1022,10 +1085,393 @@ mod tests {
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         assert_eq!(config.buttons[0].press.as_ref().unwrap().len(), 1);
         assert_eq!(config.buttons[0].long_press.as_ref().unwrap().len(), 1);
-        
+
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(config2.buttons[0].press.as_ref().unwrap().len(), 1);
         assert_eq!(config2.buttons[0].long_press.as_ref().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_roundtrip_per_state_commands() {
+        // Test per-state command arrays in StateOverride
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "MULTI",
+                    "color": "white",
+                    "keytimes": 2,
+                    "states": [
+                        {
+                            "color": "red",
+                            "label": "ONE",
+                            "press": [
+                                {"type": "cc", "cc": 10, "value": 127},
+                                {"type": "pc", "program": 1}
+                            ],
+                            "release": [
+                                {"type": "cc", "cc": 10, "value": 0}
+                            ]
+                        },
+                        {
+                            "color": "green",
+                            "label": "TWO",
+                            "press": [
+                                {"type": "note", "note": 60, "velocity": 100}
+                            ],
+                            "release": [
+                                {"type": "note", "note": 60, "velocity": 0}
+                            ],
+                            "long_press": [
+                                {"type": "cc", "cc": 99, "value": 127}
+                            ],
+                            "long_release": [
+                                {"type": "cc", "cc": 99, "value": 0}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.keytimes, Some(2));
+
+        let states = btn.states.as_ref().unwrap();
+        assert_eq!(states.len(), 2);
+
+        // State 1: press and release commands
+        assert_eq!(states[0].color, Some(ButtonColor::Red));
+        assert_eq!(states[0].label.as_deref(), Some("ONE"));
+        let s1_press = states[0].press.as_ref().unwrap();
+        assert_eq!(s1_press.len(), 2);
+        assert_eq!(s1_press[0].cc, Some(10));
+        assert_eq!(s1_press[1].program, Some(1));
+        let s1_release = states[0].release.as_ref().unwrap();
+        assert_eq!(s1_release.len(), 1);
+        assert_eq!(s1_release[0].value, Some(0));
+
+        // State 2: all event types
+        assert_eq!(states[1].color, Some(ButtonColor::Green));
+        let s2_press = states[1].press.as_ref().unwrap();
+        assert_eq!(s2_press[0].note, Some(60));
+        let s2_long_press = states[1].long_press.as_ref().unwrap();
+        assert_eq!(s2_long_press[0].cc, Some(99));
+        assert!(states[1].long_release.is_some());
+
+        // Round-trip test
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let states2 = config2.buttons[0].states.as_ref().unwrap();
+
+        // Verify all per-state commands survived
+        assert!(states2[0].press.is_some());
+        assert!(states2[0].release.is_some());
+        assert!(states2[1].press.is_some());
+        assert!(states2[1].release.is_some());
+        assert!(states2[1].long_press.is_some());
+        assert!(states2[1].long_release.is_some());
+
+        assert_eq!(states2[0].press.as_ref().unwrap().len(), 2);
+        assert_eq!(states2[1].long_press.as_ref().unwrap()[0].cc, Some(99));
+    }
+
+    #[test]
+    fn test_roundtrip_dim_brightness() {
+        // Test dim_brightness field survives round-trip
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "DIM",
+                    "color": "blue",
+                    "off_mode": "dim",
+                    "dim_brightness": 50
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.off_mode, OffMode::Dim);
+        assert_eq!(btn.dim_brightness, Some(50));
+
+        // Round-trip test
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].dim_brightness, Some(50));
+    }
+
+    #[test]
+    fn test_roundtrip_long_press_label() {
+        // Test long_press_label field survives round-trip
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "PLAY",
+                    "long_press_label": "PAUSE",
+                    "color": "green",
+                    "press": [{"type": "cc", "cc": 20, "value": 127}],
+                    "long_press": [{"type": "cc", "cc": 21, "value": 127}]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.label, "PLAY");
+        assert_eq!(btn.long_press_label, Some("PAUSE".to_string()));
+
+        // Round-trip test
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].long_press_label, Some("PAUSE".to_string()));
+    }
+
+    #[test]
+    fn test_validate_per_state_commands() {
+        // Test that invalid MIDI fields in per-state command arrays are caught by validation
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "red",
+                    "keytimes": 2,
+                    "states": [
+                        {
+                            "press": [{"type": "cc", "cc": 200, "value": 127}]
+                        },
+                        {
+                            "release": [{"type": "note", "note": 60, "velocity": 150}]
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let err_str = errors.join("\n");
+        // Should catch cc > 127 in state 1
+        assert!(err_str.contains("states[1].press"));
+        assert!(err_str.contains("cc 200 exceeds 127"));
+        // Should catch velocity > 127 in state 2
+        assert!(err_str.contains("states[2].release"));
+        assert!(err_str.contains("velocity 150 exceeds 127"));
+    }
+
+    #[test]
+    fn test_validate_per_state_commands_channel() {
+        // Test that invalid channel in per-state commands is caught
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "blue",
+                    "keytimes": 1,
+                    "states": [
+                        {
+                            "long_press": [{"type": "pc", "program": 5, "channel": 20}]
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let err_str = errors.join("\n");
+        assert!(err_str.contains("states[1].long_press"));
+        assert!(err_str.contains("channel 20 invalid"));
+    }
+
+    #[test]
+    fn test_state_override_single_object_deserialization() {
+        // Test that StateOverride accepts single-object form for per-state commands
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "red",
+                    "keytimes": 2,
+                    "press": [{"type": "cc", "cc": 20, "value": 127}],
+                    "states": [
+                        {
+                            "press": {"type": "cc", "cc": 21, "value": 100}
+                        },
+                        {
+                            "release": {"type": "note", "note": 60, "velocity": 0},
+                            "long_press": {"type": "pc", "program": 5}
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.keytimes, Some(2));
+        
+        let states = btn.states.as_ref().unwrap();
+        assert_eq!(states.len(), 2);
+        
+        // First state: single-object press should be converted to array
+        let state0_press = states[0].press.as_ref().unwrap();
+        assert_eq!(state0_press.len(), 1);
+        assert_eq!(state0_press[0].cc, Some(21));
+        assert_eq!(state0_press[0].value, Some(100));
+        
+        // Second state: single-object release and long_press
+        let state1_release = states[1].release.as_ref().unwrap();
+        assert_eq!(state1_release.len(), 1);
+        assert_eq!(state1_release[0].note, Some(60));
+        
+        let state1_long = states[1].long_press.as_ref().unwrap();
+        assert_eq!(state1_long.len(), 1);
+        assert_eq!(state1_long[0].program, Some(5));
+        
+        // Round-trip should preserve as arrays
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].states.as_ref().unwrap()[0].press.as_ref().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_validate_dim_brightness_range() {
+        // Test that dim_brightness > 100 is caught by validation
+        let json = r#"{
+            "device": "mini6",
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "blue",
+                    "dim_brightness": 150
+                },
+                {
+                    "label": "B2",
+                    "color": "white"
+                },
+                {
+                    "label": "B3",
+                    "color": "white"
+                },
+                {
+                    "label": "B4",
+                    "color": "white"
+                },
+                {
+                    "label": "B5",
+                    "color": "white"
+                },
+                {
+                    "label": "B6",
+                    "color": "white"
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let err_str = errors.join("\n");
+        assert!(err_str.contains("dim_brightness"));
+        assert!(err_str.contains("150"));
+        assert!(err_str.contains("exceeds 100"));
+    }
+
+    #[test]
+    fn test_validate_dim_brightness_valid() {
+        // Test that dim_brightness within 0-100 passes validation
+        let json = r#"{
+            "device": "mini6",
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "blue",
+                    "dim_brightness": 100
+                },
+                {
+                    "label": "TEST2",
+                    "color": "red",
+                    "dim_brightness": 0
+                },
+                {
+                    "label": "TEST3",
+                    "color": "green",
+                    "dim_brightness": 50
+                },
+                {
+                    "label": "TEST4",
+                    "color": "white"
+                },
+                {
+                    "label": "TEST5",
+                    "color": "white"
+                },
+                {
+                    "label": "TEST6",
+                    "color": "white"
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        // Should pass validation
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_long_press_label_length() {
+        // Test that long_press_label > 6 chars is caught by validation
+        let json = r#"{
+            "device": "mini6",
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "long_press_label": "TOOLONG",
+                    "color": "blue"
+                },
+                {
+                    "label": "B2",
+                    "color": "white"
+                },
+                {
+                    "label": "B3",
+                    "color": "white"
+                },
+                {
+                    "label": "B4",
+                    "color": "white"
+                },
+                {
+                    "label": "B5",
+                    "color": "white"
+                },
+                {
+                    "label": "B6",
+                    "color": "white"
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let err_str = errors.join("\n");
+        assert!(err_str.contains("long_press_label"));
+        assert!(err_str.contains("TOOLONG"));
+        assert!(err_str.contains("exceeds 6 chars"));
     }
 }

@@ -11,7 +11,7 @@ except ImportError:
     json = None
 
 VALID_TYPES = ("cc", "note", "pc", "pc_inc", "pc_dec")
-STATE_OVERRIDE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label")
+STATE_OVERRIDE_FIELDS = ("press", "release", "long_press", "long_release", "cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label")
 
 
 def load_config(config_path="/config.json", button_count=10):
@@ -60,6 +60,89 @@ def _clamp_state_field(field, value):
             return 1
         return max(1, min(127, value))
     return value  # color, label — pass through as-is
+
+
+def _validate_channel(channel, default_channel=0):
+    """Validate and clamp MIDI channel to 0-15 range.
+    
+    Args:
+        channel: Input channel value (any type)
+        default_channel: Fallback value if invalid (0-15)
+        
+    Returns:
+        Valid MIDI channel (0-15)
+    """
+    if not isinstance(channel, (int, float)):
+        return default_channel
+    channel_int = int(channel)
+    return max(0, min(15, channel_int))
+
+
+def _validate_command_array(action, index=0, default_channel=0):
+    """Validate and normalize a command action (single dict or array).
+    
+    Args:
+        action: Single command dict, array of dicts, or None
+        index: Button index (for default values)
+        default_channel: Default MIDI channel (0-15)
+        
+    Returns:
+        Validated array of command dicts, or None if invalid/empty
+    """
+    if action is None:
+        return None
+    
+    # Handle array of commands (new format)
+    if isinstance(action, list):
+        validated_cmds = []
+        for cmd in action:
+            if not isinstance(cmd, dict):
+                continue
+            # Basic action validation
+            a_type = cmd.get("type", "cc")
+            if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
+                a_type = "cc"
+            a = {"type": a_type, "channel": _validate_channel(cmd.get("channel", default_channel), default_channel)}
+            if a_type == "cc":
+                a["cc"] = _clamp_state_field("cc", cmd.get("cc", 20 + index))
+                a["value"] = _clamp_state_field("cc_on", cmd.get("value", cmd.get("cc_on", 127)))
+            elif a_type == "note":
+                a["note"] = _clamp_state_field("note", cmd.get("note", 60))
+                a["velocity"] = _clamp_state_field("velocity_on", cmd.get("velocity", cmd.get("velocity_on", 127)))
+            elif a_type == "pc":
+                a["program"] = _clamp_state_field("program", cmd.get("program", 0))
+            elif a_type in ("pc_inc", "pc_dec"):
+                a["pc_step"] = _clamp_state_field("pc_step", cmd.get("pc_step", 1))
+            # Optional threshold in milliseconds (for long_press events)
+            thresh = cmd.get("threshold_ms", cmd.get("threshold", None))
+            if isinstance(thresh, int) and thresh > 0:
+                a["threshold_ms"] = thresh
+            validated_cmds.append(a)
+        return validated_cmds if validated_cmds else None
+    
+    # Handle single command dict (legacy format)
+    elif isinstance(action, dict):
+        a_type = action.get("type", "cc")
+        if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
+            a_type = "cc"
+        a = {"type": a_type, "channel": _validate_channel(action.get("channel", default_channel), default_channel)}
+        if a_type == "cc":
+            a["cc"] = _clamp_state_field("cc", action.get("cc", 20 + index))
+            a["value"] = _clamp_state_field("cc_on", action.get("value", action.get("cc_on", 127)))
+        elif a_type == "note":
+            a["note"] = _clamp_state_field("note", action.get("note", 60))
+            a["velocity"] = _clamp_state_field("velocity_on", action.get("velocity", action.get("velocity_on", 127)))
+        elif a_type == "pc":
+            a["program"] = _clamp_state_field("program", action.get("program", 0))
+        elif a_type in ("pc_inc", "pc_dec"):
+            a["pc_step"] = _clamp_state_field("pc_step", action.get("pc_step", 1))
+        # Optional threshold in milliseconds
+        thresh = action.get("threshold_ms", action.get("threshold", None))
+        if isinstance(thresh, int) and thresh > 0:
+            a["threshold_ms"] = thresh
+        return [a]  # Convert to array for consistency
+    
+    return None
 
 
 def normalize_button_config(btn, index=0, global_channel=0):
@@ -179,7 +262,7 @@ def validate_button(btn, index=0, global_channel=None):
         # Accept new 'tap' mode which implies LED tap/blink behavior
         "mode": btn.get("mode", "toggle"),
         "off_mode": btn.get("off_mode", "dim"),
-        "channel": btn.get("channel", default_channel),
+        "channel": _validate_channel(btn.get("channel", default_channel), default_channel),
         "type": msg_type,
         "keytimes": keytimes,
     }
@@ -291,8 +374,15 @@ def validate_button(btn, index=0, global_channel=None):
             for state in states:
                 if isinstance(state, dict):
                     validated_state = {}
+                    # Process event arrays with full validation using the helper function
+                    for event_field in ("press", "release", "long_press", "long_release"):
+                        if event_field in state:
+                            validated_event = _validate_command_array(state[event_field], index, default_channel)
+                            if validated_event is not None:
+                                validated_state[event_field] = validated_event
+                    # Process numeric/legacy fields with clamping
                     for field in STATE_OVERRIDE_FIELDS:
-                        if field in state:
+                        if field not in ("press", "release", "long_press", "long_release") and field in state:
                             validated_state[field] = _clamp_state_field(field, state[field])
                     validated_states.append(validated_state)
             if validated_states:
@@ -303,6 +393,18 @@ def validate_button(btn, index=0, global_channel=None):
     if isinstance(led_mode, str) and led_mode == "tap":
         validated["led_mode"] = "tap"
         # Legacy: ignore any provided tap_rate_ms; tempo is derived from user taps
+
+    # Dim brightness: optional percentage (0-100) for dim LED brightness, defaults to 15
+    dim_brightness = btn.get("dim_brightness")
+    if dim_brightness is not None:
+        if isinstance(dim_brightness, (int, float)):
+            # Clamp to 0-100 range
+            validated["dim_brightness"] = max(0, min(100, int(dim_brightness)))
+
+    # Long press label: optional custom label shown on long press (max 6 chars)
+    long_press_label = btn.get("long_press_label")
+    if long_press_label is not None and isinstance(long_press_label, str) and long_press_label:
+        validated["long_press_label"] = long_press_label[:6]
 
     return validated
 

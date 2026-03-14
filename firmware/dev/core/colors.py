@@ -21,10 +21,10 @@ COLORS = {
 
 def get_color(name):
     """Get RGB tuple from color name, with fallback to white.
-    
+
     Args:
         name: Color name (case-insensitive)
-        
+
     Returns:
         RGB tuple (r, g, b) with values 0-255
     """
@@ -33,11 +33,11 @@ def get_color(name):
 
 def dim_color(rgb, factor=0.15):
     """Return a dimmed version of an RGB color.
-    
+
     Args:
         rgb: RGB tuple (r, g, b)
         factor: Brightness factor (0.0-1.0), default 0.15
-        
+
     Returns:
         Dimmed RGB tuple
     """
@@ -46,29 +46,32 @@ def dim_color(rgb, factor=0.15):
 
 def rgb_to_hex(rgb):
     """Convert RGB tuple to hex integer for display.
-    
+
     Args:
         rgb: RGB tuple (r, g, b)
-        
+
     Returns:
         Integer in 0xRRGGBB format
     """
     return (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]
 
 
-def get_off_color(color_rgb, off_mode="dim"):
+def get_off_color(color_rgb, off_mode="dim", dim_brightness=15):
     """Get the color to use when button is off.
 
     Args:
         color_rgb: The button's on-state RGB color
         off_mode: "dim" for dimmed color, "off" for completely off
+        dim_brightness: Brightness percentage when dimmed (0-100, default: 15)
 
     Returns:
         RGB tuple for the off state
     """
     if off_mode == "off":
         return (0, 0, 0)
-    return dim_color(color_rgb)
+    # Convert percentage (0-100) to factor (0.0-1.0)
+    factor = max(0.0, min(1.0, dim_brightness / 100.0))
+    return dim_color(color_rgb, factor)
 
 
 def get_off_color_for_display(color_rgb, off_mode="dim"):
