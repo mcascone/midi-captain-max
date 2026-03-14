@@ -161,6 +161,8 @@ where
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonConfig {
     pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_press_label: Option<String>,
     pub color: ButtonColor,
 
     // ===== NEW: Multi-command event arrays =====
@@ -1152,5 +1154,31 @@ mod tests {
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(config2.buttons[0].dim_brightness, Some(50));
+    }
+
+    #[test]
+    fn test_roundtrip_long_press_label() {
+        // Test long_press_label field survives round-trip
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "PLAY",
+                    "long_press_label": "PAUSE",
+                    "color": "green",
+                    "press": [{"type": "cc", "cc": 20, "value": 127}],
+                    "long_press": [{"type": "cc", "cc": 21, "value": 127}]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.label, "PLAY");
+        assert_eq!(btn.long_press_label, Some("PAUSE".to_string()));
+
+        // Round-trip test
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].long_press_label, Some("PAUSE".to_string()));
     }
 }

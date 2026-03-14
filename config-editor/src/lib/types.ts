@@ -52,6 +52,7 @@ export interface StateOverride {
 
 export interface ButtonConfig {
   label: string;
+  long_press_label?: string;  // Optional label to display when long press triggers
   color: ButtonColor;
 
   // ===== NEW: Multi-command event arrays =====

@@ -698,8 +698,15 @@ def _get_effective_action_cfg(btn_config, action_name, keytime_index):
     return btn_config.get(action_name)
 
 
-def _send_action_from_cfg(action_cfg, btn_num, idx):
+def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
     """Send MIDI from action config (single dict or list of dicts).
+
+    Args:
+        action_cfg: Single command dict or list of command dicts
+        btn_num: 1-indexed button number
+        idx: 0-indexed button index
+        action_name: Optional action type ("press", "release", "long_press", "long_release")
+                     Used to display long_press_label when available
 
     Supports:
     - Single command: {"type":"cc","cc":20,"value":127,"channel":0}
@@ -721,7 +728,11 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
 
     # Display button name in center (large font)
     btn_config = buttons[idx] if idx < len(buttons) else {}
-    set_label_text(button_name_label, btn_config.get("label", str(btn_num)))
+    # Use long_press_label if action is long_press and label is configured
+    label_text = btn_config.get("label", str(btn_num))
+    if action_name == "long_press" and "long_press_label" in btn_config:
+        label_text = btn_config.get("long_press_label", label_text)
+    set_label_text(button_name_label, label_text)
     arm_label_return_timeout(btn_config)
 
     # Track if any PC command executed (for LED flash feedback)
@@ -1033,7 +1044,7 @@ def _deselect_group(group_name, keep_idx):
                     # Try new event-based release first (with per-state override)
                     release_cfg = _get_effective_action_cfg(bcfg, "release", button_states[j].get_keytime())
                     if release_cfg:
-                        _send_action_from_cfg(release_cfg, j + 1, j)
+                        _send_action_from_cfg(release_cfg, j + 1, j, "release")
                         print(f"[SELECT] Deselected sibling {j+1} (group {group_name}) via release event")
                     else:
                         # Fall back to legacy behavior for backward compatibility
@@ -1123,19 +1134,19 @@ def handle_switches():
                             # Dispatch press (ON) or release (OFF) based on new state
                             action_cfg = _get_effective_action_cfg(btn_config, "press" if new_state else "release", btn_state.get_keytime())
                             if action_cfg:
-                                _send_action_from_cfg(action_cfg, btn_num, idx)
+                                _send_action_from_cfg(action_cfg, btn_num, idx, "press" if new_state else "release")
                                 short_action_executed[idx] = True
                         else:
                             # Tap mode: always dispatch press
                             press_cfg = _get_effective_action_cfg(btn_config, "press", btn_state.get_keytime())
                             if press_cfg:
-                                _send_action_from_cfg(press_cfg, btn_num, idx)
+                                _send_action_from_cfg(press_cfg, btn_num, idx, "press")
                                 short_action_executed[idx] = True
                     else:
                         # Momentary or other modes: dispatch press event
                         press_cfg = _get_effective_action_cfg(btn_config, "press", btn_state.get_keytime())
                         if press_cfg:
-                            _send_action_from_cfg(press_cfg, btn_num, idx)
+                            _send_action_from_cfg(press_cfg, btn_num, idx, "press")
                             short_action_executed[idx] = True
 
                     # For momentary mode, also set LED on
@@ -1149,7 +1160,7 @@ def handle_switches():
                         btn_state.advance_keytime()
                         press_cfg = _get_effective_action_cfg(btn_config, "press", btn_state.get_keytime())
                         if press_cfg:
-                            _send_action_from_cfg(press_cfg, btn_num, idx)
+                            _send_action_from_cfg(press_cfg, btn_num, idx, "press")
                         set_button_state(btn_num, True)
 
             else:
@@ -1162,7 +1173,7 @@ def handle_switches():
                     # Long-press completed: dispatch long_release if configured
                     long_release_cfg = _get_effective_action_cfg(btn_config, "long_release", btn_state.get_keytime())
                     if long_release_cfg:
-                        _send_action_from_cfg(long_release_cfg, btn_num, idx)
+                        _send_action_from_cfg(long_release_cfg, btn_num, idx, "long_release")
 
                     # For momentary mode, set LED off after long press
                     if mode == "momentary":
@@ -1185,19 +1196,19 @@ def handle_switches():
                                 # Dispatch press (ON) or release (OFF) based on new state
                                 action_cfg = _get_effective_action_cfg(btn_config, "press" if new_state else "release", btn_state.get_keytime())
                                 if action_cfg:
-                                    _send_action_from_cfg(action_cfg, btn_num, idx)
+                                    _send_action_from_cfg(action_cfg, btn_num, idx, "press" if new_state else "release")
                                     short_action_executed[idx] = True
                             else:
                                 # Tap mode: always dispatch press
                                 press_cfg = _get_effective_action_cfg(btn_config, "press", btn_state.get_keytime())
                                 if press_cfg:
-                                    _send_action_from_cfg(press_cfg, btn_num, idx)
+                                    _send_action_from_cfg(press_cfg, btn_num, idx, "press")
                                     short_action_executed[idx] = True
 
                     # Dispatch release event
                     release_cfg = _get_effective_action_cfg(btn_config, "release", btn_state.get_keytime())
                     if release_cfg:
-                        _send_action_from_cfg(release_cfg, btn_num, idx)
+                        _send_action_from_cfg(release_cfg, btn_num, idx, "release")
 
                     # For momentary mode, set LED off
                     if mode == "momentary":
@@ -1220,7 +1231,7 @@ def handle_switches():
                 long_press_triggered[idx] = True
                 long_press_cfg = _get_effective_action_cfg(btn_config, "long_press", btn_state.get_keytime())
                 if long_press_cfg:
-                    _send_action_from_cfg(long_press_cfg, btn_num, idx)
+                    _send_action_from_cfg(long_press_cfg, btn_num, idx, "long_press")
 
 
 def handle_encoder_button():
@@ -1373,7 +1384,7 @@ for i, b in enumerate(buttons):
             # Send the press MIDI message for default_selected button at startup (uses initial keytime state)
             press_cfg = _get_effective_action_cfg(b, "press", button_states[i].get_keytime())
             if press_cfg:
-                _send_action_from_cfg(press_cfg, i + 1, i)
+                _send_action_from_cfg(press_cfg, i + 1, i, "press")
                 print(f"[STARTUP] Activated default_selected button {i+1}: {b.get('label', '')}")
         except Exception as e:
             print(f"[WARN] Failed to activate default_selected button {i+1}: {e}")

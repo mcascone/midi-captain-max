@@ -133,6 +133,17 @@
         />
       </div>
 
+      <div class="field full">
+        <label>Long Press Label <span class="field-hint">(optional)</span></label>
+        <input
+          type="text"
+          value={btn.long_press_label ?? ''}
+          maxlength="6"
+          placeholder={btn.label}
+          onblur={(e) => update('long_press_label', strVal(e) || undefined)}
+        />
+      </div>
+
       <div class="field-row">
         <div class="field">
           <label>Color:</label>
