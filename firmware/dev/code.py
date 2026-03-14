@@ -1140,7 +1140,21 @@ def handle_switches():
                         btn_state.advance_keytime()
                         # For toggle/select: update state and LED, dispatch appropriate event
                         if mode in ("toggle", "select"):
-                            new_state = True if btn_state.keytimes > 1 else (not btn_state.state if mode == "toggle" else True)
+                            # For buttons with select_group: pressing when already ON keeps it ON (radio button behavior)
+                            # For toggle mode without select_group: normal toggle behavior
+                            # For select mode: always turns ON
+                            if btn_state.keytimes > 1:
+                                new_state = True
+                            elif mode == "select":
+                                new_state = True
+                            elif btn_config.get("select_group") and btn_state.state:
+                                # Radio button behavior: if already selected, stay selected
+                                new_state = True
+                            elif mode == "toggle":
+                                new_state = not btn_state.state
+                            else:
+                                new_state = True
+                            
                             btn_state.state = new_state
                             set_button_state(btn_num, new_state)
                             # Handle select_group exclusivity (applies to both toggle and select modes)
@@ -1202,7 +1216,21 @@ def handle_switches():
                         if mode in ("toggle", "select", "tap") and not short_action_executed[idx]:
                             btn_state.advance_keytime()
                             if mode in ("toggle", "select"):
-                                new_state = True if btn_state.keytimes > 1 else (not btn_state.state if mode == "toggle" else True)
+                                # For buttons with select_group: pressing when already ON keeps it ON (radio button behavior)
+                                # For toggle mode without select_group: normal toggle behavior
+                                # For select mode: always turns ON
+                                if btn_state.keytimes > 1:
+                                    new_state = True
+                                elif mode == "select":
+                                    new_state = True
+                                elif btn_config.get("select_group") and btn_state.state:
+                                    # Radio button behavior: if already selected, stay selected
+                                    new_state = True
+                                elif mode == "toggle":
+                                    new_state = not btn_state.state
+                                else:
+                                    new_state = True
+                                
                                 btn_state.state = new_state
                                 set_button_state(btn_num, new_state)
                                 # Handle select_group exclusivity (applies to both toggle and select modes)
@@ -1249,6 +1277,35 @@ def handle_switches():
             if (now - press_start_times[idx]) >= (threshold_ms / 1000.0):
                 # Trigger long-press action
                 long_press_triggered[idx] = True
+                
+                # For toggle/select modes: update button state and LED before sending MIDI
+                if mode in ("toggle", "select") and not short_action_executed[idx]:
+                    btn_state.advance_keytime()
+                    # For buttons with select_group: pressing when already ON keeps it ON (radio button behavior)
+                    # For toggle mode without select_group: normal toggle behavior
+                    # For select mode: always turns ON
+                    if btn_state.keytimes > 1:
+                        new_state = True
+                    elif mode == "select":
+                        new_state = True
+                    elif btn_config.get("select_group") and btn_state.state:
+                        # Radio button behavior: if already selected, stay selected
+                        new_state = True
+                    elif mode == "toggle":
+                        new_state = not btn_state.state
+                    else:
+                        new_state = True
+                    
+                    btn_state.state = new_state
+                    set_button_state(btn_num, new_state)
+                    # Handle select_group exclusivity (applies to both toggle and select modes)
+                    if new_state:
+                        sg = btn_config.get("select_group")
+                        if sg:
+                            _deselect_group(sg, idx)
+                    short_action_executed[idx] = True
+                
+                # Send long_press MIDI action
                 if effective_long_press:
                     _send_action_from_cfg(effective_long_press, btn_num, idx, "long_press")
 
