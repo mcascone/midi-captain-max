@@ -378,6 +378,18 @@ def validate_button(btn, index=0, global_channel=None):
         validated["led_mode"] = "tap"
         # Legacy: ignore any provided tap_rate_ms; tempo is derived from user taps
 
+    # Dim brightness: optional percentage (0-100) for dim LED brightness, defaults to 15
+    dim_brightness = btn.get("dim_brightness")
+    if dim_brightness is not None:
+        if isinstance(dim_brightness, (int, float)):
+            # Clamp to 0-100 range
+            validated["dim_brightness"] = max(0, min(100, int(dim_brightness)))
+
+    # Long press label: optional custom label shown on long press (max 6 chars)
+    long_press_label = btn.get("long_press_label")
+    if long_press_label is not None and isinstance(long_press_label, str) and long_press_label:
+        validated["long_press_label"] = long_press_label[:6]
+
     return validated
 
 
