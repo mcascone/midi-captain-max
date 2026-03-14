@@ -34,7 +34,7 @@ export interface StateOverride {
   release?: MidiCommand[];    // Commands dispatched on button release for this state
   long_press?: MidiCommand[]; // Commands dispatched on long press for this state
   long_release?: MidiCommand[]; // Commands dispatched on long release for this state
-  
+
   // ===== Legacy single-type field overrides =====
   cc?: number;
   cc_on?: number;
@@ -44,7 +44,7 @@ export interface StateOverride {
   velocity_off?: number;
   program?: number;
   pc_step?: number;
-  
+
   // ===== Visual overrides =====
   color?: ButtonColor;
   label?: string;
@@ -53,19 +53,20 @@ export interface StateOverride {
 export interface ButtonConfig {
   label: string;
   color: ButtonColor;
-  
+
   // ===== NEW: Multi-command event arrays =====
   // These take precedence over legacy type-based fields
   press?: MidiCommand[];      // Commands dispatched on button press
   release?: MidiCommand[];    // Commands dispatched on button release (short press)
   long_press?: MidiCommand[]; // Commands dispatched when hold threshold crossed
   long_release?: MidiCommand[]; // Commands dispatched on release after long press
-  
+
   // ===== LEGACY: Single-type fields (for backwards compatibility) =====
   // These are automatically migrated to event arrays by the firmware
   type?: MessageType;      // defaults to 'cc'
   mode?: ButtonMode;
   off_mode?: OffMode;
+  dim_brightness?: number; // LED brightness when off_mode is 'dim' (0-100, default: 30)
   channel?: number;        // Stored as 0-15, displayed as 1-16
   // CC fields (type='cc')
   cc?: number;
@@ -81,7 +82,7 @@ export interface ButtonConfig {
   pc_step?: number;        // Step size (default: 1)
   // PC flash feedback (all PC types)
   flash_ms?: number;       // LED flash duration in ms (default: 200)
-  
+
   // ===== COMMON FIELDS =====
   // Keytimes cycling
   keytimes?: number;         // States to cycle through on press (1-99); 1 = no cycling

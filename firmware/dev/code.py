@@ -678,12 +678,12 @@ def show_selected_button_label():
 
 def _get_effective_action_cfg(btn_config, action_name, keytime_index):
     """Get action config with per-state override if available.
-    
+
     Args:
         btn_config: Button config dict
         action_name: "press", "release", "long_press", or "long_release"
         keytime_index: Current keytime position (1-indexed)
-    
+
     Returns:
         Action config (dict or list), or None if not configured
     """
@@ -693,7 +693,7 @@ def _get_effective_action_cfg(btn_config, action_name, keytime_index):
         state = states[keytime_index - 1]
         if action_name in state:
             return state[action_name]
-    
+
     # Fall back to button-level action
     return btn_config.get(action_name)
 
@@ -804,11 +804,12 @@ def set_button_state(switch_idx, on):
     # Get color for current keytime state
     color_rgb = get_button_color(btn_config, btn_state.get_keytime())
     off_mode = btn_config.get("off_mode", "dim")  # "dim" or "off"
+    dim_brightness = btn_config.get("dim_brightness", 30)  # 0-100, default 30%
 
     # Update LED
     led_idx = switch_to_led(switch_idx)
     if led_idx is not None:
-        rgb = color_rgb if on else get_off_color(color_rgb, off_mode)
+        rgb = color_rgb if on else get_off_color(color_rgb, off_mode, dim_brightness)
         base = led_idx * 3
         for j in range(3):
             if base + j < LED_COUNT:

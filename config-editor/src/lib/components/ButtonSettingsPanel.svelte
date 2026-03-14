@@ -3,6 +3,8 @@
   import { selectedButtonIndex } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
   import ButtonCommandsEditor from './ButtonCommandsEditor.svelte';
+  import type { MidiCommand } from '$lib/types';
+  import { BUTTON_COLORS } from '$lib/types';
 
   let btn    = $derived($config.buttons[$selectedButtonIndex] ?? null);
   let buttons = $derived($config.buttons);
@@ -11,8 +13,64 @@
   let effectiveChannel = $derived((btn?.channel !== undefined ? btn.channel : globalCh) + 1);
   let displayChannel   = $derived(btn?.channel !== undefined ? btn.channel + 1 : undefined);
 
+  let keytimes = $derived(btn?.keytimes ?? 1);
+  let hasMultipleStates = $derived(keytimes > 1);
+
+  let activeStateTab = $state('state-0');
+
+  // Dim brightness reactive value
+  let dimBrightness = $state(30);
+
+  // Update local state when button changes
+  $effect(() => {
+    if (btn) {
+      dimBrightness = btn.dim_brightness ?? 30;
+    }
+  });
+
+  // Calculate dimmed color preview
+  let dimmedColorPreview = $derived.by(() => {
+    if (!btn) return '#000000';
+    const colorName = btn.color;
+    const rgb = BUTTON_COLORS[colorName] ?? '#ffffff';
+    // Parse hex color to RGB
+    const r = parseInt(rgb.slice(1, 3), 16);
+    const g = parseInt(rgb.slice(3, 5), 16);
+    const b = parseInt(rgb.slice(5, 7), 16);
+    // Apply dim factor
+    const factor = dimBrightness / 100;
+    const dimR = Math.round(r * factor);
+    const dimG = Math.round(g * factor);
+    const dimB = Math.round(b * factor);
+    return `rgb(${dimR}, ${dimG}, ${dimB})`;
+  });
+
+  function handleDimBrightnessChange(e: Event) {
+    const value = parseInt((e.target as HTMLInputElement).value);
+    dimBrightness = value;
+    update('dim_brightness', value);
+  }
+
+  // Reset to first state tab if keytimes changes to a value that makes current tab invalid
+  $effect(() => {
+    if (btn) {
+      const maxStateIndex = keytimes - 1;
+      const currentStateMatch = activeStateTab.match(/^state-(\d+)$/);
+      if (currentStateMatch) {
+        const stateIndex = parseInt(currentStateMatch[1]);
+        if (stateIndex > maxStateIndex) {
+          activeStateTab = 'state-0';
+        }
+      }
+    }
+  });
+
   function update(field: string, value: unknown) {
     updateField(`buttons[${$selectedButtonIndex}].${field}`, value);
+  }
+
+  function updateState(stateIndex: number, field: string, value: unknown) {
+    updateField(`buttons[${$selectedButtonIndex}].states[${stateIndex}].${field}`, value);
   }
 
   function numVal(e: Event): number | undefined {
@@ -116,7 +174,7 @@
             <option value="off">Off</option>
           </select>
         </div>
-        {#if (btn.mode ?? 'toggle') !== 'tap'}
+        {#if btn.mode === 'select'}
           <div class="field">
             <label>Select Group:</label>
             <input type="text" value={btn.select_group ?? ''} placeholder="group name"
@@ -124,6 +182,32 @@
           </div>
         {/if}
       </div>
+
+      {#if (btn.off_mode ?? 'dim') === 'dim'}
+        <div class="dim-brightness-section">
+          <label class="dim-label">Dim Brightness: {dimBrightness}%</label>
+          <div class="dim-controls">
+            <div class="color-preview">
+              <div class="preview-box">
+                <div class="preview-color full" style="background-color: {BUTTON_COLORS[btn.color]}"></div>
+                <span class="preview-label">Full</span>
+              </div>
+              <div class="preview-box">
+                <div class="preview-color dimmed" style="background-color: {dimmedColorPreview}"></div>
+                <span class="preview-label">Dim</span>
+              </div>
+            </div>
+            <input
+              type="range"
+              class="dim-slider"
+              min="0"
+              max="100"
+              value={dimBrightness}
+              oninput={handleDimBrightnessChange}
+            />
+          </div>
+        </div>
+      {/if}
     </div>
 
     <!-- ── Actions Section ───────────────────── -->
@@ -133,39 +217,111 @@
         <span class="section-title">Actions</span>
       </div>
 
-      <!-- Press Event -->
-      <ButtonCommandsEditor
-        eventLabel="Press"
-        commands={btn.press ?? []}
-        globalChannel={globalCh}
-        onUpdate={(cmds) => update('press', cmds.length > 0 ? cmds : undefined)}
-      />
+      {#if hasMultipleStates}
+        <!-- State Tabs -->
+        <div class="state-tabs">
+          <div class="state-tab-buttons">
+            {#each Array(keytimes) as _, i}
+              <button
+                class="state-tab-btn"
+                class:active={activeStateTab === `state-${i}`}
+                onclick={() => activeStateTab = `state-${i}`}
+              >
+                State {i + 1}
+              </button>
+            {/each}
+          </div>
 
-      <!-- Release Event (only for momentary) -->
-      {#if (btn.mode ?? 'toggle') === 'momentary'}
+          <div class="state-tab-content">
+            {#each Array(keytimes) as _, i}
+              {#if activeStateTab === `state-${i}`}
+                {@const state = btn.states?.[i] ?? {}}
+
+                <div class="state-visual-config">
+                  <div class="field-row">
+                    <div class="field">
+                      <label>Color:</label>
+                      <ColorSelect
+                        value={state.color ?? btn.color}
+                        onchange={(c) => updateState(i, 'color', c)}
+                      />
+                    </div>
+                    <div class="field">
+                      <label>Label:</label>
+                      <input
+                        type="text"
+                        value={state.label ?? ''}
+                        maxlength="6"
+                        placeholder={btn.label}
+                        onblur={(e) => { const v = strVal(e); updateState(i, 'label', v === '' ? undefined : v); }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <ButtonCommandsEditor
+                  eventLabel="Press"
+                  commands={state.press ?? []}
+                  globalChannel={globalCh}
+                  onUpdate={(cmds) => updateState(i, 'press', cmds.length > 0 ? cmds : undefined)}
+                />
+
+                <ButtonCommandsEditor
+                  eventLabel="Release"
+                  commands={state.release ?? []}
+                  globalChannel={globalCh}
+                  onUpdate={(cmds) => updateState(i, 'release', cmds.length > 0 ? cmds : undefined)}
+                />
+
+                <ButtonCommandsEditor
+                  eventLabel="Long Press"
+                  commands={state.long_press ?? []}
+                  globalChannel={globalCh}
+                  onUpdate={(cmds) => updateState(i, 'long_press', cmds.length > 0 ? cmds : undefined)}
+                />
+
+                <ButtonCommandsEditor
+                  eventLabel="Long Release"
+                  commands={state.long_release ?? []}
+                  globalChannel={globalCh}
+                  onUpdate={(cmds) => updateState(i, 'long_release', cmds.length > 0 ? cmds : undefined)}
+                />
+              {/if}
+            {/each}
+          </div>
+        </div>
+      {:else}
+        <!-- Single keytime: show button-level commands only -->
         <ButtonCommandsEditor
-          eventLabel="Release"
-          commands={btn.release ?? []}
+          eventLabel="Press"
+          commands={btn.press ?? []}
           globalChannel={globalCh}
-          onUpdate={(cmds) => update('release', cmds.length > 0 ? cmds : undefined)}
+          onUpdate={(cmds) => update('press', cmds.length > 0 ? cmds : undefined)}
+        />
+
+        {#if (btn.mode ?? 'toggle') === 'momentary'}
+          <ButtonCommandsEditor
+            eventLabel="Release"
+            commands={btn.release ?? []}
+            globalChannel={globalCh}
+            onUpdate={(cmds) => update('release', cmds.length > 0 ? cmds : undefined)}
+          />
+        {/if}
+
+        <ButtonCommandsEditor
+          eventLabel="Long Press"
+          commands={btn.long_press ?? []}
+          globalChannel={globalCh}
+          onUpdate={(cmds) => update('long_press', cmds.length > 0 ? cmds : undefined)}
+        />
+
+        <ButtonCommandsEditor
+          eventLabel="Long Release"
+          commands={btn.long_release ?? []}
+          globalChannel={globalCh}
+          onUpdate={(cmds) => update('long_release', cmds.length > 0 ? cmds : undefined)}
         />
       {/if}
-
-      <!-- Long Press Event -->
-      <ButtonCommandsEditor
-        eventLabel="Long Press"
-        commands={btn.long_press ?? []}
-        globalChannel={globalCh}
-        onUpdate={(cmds) => update('long_press', cmds.length > 0 ? cmds : undefined)}
-      />
-
-      <!-- Long Release Event -->
-      <ButtonCommandsEditor
-        eventLabel="Long Release"
-        commands={btn.long_release ?? []}
-        globalChannel={globalCh}
-        onUpdate={(cmds) => update('long_release', cmds.length > 0 ? cmds : undefined)}
-      />
     </div>
 
   {:else}
@@ -358,5 +514,158 @@
     color: #4b5563;
     font-size: 13px;
     padding: 40px;
+  }
+
+  /* State tabs */
+  .state-tabs {
+    margin-top: 8px;
+  }
+
+  .state-tab-buttons {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .state-tab-btn {
+    padding: 6px 12px;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 6px;
+    color: #9ca3af;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  .state-tab-btn:hover {
+    border-color: #3a3a55;
+    color: #d1d5db;
+  }
+
+  .state-tab-btn.active {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #ffffff;
+  }
+
+  .state-tab-content {
+    margin-top: 12px;
+  }
+
+  .state-visual-config {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 8px;
+  }
+
+  .state-info {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: #16162a;
+    border-left: 2px solid #4b5563;
+    border-radius: 4px;
+  }
+
+  /* Dim brightness section */
+  .dim-brightness-section {
+    margin-top: 12px;
+    padding: 12px;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 8px;
+  }
+
+  .dim-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    margin-bottom: 10px;
+  }
+
+  .dim-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .color-preview {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .preview-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .preview-color {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    border: 1px solid #3a3a55;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .preview-label {
+    font-size: 10px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .dim-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #1a1a2e 0%, #6366f1 100%);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .dim-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #6366f1;
+    cursor: pointer;
+    border: 2px solid #1a1a2e;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.15s;
+  }
+
+  .dim-slider::-webkit-slider-thumb:hover {
+    background: #818cf8;
+    transform: scale(1.1);
+  }
+
+  .dim-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #6366f1;
+    cursor: pointer;
+    border: 2px solid #1a1a2e;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.15s;
+  }
+
+  .dim-slider::-moz-range-thumb:hover {
+    background: #818cf8;
+    transform: scale(1.1);
   }
 </style>
