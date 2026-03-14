@@ -24,7 +24,8 @@
   // Update local state when button changes
   $effect(() => {
     if (btn) {
-      dimBrightness = btn.dim_brightness ?? 15;
+      // Clamp to 0-100 range to match firmware behavior and prevent invalid preview colors
+      dimBrightness = Math.max(0, Math.min(100, btn.dim_brightness ?? 15));
     }
   });
 
