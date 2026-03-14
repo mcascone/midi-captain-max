@@ -334,12 +334,41 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
     return [field]; // Convert single object to array
   };
 
-  // Strip legacy fields that are no longer used in multi-command mode
-  const { 
-    type, cc, cc_on, cc_off, note, velocity_on, velocity_off, 
-    program, pc_step, flash_ms, 
-    ...cleanButton 
-  } = btn;
+  // Auto-migrate: old-style 'toggle' with explicit press/release arrays or keytimes > 1
+  // → becomes 'normal' (explicit/advanced toggle) so it keeps working as before.
+  const hasExplicitEvents = (btn.press?.length ?? 0) > 0 || (btn.release?.length ?? 0) > 0;
+  const hasMultiStates = (btn.keytimes ?? 1) > 1;
+  if ((btn.mode === 'toggle' || btn.mode === undefined) && (hasExplicitEvents || hasMultiStates)) {
+    btn = { ...btn, mode: 'normal' };
+  }
+
+  if (btn.mode === 'toggle') {
+    // Simplified toggle: keep cc, channel, value_on, value_off, default_on.
+    // Strip event arrays, states, keytimes, and all legacy type-based fields.
+    // long_press is kept as an optional advanced escape hatch.
+    const {
+      type, cc_on, cc_off, note, velocity_on, velocity_off,
+      program, pc_step, flash_ms,
+      press, release, long_release, states, keytimes,
+      ...rest
+    } = btn as any;
+    const result: any = { ...rest };
+    if (btn.long_press && (btn.long_press as any[]).length > 0) {
+      result.long_press = ensureArray(btn.long_press);
+    } else {
+      delete result.long_press;
+    }
+    return result as ButtonConfig;
+  }
+
+  // 'normal', 'momentary', 'select', 'tap':
+  // Strip legacy single-type fields AND simplified-toggle-only fields.
+  const {
+    type, cc, cc_on, cc_off, note, velocity_on, velocity_off,
+    program, pc_step, flash_ms,
+    value_on, value_off, default_on,
+    ...cleanButton
+  } = btn as any;
 
   return {
     ...cleanButton,

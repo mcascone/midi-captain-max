@@ -25,6 +25,7 @@ pub enum ButtonColor {
 pub enum ButtonMode {
     #[default]
     Toggle,
+    Normal,
     Momentary,
     Select,
     Tap,
@@ -210,6 +211,15 @@ pub struct ButtonConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flash_ms: Option<u16>,
 
+    // ===== SIMPLIFIED TOGGLE FIELDS =====
+    // Used when mode='toggle' to auto-derive CC on/off without defining press/release arrays
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_on: Option<u8>,   // CC value sent when turning ON (default 127)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_off: Option<u8>,  // CC value sent when turning OFF (default 0)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_on: Option<bool>, // If true, button boots in ON state and sends value_on
+
     // ===== COMMON FIELDS =====
     // Keytimes cycling
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -346,6 +356,12 @@ pub struct MidiCaptainConfig {
     /// needing to hold Switch 1.  Defaults to false (performance mode).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dev_mode: Option<bool>,
+    /// MIDI output transport: "usb" (default), "trs", or "both".
+    /// "usb"  — USB MIDI only (adafruit_midi over usb_midi.ports)
+    /// "trs"  — TRS/serial MIDI only (UART on GP16/GP17 at 31250 baud)
+    /// "both" — send to USB and TRS simultaneously
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub midi_transport: Option<String>,
     pub buttons: Vec<ButtonConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoder: Option<EncoderConfig>,
@@ -504,7 +520,7 @@ impl MidiCaptainConfig {
             if let Some(ref states) = button.states {
                 for (state_idx, state) in states.iter().enumerate() {
                     let state_num = state_idx + 1;
-                    
+
                     if let Some(ref cmds) = state.press {
                         for (cmd_idx, cmd) in cmds.iter().enumerate() {
                             errors.extend(validate_command(cmd, &format!("states[{}].press", state_num), cmd_idx));
@@ -841,6 +857,70 @@ mod tests {
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(config2.dev_mode, Some(true));
+    }
+
+    #[test]
+    fn test_roundtrip_midi_transport() {
+        for transport in ["usb", "trs", "both"] {
+            let json = format!("{{\"buttons\": [], \"midi_transport\": \"{}\"}}", transport);
+            let config: MidiCaptainConfig = serde_json::from_str(&json).unwrap();
+            assert_eq!(config.midi_transport.as_deref(), Some(transport));
+
+            let reserialized = serde_json::to_string(&config).unwrap();
+            let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+            assert_eq!(config2.midi_transport.as_deref(), Some(transport));
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_simple_toggle_fields() {
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "GIG",
+                    "color": "orange",
+                    "mode": "toggle",
+                    "cc": 46,
+                    "channel": 0,
+                    "value_on": 127,
+                    "value_off": 0,
+                    "default_on": false
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.value_on, Some(127));
+        assert_eq!(btn.value_off, Some(0));
+        assert_eq!(btn.default_on, Some(false));
+        assert!(matches!(btn.mode, ButtonMode::Toggle));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        assert!(reserialized.contains("\"value_on\":127") || reserialized.contains("\"value_on\": 127"));
+        assert!(reserialized.contains("\"cc\":46") || reserialized.contains("\"cc\": 46"));
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let btn2 = &config2.buttons[0];
+        assert_eq!(btn2.value_on, Some(127));
+        assert_eq!(btn2.value_off, Some(0));
+    }
+
+    #[test]
+    fn test_roundtrip_normal_mode() {
+        let json = r#"{
+            "buttons": [
+                {"label": "MODE", "color": "purple", "mode": "normal", "keytimes": 2}
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        assert!(matches!(config.buttons[0].mode, ButtonMode::Normal));
+        assert_eq!(config.buttons[0].keytimes, Some(2));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        assert!(reserialized.contains("\"normal\""));
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert!(matches!(config2.buttons[0].mode, ButtonMode::Normal));
     }
 
     #[test]
@@ -1251,7 +1331,7 @@ mod tests {
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         let result = config.validate();
-        
+
         assert!(result.is_err());
         let errors = result.unwrap_err();
         let err_str = errors.join("\n");
@@ -1283,7 +1363,7 @@ mod tests {
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         let result = config.validate();
-        
+
         assert!(result.is_err());
         let errors = result.unwrap_err();
         let err_str = errors.join("\n");
@@ -1317,25 +1397,25 @@ mod tests {
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         let btn = &config.buttons[0];
         assert_eq!(btn.keytimes, Some(2));
-        
+
         let states = btn.states.as_ref().unwrap();
         assert_eq!(states.len(), 2);
-        
+
         // First state: single-object press should be converted to array
         let state0_press = states[0].press.as_ref().unwrap();
         assert_eq!(state0_press.len(), 1);
         assert_eq!(state0_press[0].cc, Some(21));
         assert_eq!(state0_press[0].value, Some(100));
-        
+
         // Second state: single-object release and long_press
         let state1_release = states[1].release.as_ref().unwrap();
         assert_eq!(state1_release.len(), 1);
         assert_eq!(state1_release[0].note, Some(60));
-        
+
         let state1_long = states[1].long_press.as_ref().unwrap();
         assert_eq!(state1_long.len(), 1);
         assert_eq!(state1_long[0].program, Some(5));
-        
+
         // Round-trip should preserve as arrays
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
@@ -1378,7 +1458,7 @@ mod tests {
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         let result = config.validate();
-        
+
         assert!(result.is_err());
         let errors = result.unwrap_err();
         let err_str = errors.join("\n");
@@ -1425,7 +1505,7 @@ mod tests {
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         let result = config.validate();
-        
+
         // Should pass validation
         assert!(result.is_ok());
     }
@@ -1466,7 +1546,7 @@ mod tests {
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         let result = config.validate();
-        
+
         assert!(result.is_err());
         let errors = result.unwrap_err();
         let err_str = errors.join("\n");

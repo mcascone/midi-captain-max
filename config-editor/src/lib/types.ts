@@ -4,7 +4,7 @@ export type ButtonColor =
   | 'red' | 'green' | 'blue' | 'yellow'
   | 'cyan' | 'magenta' | 'orange' | 'purple' | 'white';
 
-export type ButtonMode = 'toggle' | 'momentary' | 'select' | 'tap';
+export type ButtonMode = 'toggle' | 'normal' | 'momentary' | 'select' | 'tap';
 export type OffMode = 'dim' | 'off';
 export type MessageType = 'cc' | 'note' | 'pc' | 'pc_inc' | 'pc_dec';
 export type Polarity = 'normal' | 'inverted';
@@ -69,6 +69,10 @@ export interface ButtonConfig {
   off_mode?: OffMode;
   dim_brightness?: number; // LED brightness when off_mode is 'dim' (0-100, default: 30)
   channel?: number;        // Stored as 0-15, displayed as 1-16
+  // Simplified toggle fields (mode='toggle' only — no press/release arrays needed)
+  value_on?: number;       // CC value sent when turning ON (0-127, default 127)
+  value_off?: number;      // CC value sent when turning OFF (0-127, default 0)
+  default_on?: boolean;    // Boot in ON state and send value_on at startup (default false)
   // CC fields (type='cc')
   cc?: number;
   cc_on?: number;          // CC value when ON (default: 127)
@@ -143,11 +147,14 @@ export interface DisplayConfig {
   button_name_text_size?: 'small' | 'medium' | 'large';
 }
 
+export type MidiTransport = 'usb' | 'trs' | 'both';
+
 export interface MidiCaptainConfig {
   device?: DeviceType;
   global_channel?: number;  // Stored as 0-15, displayed as 1-16
   usb_drive_name?: string;  // Custom USB drive label (max 11 chars, alphanumeric + underscore)
   dev_mode?: boolean;       // true = USB always mounts; false (default) = switch-gated
+  midi_transport?: MidiTransport; // "usb" (default) | "trs" | "both"
   // Optional global default threshold for long-press in milliseconds
   long_press_threshold_ms?: number;
   buttons: ButtonConfig[];

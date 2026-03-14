@@ -51,7 +51,7 @@ def test_tap_mode_always_on_and_sends_on_each_press(tmp_path, monkeypatch):
 
     # Capture outgoing MIDI sends
     sent = []
-    monkeypatch.setattr(fw.midi, "send", lambda msg: sent.append(msg))
+    monkeypatch.setattr(fw.midi_usb, "send", lambda msg: sent.append(msg))
 
     # Simulate 3 quick press/release cycles
     seq = [(True, True), (True, False)] * 3
