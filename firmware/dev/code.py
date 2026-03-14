@@ -804,7 +804,7 @@ def set_button_state(switch_idx, on):
     # Get color for current keytime state
     color_rgb = get_button_color(btn_config, btn_state.get_keytime())
     off_mode = btn_config.get("off_mode", "dim")  # "dim" or "off"
-    dim_brightness = btn_config.get("dim_brightness", 30)  # 0-100, default 30%
+    dim_brightness = btn_config.get("dim_brightness", 15)  # 0-100, default 15%
 
     # Update LED
     led_idx = switch_to_led(switch_idx)

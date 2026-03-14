@@ -24,7 +24,7 @@
   // Update local state when button changes
   $effect(() => {
     if (btn) {
-      dimBrightness = btn.dim_brightness ?? 30;
+      dimBrightness = btn.dim_brightness ?? 15;
     }
   });
 

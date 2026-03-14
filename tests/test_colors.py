@@ -83,11 +83,11 @@ class TestGetOffColor:
         assert result == (0, 0, 0)
 
     def test_dim_mode_returns_dim_color(self):
-        """Dim mode should return dim color with default 30% brightness."""
+        """Dim mode should return dim color with default 15% brightness."""
         color = (0, 255, 0)  # Green
         result = get_off_color(color, off_mode="dim")
-        # Default dim_brightness is 30%
-        expected = (0, 76, 0)  # 255 * 0.30 = 76
+        # Default dim_brightness is 15%
+        expected = (0, 38, 0)  # 255 * 0.15 = 38
         assert result == expected
 
     def test_custom_dim_brightness(self):
@@ -111,10 +111,10 @@ class TestGetOffColor:
         assert result == color
 
     def test_dim_brightness_default(self):
-        """Default dim_brightness should be 30%."""
+        """Default dim_brightness should be 15%."""
         color = (100, 200, 150)
         result_default = get_off_color(color, off_mode="dim")
-        result_explicit = get_off_color(color, off_mode="dim", dim_brightness=30)
+        result_explicit = get_off_color(color, off_mode="dim", dim_brightness=15)
         assert result_default == result_explicit
 
     def test_dim_brightness_clamped(self):

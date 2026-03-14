@@ -56,13 +56,13 @@ def rgb_to_hex(rgb):
     return (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]
 
 
-def get_off_color(color_rgb, off_mode="dim", dim_brightness=30):
+def get_off_color(color_rgb, off_mode="dim", dim_brightness=15):
     """Get the color to use when button is off.
 
     Args:
         color_rgb: The button's on-state RGB color
         off_mode: "dim" for dimmed color, "off" for completely off
-        dim_brightness: Brightness percentage when dimmed (0-100, default: 30)
+        dim_brightness: Brightness percentage when dimmed (0-100, default: 15)
 
     Returns:
         RGB tuple for the off state
