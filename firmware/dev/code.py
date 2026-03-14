@@ -237,9 +237,14 @@ print(f"Validated {len(buttons)} button configs")
 # Fonts
 # =============================================================================
 
+# Font cache to avoid loading the same font multiple times
+_font_cache = {}
+
 
 def load_font(size_name):
     """Load a font based on size name, with fallback to terminalio.
+
+    Uses a cache to avoid loading the same font multiple times, saving RAM.
 
     Args:
         size_name: One of "small", "medium", "large"
@@ -251,18 +256,28 @@ def load_font(size_name):
         print(f"Invalid font size '{size_name}', using 'small'")
         size_name = "small"
 
+    # Check cache first
+    if size_name in _font_cache:
+        return _font_cache[size_name]
+
     font_path, height = FONT_SIZE_MAP[size_name]
 
     if font_path == "terminalio":
-        return terminalio.FONT, height
+        result = (terminalio.FONT, height)
+        _font_cache[size_name] = result
+        return result
 
     try:
         loaded_font = bitmap_font.load_font(font_path)
         print(f"Loaded font: {font_path} (~{height}px)")
-        return loaded_font, height
+        result = (loaded_font, height)
+        _font_cache[size_name] = result
+        return result
     except Exception as e:
         print(f"Font load failed for '{font_path}': {e}, falling back to terminalio")
-        return terminalio.FONT, 8
+        result = (terminalio.FONT, 8)
+        _font_cache[size_name] = result
+        return result
 
 
 # Load display config
@@ -270,13 +285,15 @@ display_config = get_display_config(config)
 button_text_size = display_config["button_text_size"]
 status_text_size = display_config["status_text_size"]
 expression_text_size = display_config["expression_text_size"]
+button_name_text_size = display_config["button_name_text_size"]
 
-print(f"Display config: button={button_text_size}, status={status_text_size}, expression={expression_text_size}")
+print(f"Display config: button={button_text_size}, status={status_text_size}, expression={expression_text_size}, button_name={button_name_text_size}")
 
-# Load fonts based on config
+# Load fonts based on config (cached to avoid duplicate loads)
 BUTTON_FONT, BUTTON_FONT_HEIGHT = load_font(button_text_size)
 STATUS_FONT, STATUS_FONT_HEIGHT = load_font(status_text_size)
 EXPRESSION_FONT, EXPRESSION_FONT_HEIGHT = load_font(expression_text_size)
+BUTTON_NAME_FONT, BUTTON_NAME_FONT_HEIGHT = load_font(button_name_text_size)
 
 # =============================================================================
 # Hardware Init
@@ -549,9 +566,9 @@ for i in range(BUTTON_COUNT):
     main_group.append(lbl)
 
 # Center display area - two lines
-# Line 1: Button name (large font)
+# Line 1: Button name (configurable font, default large)
 button_name_label = label.Label(
-    load_font("large")[0],
+    BUTTON_NAME_FONT,
     text="",
     color=0xFFFFFF,
     anchor_point=(0.5, 0.5),
@@ -569,50 +586,35 @@ status_label = label.Label(
 )
 main_group.append(status_label)
 
-# Expression pedal display (below status, only if device has expression)
-exp1_label = None
-exp2_label = None
-# Disabled for cleaner center display - expression values still work, just not shown
-# if HAS_EXPRESSION:
-#     exp1_lbl_text = exp1_config.get("label", "EXP1")
-#     exp1_label = label.Label(
-#         EXPRESSION_FONT,
-#         text=f"{exp1_lbl_text}: ---",
-#         color=0x888888,
-#         anchor_point=(0.5, 0.5),
-#         anchored_position=(70, 150),
-#     )
-#     main_group.append(exp1_label)
-#
-#     exp2_lbl_text = exp2_config.get("label", "EXP2")
-#     exp2_label = label.Label(
-#         EXPRESSION_FONT,
-#         text=f"{exp2_lbl_text}: ---",
-#         color=0x888888,
-#         anchor_point=(0.5, 0.5),
-#         anchored_position=(170, 150),
-#     )
-#     main_group.append(exp2_label)
-
 display.show(main_group)
 
 # =============================================================================
 # LED & Display Helpers
 # =============================================================================
 
+# Track previous text length per label to enable single-update clearing
+_label_prev_len = {}
+
 
 def set_label_text(lbl, text):
-    """Safely update a displayio.Label's text by clearing first.
-    
-    This prevents text overlap when the new text is shorter than the old text.
-    CircuitPython's displayio.Label doesn't automatically clear old characters.
-    
+    """Update a displayio.Label's text with space padding for clean overwrite.
+
+    Pads with spaces to previous text length to ensure single bitmap update,
+    avoiding flicker and GC churn from double-update (clear then set).
+
     Args:
         lbl: displayio.Label instance
         text: New text string to display
     """
-    lbl.text = ""  # Clear first
+    lbl_id = id(lbl)
+    prev_len = _label_prev_len.get(lbl_id, 0)
+
+    # Pad with spaces if new text is shorter than previous
+    if len(text) < prev_len:
+        text = text + " " * (prev_len - len(text))
+
     lbl.text = text
+    _label_prev_len[lbl_id] = len(text.rstrip())  # Store unpadded length
 
 
 def get_button_color(btn_config, keytime_index):
@@ -628,9 +630,28 @@ def get_button_color(btn_config, keytime_index):
     return get_color(get_button_state_config(btn_config, keytime_index).get("color", "white"))
 
 
+def arm_label_return_timeout(btn_config=None):
+    """Arm or cancel the return-to-selected-button timeout.
+
+    If btn_config is provided and has select_group, cancels the timeout (select buttons stay displayed).
+    Otherwise, arms the timeout for non-select buttons/encoder to return after inactivity.
+
+    Args:
+        btn_config: Button configuration dict, or None for encoders/non-button events
+    """
+    global label_timeout_return_to_select
+
+    if btn_config and btn_config.get("select_group"):
+        # Select button pressed - cancel timeout (stay on this button)
+        label_timeout_return_to_select = 0.0
+    else:
+        # Non-select button or encoder - arm timeout to return to selected
+        label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+
+
 def find_selected_button():
     """Find the currently selected button (button with select_group and state=True).
-    
+
     Returns:
         tuple: (button_index, button_config) or (None, None) if no button is selected
     """
@@ -642,7 +663,7 @@ def find_selected_button():
 
 def show_selected_button_label():
     """Update center display to show the currently selected button's label.
-    
+
     If no select button is active, clears the display to show a ready state.
     """
     idx, btn_config = find_selected_button()
@@ -657,16 +678,16 @@ def show_selected_button_label():
 
 def _send_action_from_cfg(action_cfg, btn_num, idx):
     """Send MIDI from action config (single dict or list of dicts).
-    
+
     Supports:
     - Single command: {"type":"cc","cc":20,"value":127,"channel":0}
     - Multiple commands: [{"type":"cc",...}, {"type":"pc",...}]
-    
+
     Command types: cc, note, pc, pc_inc, pc_dec
     """
     if not action_cfg:
         return
-    
+
     # Normalize to list
     if isinstance(action_cfg, dict):
         commands = [action_cfg]
@@ -675,31 +696,24 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
     else:
         print(f"[WARN] Invalid action_cfg type (button {btn_num}): {type(action_cfg)}")
         return
-    
+
     # Display button name in center (large font)
     btn_config = buttons[idx] if idx < len(buttons) else {}
     set_label_text(button_name_label, btn_config.get("label", str(btn_num)))
-    
-    # Set timeout to return to selected button if this is not a select button
-    global label_timeout_return_to_select
-    if not btn_config.get("select_group"):
-        label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
-    else:
-        # If this IS a select button, cancel any pending timeout
-        label_timeout_return_to_select = 0.0
-    
+    arm_label_return_timeout(btn_config)
+
     # Track if any PC command executed (for LED flash feedback)
     pc_command_sent = False
-    
+
     # Execute each command in sequence
     for cmd in commands:
         if not isinstance(cmd, dict):
             print(f"[WARN] Invalid command in action (button {btn_num}): {cmd}")
             continue
-        
+
         msg_type = cmd.get("type", "cc")
         channel = cmd.get("channel", 0)
-        
+
         try:
             if msg_type == "cc":
                 cc = cmd.get("cc", 20 + idx)
@@ -707,21 +721,21 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
                 midi.send(ControlChange(cc, val, channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num})")
                 set_label_text(status_label, f"TX CC{cc}={val}")
-                
+
             elif msg_type == "note":
                 note = cmd.get("note", 60)
                 vel = cmd.get("velocity", cmd.get("velocity_on", 127))
                 midi.send(NoteOn(note, vel, channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel} (switch {btn_num})")
                 set_label_text(status_label, f"TX Note{note}")
-                
+
             elif msg_type == "pc":
                 program = cmd.get("program", 0)
                 midi.send(ProgramChange(program, channel=channel))
                 print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
                 set_label_text(status_label, f"TX PC{program}")
                 pc_command_sent = True
-                
+
             elif msg_type == "pc_inc":
                 step = cmd.get("pc_step", 1)
                 pc_values[channel] = clamp_pc_value(pc_values[channel] + step)
@@ -729,7 +743,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} +{step} (switch {btn_num})")
                 set_label_text(status_label, f"TX PC{pc_values[channel]}")
                 pc_command_sent = True
-                
+
             elif msg_type == "pc_dec":
                 step = cmd.get("pc_step", 1)
                 pc_values[channel] = clamp_pc_value(pc_values[channel] - step)
@@ -737,15 +751,15 @@ def _send_action_from_cfg(action_cfg, btn_num, idx):
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} -{step} (switch {btn_num})")
                 set_label_text(status_label, f"TX PC{pc_values[channel]}")
                 pc_command_sent = True
-                
+
             else:
                 print(f"[WARN] Unknown command type '{msg_type}' (button {btn_num})")
-                
+
         except Exception as e:
             print(f"[ERROR] Failed to send command (button {btn_num}): {e}")
             # Continue to next command
             continue
-    
+
     # Flash LED once if any PC command was sent in this action
     if pc_command_sent:
         flash_pc_button(btn_num)
@@ -881,10 +895,10 @@ def update_blink_timers():
 def update_label_timeout():
     """Check if label timeout has expired and return to showing selected button."""
     global label_timeout_return_to_select
-    
+
     if label_timeout_return_to_select == 0.0:
         return  # No timeout active
-    
+
     now = time.monotonic()
     if now >= label_timeout_return_to_select:
         # Timeout expired - return to showing selected button
@@ -930,12 +944,7 @@ def handle_midi():
                         _deselect_group(sg, i)
                 set_label_text(button_name_label, btn_config.get("label", str(i + 1)))
                 set_label_text(status_label, f"RX CC{cc}={val}")
-                # Set timeout to return to selected button if this is not a select button
-                global label_timeout_return_to_select
-                if not btn_config.get("select_group"):
-                    label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
-                else:
-                    label_timeout_return_to_select = 0.0
+                arm_label_return_timeout(btn_config)
                 break
 
     # NoteOn/NoteOff - duck-typed by `note` and optionally `velocity`
@@ -954,12 +963,7 @@ def handle_midi():
                             _deselect_group(sg, i)
                     set_label_text(button_name_label, btn_config.get("label", str(i + 1)))
                     set_label_text(status_label, f"RX Note{note}")
-                    # Set timeout to return to selected button if this is not a select button
-                    global label_timeout_return_to_select
-                    if not btn_config.get("select_group"):
-                        label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
-                    else:
-                        label_timeout_return_to_select = 0.0
+                    arm_label_return_timeout(btn_config)
                     break
         else:
             # NoteOff-like message
@@ -969,12 +973,7 @@ def handle_midi():
                     set_button_state(i + 1, False)
                     set_label_text(button_name_label, btn_config.get("label", str(i + 1)))
                     set_label_text(status_label, f"RX NoteOff{note}")
-                    # Set timeout to return to selected button if this is not a select button
-                    global label_timeout_return_to_select
-                    if not btn_config.get("select_group"):
-                        label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
-                    else:
-                        label_timeout_return_to_select = 0.0
+                    arm_label_return_timeout(btn_config)
                     break
 
     # ProgramChange-like: look for `patch` attribute
@@ -984,6 +983,7 @@ def handle_midi():
         # pc_values is per-channel, so one assignment covers all pc_inc/pc_dec buttons on this channel
         pc_values[msg_channel] = program
         set_label_text(status_label, f"RX PC{program}")
+        arm_label_return_timeout()  # No button config for PC messages
 
 
 def _deselect_group(group_name, keep_idx):
@@ -991,7 +991,7 @@ def _deselect_group(group_name, keep_idx):
 
     Sends OFF MIDI messages for siblings when applicable and updates visual state.
     keep_idx is the index (0-based) of the button to keep ON.
-    
+
     Uses the new event-based dispatch: sends `release` event if configured,
     otherwise falls back to legacy cc_off/velocity_off behavior.
     """
@@ -1006,7 +1006,7 @@ def _deselect_group(group_name, keep_idx):
                 if button_states[j].state:
                     button_states[j].state = False
                     set_button_state(j + 1, False)
-                    
+
                     # Try new event-based release first
                     release_cfg = bcfg.get("release")
                     if release_cfg:
@@ -1033,13 +1033,13 @@ def _deselect_group(group_name, keep_idx):
 
 def handle_switches():
     """Handle footswitch presses using event-based dispatch.
-    
+
     Refactored to use the new multi-command event system:
     - "press" event: dispatched when button is pressed
     - "release" event: dispatched when button is released (short press)
     - "long_press" event: dispatched when hold threshold is exceeded
     - "long_release" event: dispatched when button released after long press
-    
+
     State management (toggle, momentary, keytimes, select_group) is handled
     here, while MIDI dispatch is delegated to _send_action_from_cfg().
     """
@@ -1047,7 +1047,7 @@ def handle_switches():
     # Mini6: indices 0-5 are footswitches (no encoder)
     start_idx = 1 if HAS_ENCODER else 0
     now = time.monotonic()
-    
+
     for i in range(start_idx, len(switches)):
         sw = switches[i]
         changed, pressed = sw.changed()
@@ -1059,7 +1059,7 @@ def handle_switches():
         btn_config = buttons[idx] if idx < len(buttons) else {"cc": 20 + idx}
 
         mode = btn_config.get("mode", "toggle")
-        
+
         # Check for long-press configuration
         long_press_cfg = btn_config.get("long_press")
         long_release_cfg = btn_config.get("long_release")
@@ -1114,11 +1114,11 @@ def handle_switches():
                         if press_cfg:
                             _send_action_from_cfg(press_cfg, btn_num, idx)
                             short_action_executed[idx] = True
-                    
+
                     # For momentary mode, also set LED on
                     if mode == "momentary":
                         set_button_state(btn_num, True)
-                
+
                 else:
                     # Long-press configured: for momentary, dispatch press immediately
                     # For toggle modes, defer until we know if it's short or long
@@ -1139,7 +1139,7 @@ def handle_switches():
                     # Long-press completed: dispatch long_release if configured
                     if long_release_cfg:
                         _send_action_from_cfg(long_release_cfg, btn_num, idx)
-                    
+
                     # For momentary mode, set LED off after long press
                     if mode == "momentary":
                         set_button_state(btn_num, False)
@@ -1169,12 +1169,12 @@ def handle_switches():
                                 if press_cfg:
                                     _send_action_from_cfg(press_cfg, btn_num, idx)
                                     short_action_executed[idx] = True
-                    
+
                     # Dispatch release event
                     release_cfg = btn_config.get("release")
                     if release_cfg:
                         _send_action_from_cfg(release_cfg, btn_num, idx)
-                    
+
                     # For momentary mode, set LED off
                     if mode == "momentary":
                         set_button_state(btn_num, False)
@@ -1217,9 +1217,7 @@ def handle_encoder_button():
                 print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, toggle)")
                 set_label_text(button_name_label, ENC_PUSH_LABEL)
                 set_label_text(status_label, f"TX CC{CC_ENCODER_PUSH}={'ON' if encoder_push_state else 'OFF'}")
-                # Set timeout to return to selected button
-                global label_timeout_return_to_select
-                label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+                arm_label_return_timeout()
         else:
             # Momentary mode: send on press and release
             cc_val = ENC_PUSH_CC_ON if pressed else ENC_PUSH_CC_OFF
@@ -1227,9 +1225,7 @@ def handle_encoder_button():
             print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, momentary)")
             set_label_text(button_name_label, ENC_PUSH_LABEL)
             set_label_text(status_label, f"TX CC{CC_ENCODER_PUSH}={cc_val}")
-            # Set timeout to return to selected button
-            global label_timeout_return_to_select
-            label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+            arm_label_return_timeout()
 
 
 def handle_encoder():
@@ -1260,18 +1256,14 @@ def handle_encoder():
                 print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_slot} (slot)")
                 set_label_text(button_name_label, ENC_LABEL)
                 set_label_text(status_label, f"ENC slot {encoder_slot}")
-                # Set timeout to return to selected button
-                global label_timeout_return_to_select
-                label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+                arm_label_return_timeout()
         else:
             # Normal mode: send every change
             midi.send(ControlChange(CC_ENCODER, encoder_value, channel=ENC_CHANNEL))
             print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_value}")
             set_label_text(button_name_label, ENC_LABEL)
             set_label_text(status_label, f"ENC={encoder_value}")
-            # Set timeout to return to selected button
-            global label_timeout_return_to_select
-            label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+            arm_label_return_timeout()
 
 
 def handle_expression():
@@ -1305,9 +1297,6 @@ def handle_expression():
                 midi.send(ControlChange(CC_EXP1, val1, channel=EXP1_CHANNEL))
                 lbl = exp1_config.get("label", "EXP1")
                 print(f"[{lbl}] Ch{EXP1_CHANNEL+1} CC{CC_EXP1}={val1}")
-                # Update display (disabled)
-                # if exp1_label:
-                #     exp1_label.text = f"{lbl}: {val1:3d}"
 
     # Expression 2
     if exp2_config.get("enabled", True) and exp2 is not None:
@@ -1332,9 +1321,6 @@ def handle_expression():
                 midi.send(ControlChange(CC_EXP2, val2, channel=EXP2_CHANNEL))
                 lbl = exp2_config.get("label", "EXP2")
                 print(f"[{lbl}] Ch{EXP2_CHANNEL+1} CC{CC_EXP2}={val2}")
-                # Update display (disabled)
-                # if exp2_label:
-                #     exp2_label.text = f"{lbl}: {val2:3d}"
 
 
 # =============================================================================
