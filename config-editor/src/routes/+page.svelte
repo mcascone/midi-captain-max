@@ -246,7 +246,10 @@
     {:else}
       <div class="center-state">
         <p class="center-title">No device selected</p>
-        <p class="center-sub">Connect a MIDI Captain and select it above</p>
+        <p class="center-sub">Connect a MIDI Captain and select it above, or try demo mode</p>
+        <button class="tool-btn primary demo-btn" onclick={loadDemoConfig}>
+          Load Demo Config (STD10)
+        </button>
       </div>
     {/if}
   </div>
