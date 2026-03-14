@@ -54,6 +54,7 @@
     if (!btn) return '';
     const mode = btn.mode || 'toggle';
     switch (mode) {
+      case 'normal': return 'N';
       case 'toggle': return 'T';
       case 'momentary': return 'M';
       case 'select': return 'S';
@@ -67,6 +68,7 @@
     if (!btn) return '#6b7280';
     const mode = btn.mode || 'toggle';
     switch (mode) {
+      case 'normal': return '#6b7280'; // gray
       case 'toggle': return '#3b82f6'; // blue
       case 'momentary': return '#10b981'; // green
       case 'select': return '#f59e0b'; // amber

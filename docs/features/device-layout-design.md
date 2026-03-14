@@ -155,6 +155,7 @@ Each button shows its configured LED color:
 - Display button mode indicator
 - Position: Bottom-left corner of button
 - Indicators:
+  - **N** (gray) - Normal mode
   - **T** (blue) - Toggle mode
   - **M** (green) - Momentary mode
   - **S** (amber) - Select mode
