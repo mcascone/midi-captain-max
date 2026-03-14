@@ -65,11 +65,26 @@
     }
   });
 
+  // Ensure states array is initialized when keytimes > 1
+  $effect(() => {
+    if (btn && keytimes > 1) {
+      const currentStates = btn.states ?? [];
+      if (currentStates.length !== keytimes) {
+        syncButtonStates($selectedButtonIndex, keytimes);
+      }
+    }
+  });
+
   function update(field: string, value: unknown) {
     updateField(`buttons[${$selectedButtonIndex}].${field}`, value);
   }
 
   function updateState(stateIndex: number, field: string, value: unknown) {
+    // Ensure states array exists and is large enough before updating
+    if (!btn || !btn.states || stateIndex < 0 || stateIndex >= btn.states.length) {
+      console.warn(`updateState called with invalid state index ${stateIndex} (states length: ${btn?.states?.length ?? 0})`);
+      return;
+    }
     updateField(`buttons[${$selectedButtonIndex}].states[${stateIndex}].${field}`, value);
   }
 
