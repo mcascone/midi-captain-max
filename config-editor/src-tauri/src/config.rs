@@ -418,6 +418,11 @@ impl MidiCaptainConfig {
                     errors.push(format!("Button {} flash_ms {} out of range (50-5000)", i + 1, ms));
                 }
             }
+            if let Some(brightness) = button.dim_brightness {
+                if brightness > 100 {
+                    errors.push(format!("Button {} dim_brightness {} exceeds 100 (must be 0-100)", i + 1, brightness));
+                }
+            }
 
             // Validate event command arrays (press, release, long_press, long_release)
             let validate_command = |cmd: &MidiCommand, event_name: &str, cmd_idx: usize| {
@@ -1323,5 +1328,93 @@ mod tests {
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(config2.buttons[0].states.as_ref().unwrap()[0].press.as_ref().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_validate_dim_brightness_range() {
+        // Test that dim_brightness > 100 is caught by validation
+        let json = r#"{
+            "device": "mini6",
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "blue",
+                    "dim_brightness": 150
+                },
+                {
+                    "label": "B2",
+                    "color": "white"
+                },
+                {
+                    "label": "B3",
+                    "color": "white"
+                },
+                {
+                    "label": "B4",
+                    "color": "white"
+                },
+                {
+                    "label": "B5",
+                    "color": "white"
+                },
+                {
+                    "label": "B6",
+                    "color": "white"
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let err_str = errors.join("\n");
+        assert!(err_str.contains("dim_brightness"));
+        assert!(err_str.contains("150"));
+        assert!(err_str.contains("exceeds 100"));
+    }
+
+    #[test]
+    fn test_validate_dim_brightness_valid() {
+        // Test that dim_brightness within 0-100 passes validation
+        let json = r#"{
+            "device": "mini6",
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "blue",
+                    "dim_brightness": 100
+                },
+                {
+                    "label": "TEST2",
+                    "color": "red",
+                    "dim_brightness": 0
+                },
+                {
+                    "label": "TEST3",
+                    "color": "green",
+                    "dim_brightness": 50
+                },
+                {
+                    "label": "TEST4",
+                    "color": "white"
+                },
+                {
+                    "label": "TEST5",
+                    "color": "white"
+                },
+                {
+                    "label": "TEST6",
+                    "color": "white"
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        // Should pass validation
+        assert!(result.is_ok());
     }
 }
