@@ -923,10 +923,10 @@ def set_button_state(switch_idx, on):
         idx = switch_idx - 1
         btn_cfg = buttons[idx] if idx < len(buttons) else {}
         if btn_cfg.get("led_mode") == "tap":
-            # Turning on: start blinking (show ON immediately)
+            # Turning on: start blinking with short flash
             if on:
                 blink_state[idx] = True
-                blink_next_toggle[idx] = time.monotonic() + (blink_rate_ms[idx] / 1000.0)
+                blink_next_toggle[idx] = time.monotonic() + 0.1  # 100ms flash
             else:
                 # Turning off: ensure LED shows off state and stop blinking
                 blink_state[idx] = False
@@ -1005,13 +1005,23 @@ def update_blink_timers():
             if blink_next_toggle[i] == 0.0:
                 blink_state[i] = True
                 set_button_state(i + 1, True)
-                blink_next_toggle[i] = now + (blink_rate_ms[i] / 1000.0)
+                blink_next_toggle[i] = now + 0.1  # Start with 100ms flash
                 continue
 
             if now >= blink_next_toggle[i]:
                 blink_state[i] = not blink_state[i]
                 set_button_state(i + 1, blink_state[i])
-                blink_next_toggle[i] = now + (blink_rate_ms[i] / 1000.0)
+                
+                # Use different durations for on vs off to match tempo
+                # ON = short flash (100ms), OFF = rest of beat interval
+                if blink_state[i]:
+                    # Just turned ON - flash briefly
+                    blink_next_toggle[i] = now + 0.1  # 100ms flash
+                else:
+                    # Just turned OFF - wait for next beat
+                    beat_interval = blink_rate_ms[i] / 1000.0
+                    flash_duration = 0.1
+                    blink_next_toggle[i] = now + max(0.05, beat_interval - flash_duration)
         except Exception:
             # Defensive: don't let blinking crash the loop
             pass
@@ -1262,9 +1272,9 @@ def handle_switches():
                 # Handle tap tempo recording
                 if mode == "tap":
                     record_tap_tempo(idx, now)
-                    # Start blinking for tap mode
+                    # Start blinking for tap mode - short flash at tempo
                     blink_state[idx] = True
-                    blink_next_toggle[idx] = now + (blink_rate_ms[idx] / 1000.0)
+                    blink_next_toggle[idx] = now + 0.1  # 100ms flash
 
                 # Dispatch press event
                 if not long_enabled:
