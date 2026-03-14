@@ -1,12 +1,18 @@
 # Multi-Command Per Action Design Document
 
 **Date:** 2026-03-13  
-**Status:** Planning  
-**Branch:** `feature/multi-command-per-action`
+**Status:** ✅ Implemented (PR #12)  
+**Branch:** `feature/keytimes-state-overrides` (merged with multi-command work)
 
 ## Summary
 
 Allow a single button action (press, release, long_press, long_release) to trigger multiple MIDI commands in sequence. This brings feature parity with OEM MIDI Captain Super Mode and enables complex macros.
+
+**Implementation Notes:**
+- Per-message MIDI channels fully supported (each command can target different channel)
+- 2ms delay between commands for MIDI buffer management
+- Value-based bidirectional sync for scene switching
+- All tests passing (178 Python + 19 Rust)
 
 ## Motivation
 
