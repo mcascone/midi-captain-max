@@ -55,13 +55,13 @@ pub enum MessageType {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StateOverride {
     // Multi-command event arrays (per-state actions)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub press: Option<Vec<MidiCommand>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub release: Option<Vec<MidiCommand>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub long_press: Option<Vec<MidiCommand>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub long_release: Option<Vec<MidiCommand>>,
 
     // Legacy single-type field overrides
@@ -1272,5 +1272,56 @@ mod tests {
         let err_str = errors.join("\n");
         assert!(err_str.contains("states[1].long_press"));
         assert!(err_str.contains("channel 20 invalid"));
+    }
+
+    #[test]
+    fn test_state_override_single_object_deserialization() {
+        // Test that StateOverride accepts single-object form for per-state commands
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "red",
+                    "keytimes": 2,
+                    "press": [{"type": "cc", "cc": 20, "value": 127}],
+                    "states": [
+                        {
+                            "press": {"type": "cc", "cc": 21, "value": 100}
+                        },
+                        {
+                            "release": {"type": "note", "note": 60, "velocity": 0},
+                            "long_press": {"type": "pc", "program": 5}
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.keytimes, Some(2));
+        
+        let states = btn.states.as_ref().unwrap();
+        assert_eq!(states.len(), 2);
+        
+        // First state: single-object press should be converted to array
+        let state0_press = states[0].press.as_ref().unwrap();
+        assert_eq!(state0_press.len(), 1);
+        assert_eq!(state0_press[0].cc, Some(21));
+        assert_eq!(state0_press[0].value, Some(100));
+        
+        // Second state: single-object release and long_press
+        let state1_release = states[1].release.as_ref().unwrap();
+        assert_eq!(state1_release.len(), 1);
+        assert_eq!(state1_release[0].note, Some(60));
+        
+        let state1_long = states[1].long_press.as_ref().unwrap();
+        assert_eq!(state1_long.len(), 1);
+        assert_eq!(state1_long[0].program, Some(5));
+        
+        // Round-trip should preserve as arrays
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].states.as_ref().unwrap()[0].press.as_ref().unwrap().len(), 1);
     }
 }
