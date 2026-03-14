@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Tabs } from '@skeletonlabs/skeleton-svelte';
-  import DeviceGrid from './DeviceGrid.svelte';
+  import DeviceLayout from './DeviceLayout.svelte';
   import DisplaySection from './DisplaySection.svelte';
   import DeviceSection from './DeviceSection.svelte';
   import EncoderSection from './EncoderSection.svelte';
@@ -8,9 +8,9 @@
 </script>
 
 <div class="left-panel-container">
-  <!-- Device Grid on top -->
-  <div class="grid-container">
-    <DeviceGrid />
+  <!-- Device Layout (visual representation) -->
+  <div class="layout-container">
+    <DeviceLayout />
   </div>
 
   <!-- Tabs for settings -->
@@ -47,10 +47,10 @@
     overflow: hidden;
   }
 
-  .grid-container {
+  .layout-container {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    min-height: 400px;
   }
 
   .tabs-container {
