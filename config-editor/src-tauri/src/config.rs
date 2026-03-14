@@ -485,6 +485,35 @@ impl MidiCaptainConfig {
                     errors.extend(validate_command(cmd, "long_release", idx));
                 }
             }
+
+            // Validate per-state event arrays (states[*].press/release/long_press/long_release)
+            if let Some(ref states) = button.states {
+                for (state_idx, state) in states.iter().enumerate() {
+                    let state_num = state_idx + 1;
+                    
+                    if let Some(ref cmds) = state.press {
+                        for (cmd_idx, cmd) in cmds.iter().enumerate() {
+                            errors.extend(validate_command(cmd, &format!("states[{}].press", state_num), cmd_idx));
+                        }
+                    }
+                    if let Some(ref cmds) = state.release {
+                        for (cmd_idx, cmd) in cmds.iter().enumerate() {
+                            errors.extend(validate_command(cmd, &format!("states[{}].release", state_num), cmd_idx));
+                        }
+                    }
+                    if let Some(ref cmds) = state.long_press {
+                        for (cmd_idx, cmd) in cmds.iter().enumerate() {
+                            errors.extend(validate_command(cmd, &format!("states[{}].long_press", state_num), cmd_idx));
+                        }
+                    }
+                    if let Some(ref cmds) = state.long_release {
+                        for (cmd_idx, cmd) in cmds.iter().enumerate() {
+                            errors.extend(validate_command(cmd, &format!("states[{}].long_release", state_num), cmd_idx));
+                        }
+                    }
+                }
+            }
+
             // select_group rules: not allowed with momentary or keytimes > 1
             if let Some(_) = button.select_group {
                 if button.mode == ButtonMode::Momentary {
@@ -1180,5 +1209,68 @@ mod tests {
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(config2.buttons[0].long_press_label, Some("PAUSE".to_string()));
+    }
+
+    #[test]
+    fn test_validate_per_state_commands() {
+        // Test that invalid MIDI fields in per-state command arrays are caught by validation
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "red",
+                    "keytimes": 2,
+                    "states": [
+                        {
+                            "press": [{"type": "cc", "cc": 200, "value": 127}]
+                        },
+                        {
+                            "release": [{"type": "note", "note": 60, "velocity": 150}]
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let err_str = errors.join("\n");
+        // Should catch cc > 127 in state 1
+        assert!(err_str.contains("states[1].press"));
+        assert!(err_str.contains("cc 200 exceeds 127"));
+        // Should catch velocity > 127 in state 2
+        assert!(err_str.contains("states[2].release"));
+        assert!(err_str.contains("velocity 150 exceeds 127"));
+    }
+
+    #[test]
+    fn test_validate_per_state_commands_channel() {
+        // Test that invalid channel in per-state commands is caught
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "blue",
+                    "keytimes": 1,
+                    "states": [
+                        {
+                            "long_press": [{"type": "pc", "program": 5, "channel": 20}]
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let result = config.validate();
+        
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let err_str = errors.join("\n");
+        assert!(err_str.contains("states[1].long_press"));
+        assert!(err_str.contains("channel 20 invalid"));
     }
 }
