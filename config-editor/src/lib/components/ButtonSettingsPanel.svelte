@@ -200,7 +200,7 @@
             <option value="off">Off</option>
           </select>
         </div>
-        {#if btn.mode === 'select'}
+        {#if btn.mode !== 'momentary' && btn.mode !== 'tap' && (btn.keytimes ?? 1) === 1}
           <div class="field">
             <label>Select Group:</label>
             <input type="text" value={btn.select_group ?? ''} placeholder="group name"

@@ -519,10 +519,13 @@ impl MidiCaptainConfig {
                 }
             }
 
-            // select_group rules: not allowed with momentary or keytimes > 1
+            // select_group rules: not allowed with momentary, tap, or keytimes > 1
             if let Some(_) = button.select_group {
                 if button.mode == ButtonMode::Momentary {
                     errors.push(format!("Button {} select_group not supported for momentary mode", i + 1));
+                }
+                if button.mode == ButtonMode::Tap {
+                    errors.push(format!("Button {} select_group not supported for tap mode", i + 1));
                 }
                 if let Some(kt) = button.keytimes {
                     if kt > 1 {
