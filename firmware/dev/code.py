@@ -357,14 +357,61 @@ vbat_alpha = 0.01
 # MIDI Setup
 # =============================================================================
 
-midi = adafruit_midi.MIDI(
+MIDI_TRANSPORT = config.get("midi_transport", "usb")
+
+# USB MIDI — primary transport and the only receive path for host → device sync
+# No out_channel specified: allows per-message channel control for multi-command
+midi_usb = adafruit_midi.MIDI(
     midi_in=usb_midi.ports[0],
     midi_out=usb_midi.ports[1],
     in_channel=0,
-    out_channel=0,
     in_buf_size=64,
 )
-print("MIDI initialized")
+
+# TRS / Serial MIDI via UART — GP16 (TX) / GP17 (RX) per hardware-reference.md
+# Bidirectional like Helmut's original firmware (some pedals need RX for feedback)
+# No out_channel specified: allows per-message channel control for multi-command
+midi_uart = busio.UART(tx=board.GP16, rx=board.GP17, baudrate=31250, timeout=0.003,
+                       receiver_buffer_size=512)
+midi_trs = adafruit_midi.MIDI(
+    midi_in=midi_uart,
+    midi_out=midi_uart,
+    in_buf_size=512,
+)
+
+print(f"MIDI initialized: transport={MIDI_TRANSPORT}")
+
+
+def send_midi_message(msg, channel=0):
+    """Send a MIDI message to USB, TRS, or both transports on specified channel.
+
+    Transport is controlled by the 'midi_transport' config key:
+      "usb"  - USB MIDI only (default)
+      "trs"  - TRS/serial MIDI only
+      "both" - send to both transports simultaneously
+
+    RX (host → device) always comes from USB only via midi_usb.receive().
+
+    Args:
+        msg: MIDI message object (ControlChange, NoteOn, ProgramChange, etc.)
+        channel: MIDI channel 0-15 (wire channels, displayed as 1-16 in UI)
+
+    Note: adafruit_midi doesn't support per-message channels on send - the channel
+    parameter on message constructors is for RX only. We temporarily set the
+    transport's out_channel before each send.
+    """
+    if MIDI_TRANSPORT in ("usb", "both"):
+        try:
+            midi_usb.out_channel = channel
+            midi_usb.send(msg)
+        except Exception as e:
+            print(f"[WARN] USB MIDI send failed: {e}")
+    if MIDI_TRANSPORT in ("trs", "both"):
+        try:
+            midi_trs.out_channel = channel
+            midi_trs.send(msg)
+        except Exception as e:
+            print(f"[WARN] TRS MIDI send failed: {e}")
 
 # Encoder config (from config.json or defaults)
 enc_config = config.get("encoder", {"enabled": True, "cc": 11, "label": "ENC", "min": 0, "max": 127, "initial": 64})
@@ -676,6 +723,26 @@ def show_selected_button_label():
         set_label_text(status_label, "Ready")
 
 
+def _make_simple_toggle_cmd(btn_config, is_on, idx):
+    """Synthesize a CC command for simplified toggle mode.
+
+    Used when mode='toggle' but no press/release event arrays are defined.
+    The CC number, channel, and values are read directly from btn_config.
+
+    Args:
+        btn_config: Button config dict with optional 'cc', 'channel', 'value_on', 'value_off'
+        is_on: True = turning ON (send value_on), False = turning OFF (send value_off)
+        idx: 0-indexed button index (used for default CC fallback)
+
+    Returns:
+        List with one CC command dict ready for _send_action_from_cfg
+    """
+    cc_num = btn_config.get("cc", 20 + idx)
+    ch = btn_config.get("channel", 0)
+    val = btn_config.get("value_on", 127) if is_on else btn_config.get("value_off", 0)
+    return [{"type": "cc", "cc": cc_num, "value": val, "channel": ch}]
+
+
 def _get_effective_action_cfg(btn_config, action_name, keytime_index):
     """Get action config with per-state override if available.
 
@@ -700,20 +767,20 @@ def _get_effective_action_cfg(btn_config, action_name, keytime_index):
 
 def _has_long_press_actions(btn_config):
     """Check if button has any long-press or long-release actions.
-    
+
     Returns True if button-level or any per-state override has
     long_press or long_release configured.
     """
     # Check button-level
     if btn_config.get("long_press") or btn_config.get("long_release"):
         return True
-    
+
     # Check all states for overrides
     states = btn_config.get("states", [])
     for state in states:
         if state.get("long_press") or state.get("long_release"):
             return True
-    
+
     return False
 
 
@@ -758,10 +825,15 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
     pc_command_sent = False
 
     # Execute each command in sequence
-    for cmd in commands:
+    for cmd_idx, cmd in enumerate(commands):
         if not isinstance(cmd, dict):
             print(f"[WARN] Invalid command in action (button {btn_num}): {cmd}")
             continue
+
+        # Small delay between commands for MIDI buffer management (MIDI Thru chains)
+        # Skip delay before first command for immediate response
+        if cmd_idx > 0:
+            time.sleep(0.002)  # 2ms between commands
 
         msg_type = cmd.get("type", "cc")
         channel = cmd.get("channel", 0)
@@ -770,20 +842,20 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
             if msg_type == "cc":
                 cc = cmd.get("cc", 20 + idx)
                 val = cmd.get("value", cmd.get("cc_on", 127))
-                midi.send(ControlChange(cc, val, channel=channel))
+                send_midi_message(ControlChange(cc, val), channel=channel)
                 print(f"[MIDI TX] Ch{channel+1} CC{cc}={val} (switch {btn_num})")
                 set_label_text(status_label, f"TX CC{cc}={val}")
 
             elif msg_type == "note":
                 note = cmd.get("note", 60)
                 vel = cmd.get("velocity", cmd.get("velocity_on", 127))
-                midi.send(NoteOn(note, vel, channel=channel))
+                send_midi_message(NoteOn(note, vel), channel=channel)
                 print(f"[MIDI TX] Ch{channel+1} NoteOn{note} vel{vel} (switch {btn_num})")
                 set_label_text(status_label, f"TX Note{note}")
 
             elif msg_type == "pc":
                 program = cmd.get("program", 0)
-                midi.send(ProgramChange(program, channel=channel))
+                send_midi_message(ProgramChange(program), channel=channel)
                 print(f"[MIDI TX] Ch{channel+1} PC{program} (switch {btn_num})")
                 set_label_text(status_label, f"TX PC{program}")
                 pc_command_sent = True
@@ -791,7 +863,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
             elif msg_type == "pc_inc":
                 step = cmd.get("pc_step", 1)
                 pc_values[channel] = clamp_pc_value(pc_values[channel] + step)
-                midi.send(ProgramChange(pc_values[channel], channel=channel))
+                send_midi_message(ProgramChange(pc_values[channel]), channel=channel)
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} +{step} (switch {btn_num})")
                 set_label_text(status_label, f"TX PC{pc_values[channel]}")
                 pc_command_sent = True
@@ -799,7 +871,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
             elif msg_type == "pc_dec":
                 step = cmd.get("pc_step", 1)
                 pc_values[channel] = clamp_pc_value(pc_values[channel] - step)
-                midi.send(ProgramChange(pc_values[channel], channel=channel))
+                send_midi_message(ProgramChange(pc_values[channel]), channel=channel)
                 print(f"[MIDI TX] Ch{channel+1} PC{pc_values[channel]} -{step} (switch {btn_num})")
                 set_label_text(status_label, f"TX PC{pc_values[channel]}")
                 pc_command_sent = True
@@ -851,10 +923,10 @@ def set_button_state(switch_idx, on):
         idx = switch_idx - 1
         btn_cfg = buttons[idx] if idx < len(buttons) else {}
         if btn_cfg.get("led_mode") == "tap":
-            # Turning on: start blinking (show ON immediately)
+            # Turning on: start blinking with short flash
             if on:
                 blink_state[idx] = True
-                blink_next_toggle[idx] = time.monotonic() + (blink_rate_ms[idx] / 1000.0)
+                blink_next_toggle[idx] = time.monotonic() + 0.1  # 100ms flash
             else:
                 # Turning off: ensure LED shows off state and stop blinking
                 blink_state[idx] = False
@@ -933,13 +1005,23 @@ def update_blink_timers():
             if blink_next_toggle[i] == 0.0:
                 blink_state[i] = True
                 set_button_state(i + 1, True)
-                blink_next_toggle[i] = now + (blink_rate_ms[i] / 1000.0)
+                blink_next_toggle[i] = now + 0.1  # Start with 100ms flash
                 continue
 
             if now >= blink_next_toggle[i]:
                 blink_state[i] = not blink_state[i]
                 set_button_state(i + 1, blink_state[i])
-                blink_next_toggle[i] = now + (blink_rate_ms[i] / 1000.0)
+                
+                # Use different durations for on vs off to match tempo
+                # ON = short flash (100ms), OFF = rest of beat interval
+                if blink_state[i]:
+                    # Just turned ON - flash briefly
+                    blink_next_toggle[i] = now + 0.1  # 100ms flash
+                else:
+                    # Just turned OFF - wait for next beat
+                    beat_interval = blink_rate_ms[i] / 1000.0
+                    flash_duration = 0.1
+                    blink_next_toggle[i] = now + max(0.05, beat_interval - flash_duration)
         except Exception:
             # Defensive: don't let blinking crash the loop
             pass
@@ -965,12 +1047,65 @@ def update_label_timeout():
 
 
 def handle_midi():
-    """Handle incoming MIDI messages.
+    """Handle incoming MIDI messages from USB and TRS transports.
 
     Uses attribute-based detection (duck-typing) instead of strict isinstance()
     which avoids issues in test environments where message classes may differ.
+
+    Checks both USB and TRS/serial MIDI for incoming messages (like Helmut's
+    original firmware). Some pedals connected via TRS need bidirectional comms.
     """
-    msg = midi.receive()
+    # Check USB MIDI
+    msg = midi_usb.receive()
+    if msg:
+        _process_incoming_midi(msg)
+
+    # Check TRS/serial MIDI
+    msg = midi_trs.receive()
+    if msg:
+        _process_incoming_midi(msg)
+
+
+def _get_button_expected_cc_value(btn_config):
+    """Extract expected CC number, channel, and value from button's press action.
+
+    Returns tuple: (cc, channel, value) or None if button doesn't send CC on press.
+    Used for bidirectional MIDI sync with value-based scene switching (Quad Cortex style).
+    """
+    press_cfg = btn_config.get("press")
+    if not press_cfg:
+        return None
+
+    # Normalize to list
+    if isinstance(press_cfg, dict):
+        commands = [press_cfg]
+    elif isinstance(press_cfg, list):
+        commands = press_cfg
+    else:
+        return None
+
+    # Find first CC command
+    for cmd in commands:
+        if not isinstance(cmd, dict):
+            continue
+        if cmd.get("type", "cc") == "cc":
+            cc = cmd.get("cc")
+            channel = cmd.get("channel", btn_config.get("channel", 0))
+            value = cmd.get("value", cmd.get("cc_on", 127))
+            if cc is not None:
+                return (cc, channel, value)
+
+    return None
+
+
+def _process_incoming_midi(msg):
+    """Process a received MIDI message (from any transport).
+
+    Extracted to avoid code duplication between USB and TRS receive paths.
+
+    For ControlChange messages, matches CC number, channel, AND value for
+    value-based scene switching (e.g., Quad Cortex: CC43=0, CC43=2, CC43=4 for scenes).
+    """
     if not msg:
         return
 
@@ -986,15 +1121,24 @@ def handle_midi():
         cc = getattr(msg, 'control')
         val = getattr(msg, 'value', 0)
         print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
+
+        # Match CC number, channel, AND value for value-based scene switching
         for i, btn_config in enumerate(buttons):
-            if btn_config.get("type", "cc") == "cc" and btn_config.get("cc") == cc and btn_config.get("channel", 0) == msg_channel:
-                new_state = button_states[i].on_midi_receive(val)
-                set_button_state(i + 1, new_state)
-                # Preserve select-group exclusivity on host-driven changes
-                if new_state:
-                    sg = btn_config.get("select_group")
-                    if sg:
-                        _deselect_group(sg, i)
+            expected = _get_button_expected_cc_value(btn_config)
+            if expected is None:
+                continue
+
+            exp_cc, exp_channel, exp_value = expected
+            if cc == exp_cc and msg_channel == exp_channel and val == exp_value:
+                # Exact match - turn this button ON
+                button_states[i].state = True
+                set_button_state(i + 1, True)
+
+                # Deselect other buttons in the same group
+                sg = btn_config.get("select_group")
+                if sg:
+                    _deselect_group(sg, i)
+
                 set_label_text(button_name_label, btn_config.get("label", str(i + 1)))
                 set_label_text(status_label, f"RX CC{cc}={val}")
                 arm_label_return_timeout(btn_config)
@@ -1073,12 +1217,12 @@ def _deselect_group(group_name, keep_idx):
                         if msg_type == "cc":
                             cc = state_cfg.get("cc", 20 + j)
                             cc_off = state_cfg.get("cc_off", 0)
-                            midi.send(ControlChange(cc, cc_off, channel=ch))
+                            send_midi_message(ControlChange(cc, cc_off, channel=ch))
                             print(f"[MIDI TX] Ch{ch+1} CC{cc}={cc_off} (deselect sibling {j+1}, group {group_name})")
                         elif msg_type == "note":
                             note = state_cfg.get("note", 60)
                             vel_off = state_cfg.get("velocity_off", 0)
-                            midi.send(NoteOff(note, vel_off, channel=ch))
+                            send_midi_message(NoteOff(note, vel_off, channel=ch))
                             print(f"[MIDI TX] Ch{ch+1} NoteOff{note} (deselect sibling {j+1}, group {group_name})")
             except Exception:
                 pass
@@ -1128,20 +1272,20 @@ def handle_switches():
                 # Handle tap tempo recording
                 if mode == "tap":
                     record_tap_tempo(idx, now)
-                    # Start blinking for tap mode
+                    # Start blinking for tap mode - short flash at tempo
                     blink_state[idx] = True
-                    blink_next_toggle[idx] = now + (blink_rate_ms[idx] / 1000.0)
+                    blink_next_toggle[idx] = now + 0.1  # 100ms flash
 
                 # Dispatch press event
                 if not long_enabled:
                     # No long-press: execute press action immediately
-                    if mode in ("toggle", "select", "tap"):
+                    if mode in ("toggle", "normal", "select", "tap"):
                         # Advance keytime for toggle modes
                         btn_state.advance_keytime()
                         # For toggle/select: update state and LED, dispatch appropriate event
-                        if mode in ("toggle", "select"):
+                        if mode in ("toggle", "normal", "select"):
                             # For buttons with select_group: pressing when already ON keeps it ON (radio button behavior)
-                            # For toggle mode without select_group: normal toggle behavior
+                            # For toggle/normal mode without select_group: flip state
                             # For select mode: always turns ON
                             if btn_state.keytimes > 1:
                                 new_state = True
@@ -1150,11 +1294,11 @@ def handle_switches():
                             elif btn_config.get("select_group") and btn_state.state:
                                 # Radio button behavior: if already selected, stay selected
                                 new_state = True
-                            elif mode == "toggle":
+                            elif mode in ("toggle", "normal"):
                                 new_state = not btn_state.state
                             else:
                                 new_state = True
-                            
+
                             btn_state.state = new_state
                             set_button_state(btn_num, new_state)
                             # Handle select_group exclusivity (applies to both toggle and select modes)
@@ -1164,6 +1308,9 @@ def handle_switches():
                                     _deselect_group(sg, idx)
                             # Dispatch press (ON) or release (OFF) based on new state
                             action_cfg = _get_effective_action_cfg(btn_config, "press" if new_state else "release", btn_state.get_keytime())
+                            # Simplified toggle: synthesize CC on/off if no explicit action defined
+                            if action_cfg is None and mode == "toggle":
+                                action_cfg = _make_simple_toggle_cmd(btn_config, new_state, idx)
                             if action_cfg:
                                 _send_action_from_cfg(action_cfg, btn_num, idx, "press" if new_state else "release")
                                 short_action_executed[idx] = True
@@ -1213,11 +1360,11 @@ def handle_switches():
                     # Short press: handle deferred actions
                     if long_enabled:
                         # Deferred press action (for toggle modes with long-press configured)
-                        if mode in ("toggle", "select", "tap") and not short_action_executed[idx]:
+                        if mode in ("toggle", "normal", "select", "tap") and not short_action_executed[idx]:
                             btn_state.advance_keytime()
-                            if mode in ("toggle", "select"):
+                            if mode in ("toggle", "normal", "select"):
                                 # For buttons with select_group: pressing when already ON keeps it ON (radio button behavior)
-                                # For toggle mode without select_group: normal toggle behavior
+                                # For toggle/normal mode without select_group: flip state
                                 # For select mode: always turns ON
                                 if btn_state.keytimes > 1:
                                     new_state = True
@@ -1226,11 +1373,11 @@ def handle_switches():
                                 elif btn_config.get("select_group") and btn_state.state:
                                     # Radio button behavior: if already selected, stay selected
                                     new_state = True
-                                elif mode == "toggle":
+                                elif mode in ("toggle", "normal"):
                                     new_state = not btn_state.state
                                 else:
                                     new_state = True
-                                
+
                                 btn_state.state = new_state
                                 set_button_state(btn_num, new_state)
                                 # Handle select_group exclusivity (applies to both toggle and select modes)
@@ -1240,6 +1387,9 @@ def handle_switches():
                                         _deselect_group(sg, idx)
                                 # Dispatch press (ON) or release (OFF) based on new state
                                 action_cfg = _get_effective_action_cfg(btn_config, "press" if new_state else "release", btn_state.get_keytime())
+                                # Simplified toggle: synthesize CC on/off if no explicit action defined
+                                if action_cfg is None and mode == "toggle":
+                                    action_cfg = _make_simple_toggle_cmd(btn_config, new_state, idx)
                                 if action_cfg:
                                     _send_action_from_cfg(action_cfg, btn_num, idx, "press" if new_state else "release")
                                     short_action_executed[idx] = True
@@ -1263,7 +1413,7 @@ def handle_switches():
         if pressed and long_enabled and not long_press_triggered[idx] and press_start_times[idx]:
             # Get effective long_press config for current keytime (may be per-state override)
             effective_long_press = _get_effective_action_cfg(btn_config, "long_press", btn_state.get_keytime())
-            
+
             # Determine threshold (ms) from effective config
             threshold_ms = DEFAULT_LONG_PRESS_MS
             if effective_long_press and isinstance(effective_long_press, dict):
@@ -1277,12 +1427,12 @@ def handle_switches():
             if (now - press_start_times[idx]) >= (threshold_ms / 1000.0):
                 # Trigger long-press action
                 long_press_triggered[idx] = True
-                
-                # For toggle/select modes: update button state and LED before sending MIDI
-                if mode in ("toggle", "select") and not short_action_executed[idx]:
+
+                # For toggle/normal/select modes: update button state and LED before sending MIDI
+                if mode in ("toggle", "normal", "select") and not short_action_executed[idx]:
                     btn_state.advance_keytime()
                     # For buttons with select_group: pressing when already ON keeps it ON (radio button behavior)
-                    # For toggle mode without select_group: normal toggle behavior
+                    # For toggle/normal mode without select_group: flip state
                     # For select mode: always turns ON
                     if btn_state.keytimes > 1:
                         new_state = True
@@ -1291,11 +1441,11 @@ def handle_switches():
                     elif btn_config.get("select_group") and btn_state.state:
                         # Radio button behavior: if already selected, stay selected
                         new_state = True
-                    elif mode == "toggle":
+                    elif mode in ("toggle", "normal"):
                         new_state = not btn_state.state
                     else:
                         new_state = True
-                    
+
                     btn_state.state = new_state
                     set_button_state(btn_num, new_state)
                     # Handle select_group exclusivity (applies to both toggle and select modes)
@@ -1304,7 +1454,7 @@ def handle_switches():
                         if sg:
                             _deselect_group(sg, idx)
                     short_action_executed[idx] = True
-                
+
                 # Send long_press MIDI action
                 if effective_long_press:
                     _send_action_from_cfg(effective_long_press, btn_num, idx, "long_press")
@@ -1325,7 +1475,7 @@ def handle_encoder_button():
             if pressed:
                 encoder_push_state = not encoder_push_state
                 cc_val = ENC_PUSH_CC_ON if encoder_push_state else ENC_PUSH_CC_OFF
-                midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
+                send_midi_message(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
                 print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, toggle)")
                 set_label_text(button_name_label, ENC_PUSH_LABEL)
                 set_label_text(status_label, f"TX CC{CC_ENCODER_PUSH}={'ON' if encoder_push_state else 'OFF'}")
@@ -1333,7 +1483,7 @@ def handle_encoder_button():
         else:
             # Momentary mode: send on press and release
             cc_val = ENC_PUSH_CC_ON if pressed else ENC_PUSH_CC_OFF
-            midi.send(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
+            send_midi_message(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
             print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, momentary)")
             set_label_text(button_name_label, ENC_PUSH_LABEL)
             set_label_text(status_label, f"TX CC{CC_ENCODER_PUSH}={cc_val}")
@@ -1364,14 +1514,14 @@ def handle_encoder():
             if new_slot != encoder_slot:
                 encoder_slot = new_slot
                 # Output CC is the slot number (0 to steps-1)
-                midi.send(ControlChange(CC_ENCODER, encoder_slot, channel=ENC_CHANNEL))
+                send_midi_message(ControlChange(CC_ENCODER, encoder_slot, channel=ENC_CHANNEL))
                 print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_slot} (slot)")
                 set_label_text(button_name_label, ENC_LABEL)
                 set_label_text(status_label, f"ENC slot {encoder_slot}")
                 arm_label_return_timeout()
         else:
             # Normal mode: send every change
-            midi.send(ControlChange(CC_ENCODER, encoder_value, channel=ENC_CHANNEL))
+            send_midi_message(ControlChange(CC_ENCODER, encoder_value, channel=ENC_CHANNEL))
             print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_value}")
             set_label_text(button_name_label, ENC_LABEL)
             set_label_text(status_label, f"ENC={encoder_value}")
@@ -1406,7 +1556,7 @@ def handle_expression():
             threshold = exp1_config.get("threshold", 2)
             if abs(val1 - exp1_last) >= threshold:
                 exp1_last = val1
-                midi.send(ControlChange(CC_EXP1, val1, channel=EXP1_CHANNEL))
+                send_midi_message(ControlChange(CC_EXP1, val1, channel=EXP1_CHANNEL))
                 lbl = exp1_config.get("label", "EXP1")
                 print(f"[{lbl}] Ch{EXP1_CHANNEL+1} CC{CC_EXP1}={val1}")
 
@@ -1430,7 +1580,7 @@ def handle_expression():
             threshold = exp2_config.get("threshold", 2)
             if abs(val2 - exp2_last) >= threshold:
                 exp2_last = val2
-                midi.send(ControlChange(CC_EXP2, val2, channel=EXP2_CHANNEL))
+                send_midi_message(ControlChange(CC_EXP2, val2, channel=EXP2_CHANNEL))
                 lbl = exp2_config.get("label", "EXP2")
                 print(f"[{lbl}] Ch{EXP2_CHANNEL+1} CC{CC_EXP2}={val2}")
 
@@ -1464,6 +1614,18 @@ for i, b in enumerate(buttons):
                 print(f"[STARTUP] Activated default_selected button {i+1}: {b.get('label', '')}")
         except Exception as e:
             print(f"[WARN] Failed to activate default_selected button {i+1}: {e}")
+
+# Apply default_on state for simplified toggle buttons at startup
+for i, b in enumerate(buttons):
+    if b.get("mode") == "toggle" and b.get("default_on"):
+        try:
+            button_states[i].state = True
+            set_button_state(i + 1, True)
+            startup_cmd = _make_simple_toggle_cmd(b, True, i)
+            _send_action_from_cfg(startup_cmd, i + 1, i, "press")
+            print(f"[STARTUP] default_on toggle button {i+1}: {b.get('label', '')}")
+        except Exception as e:
+            print(f"[WARN] Failed to activate default_on button {i+1}: {e}")
 
 # Ensure tap-mode buttons are visually ON (they have no off state)
 for i, b in enumerate(buttons):

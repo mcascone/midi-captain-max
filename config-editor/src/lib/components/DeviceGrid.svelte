@@ -16,10 +16,10 @@
     if (keytimes > 1 && btn.states && btn.states.length > 0) {
       const state = btn.states[0];
       // Check state override first, then fall back to button-level (matches firmware behavior)
-      const pressCommands = (Array.isArray(state.press) && state.press.length > 0) 
-        ? state.press 
+      const pressCommands = (Array.isArray(state.press) && state.press.length > 0)
+        ? state.press
         : btn.press;
-      
+
       const firstCmd = Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
       if (!firstCmd) return '—';
 
@@ -34,6 +34,14 @@
       if (type === 'pc_inc') return `PC+${countBadge}${stateBadge}`;
       if (type === 'pc_dec') return `PC-${countBadge}${stateBadge}`;
       return (type as string).toUpperCase() + countBadge + stateBadge;
+    }
+
+    // Check for simplified toggle format (direct cc/note fields)
+    if (btn.cc !== undefined) {
+      return `CC${btn.cc}`;
+    }
+    if (btn.note !== undefined) {
+      return `Note${btn.note}`;
     }
 
     // Extract info from first press command (multi-command mode)
@@ -97,6 +105,14 @@
       return lines.join('\n');
     }
 
+    // Check for simplified toggle format
+    if (btn.cc !== undefined && btn.value_on !== undefined) {
+      return `Toggle: CC${btn.cc}\nOn: ${btn.value_on}\nOff: ${btn.value_off ?? 0}`;
+    }
+    if (btn.note !== undefined && btn.velocity_on !== undefined) {
+      return `Toggle: Note${btn.note}\nOn vel: ${btn.velocity_on}\nOff vel: ${btn.velocity_off ?? 0}`;
+    }
+
     const formatCmd = (c: any) => {
       const t = c.type ?? 'cc';
       if (t === 'cc') return `CC${c.cc}=${c.value}`;
@@ -130,18 +146,28 @@
     if (keytimes > 1 && btn.states && btn.states.length > 0) {
       const state = btn.states[0];
       // Check state override first, then fall back to button-level (matches firmware behavior)
-      const pressCommands = (Array.isArray(state.press) && state.press.length > 0) 
-        ? state.press 
+      const pressCommands = (Array.isArray(state.press) && state.press.length > 0)
+        ? state.press
         : btn.press;
-      
+
       const firstCmd = Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
       if (!firstCmd) return '—';
 
       const type = firstCmd.type ?? 'cc';
       const ch = (firstCmd.channel ?? btn.channel ?? $config.global_channel ?? 0) + 1;
-      if (type === 'cc')   return `${ch}   ${firstCmd.value ?? 127}`;
-      if (type === 'note') return `${ch}   ${firstCmd.velocity ?? 127}`;
-      return String(ch);
+      if (type === 'cc')   return `Ch:${ch}  On:${firstCmd.value ?? 127}`;
+      if (type === 'note') return `Ch:${ch}  Vel:${firstCmd.velocity ?? 127}`;
+      return `Ch:${ch}`;
+    }
+
+    // Check for simplified toggle format (direct value_on field)
+    if (btn.value_on !== undefined) {
+      const ch = (btn.channel ?? $config.global_channel ?? 0) + 1;
+      return `Ch:${ch}  On:${btn.value_on}`;
+    }
+    if (btn.velocity_on !== undefined) {
+      const ch = (btn.channel ?? $config.global_channel ?? 0) + 1;
+      return `Ch:${ch}  Vel:${btn.velocity_on}`;
     }
 
     const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
@@ -149,61 +175,81 @@
 
     const type = firstCmd.type ?? 'cc';
     const ch = (firstCmd.channel ?? btn.channel ?? $config.global_channel ?? 0) + 1;
-    if (type === 'cc')   return `${ch}   ${firstCmd.value ?? 127}`;
-    if (type === 'note') return `${ch}   ${firstCmd.velocity ?? 127}`;
-    return String(ch);
+    if (type === 'cc')   return `Ch:${ch}  On:${firstCmd.value ?? 127}`;
+    if (type === 'note') return `Ch:${ch}  Vel:${firstCmd.velocity ?? 127}`;
+    return `Ch:${ch}`;
   }
 
   function offValues(btn: ButtonConfig): string {
     const keytimes = btn.keytimes ?? 1;
+    const mode = btn.mode ?? 'toggle';
 
     // For multi-state buttons, check first state's release commands, fall back to button-level
     if (keytimes > 1 && btn.states && btn.states.length > 0) {
       const state = btn.states[0];
       // Check state override for release first, then fall back to button-level
-      const releaseCommands = (Array.isArray(state.release) && state.release.length > 0) 
-        ? state.release 
+      const releaseCommands = (Array.isArray(state.release) && state.release.length > 0)
+        ? state.release
         : btn.release;
-      
+
       const releaseCmd = Array.isArray(releaseCommands) && releaseCommands.length > 0 ? releaseCommands[0] : null;
       if (releaseCmd) {
         const t = releaseCmd.type ?? 'cc';
-        if (t === 'cc')   return String(releaseCmd.value ?? 0);
-        if (t === 'note') return String(releaseCmd.velocity ?? 0);
+        if (t === 'cc')   return `Off:${releaseCmd.value ?? 0}`;
+        if (t === 'note') return `Vel:${releaseCmd.velocity ?? 0}`;
         return '—';  // PC types don't have an off value
       }
 
-      // Fall back to inferring from press command type (with same fallback logic)
-      const pressCommands = (Array.isArray(state.press) && state.press.length > 0) 
-        ? state.press 
-        : btn.press;
-      
-      const pressCmd = Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
-      if (!pressCmd) return '';
+      // Multi-state buttons without explicit release don't show off value
+      return '';
+    }
 
-      const type = pressCmd.type ?? 'cc';
-      if (type === 'cc')   return '0';  // Default CC off value
-      if (type === 'note') return '0';  // Default note off velocity
-      return '';  // PC types have no off value
+    // Check for simplified toggle format (direct value_off field)
+    if (btn.value_off !== undefined) {
+      return `Off:${btn.value_off}`;
+    }
+    if (btn.velocity_off !== undefined) {
+      return `Vel:${btn.velocity_off}`;
     }
 
     // Check release command first (for momentary mode or explicit release)
     const releaseCmd = Array.isArray(btn.release) && btn.release.length > 0 ? btn.release[0] : null;
     if (releaseCmd) {
       const t = releaseCmd.type ?? 'cc';
-      if (t === 'cc')   return String(releaseCmd.value ?? 0);
-      if (t === 'note') return String(releaseCmd.velocity ?? 0);
+      if (t === 'cc')   return `Off:${releaseCmd.value ?? 0}`;
+      if (t === 'note') return `Vel:${releaseCmd.velocity ?? 0}`;
       return '—';  // PC types don't have an off value
     }
 
-    // Fall back to inferring from press command type
-    const pressCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
-    if (!pressCmd) return '';
+    // For select buttons without explicit release command, don't show off value
+    if (mode === 'select') {
+      return '';
+    }
 
-    const type = pressCmd.type ?? 'cc';
-    if (type === 'cc')   return '0';  // Default CC off value
-    if (type === 'note') return '0';  // Default note off velocity
-    return '';  // PC types have no off value
+    // For toggle/momentary without explicit release, infer from press command
+    if (mode === 'toggle' || mode === 'momentary') {
+      const pressCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+      if (!pressCmd) return '';
+
+      const type = pressCmd.type ?? 'cc';
+      if (type === 'cc')   return 'Off:0';  // Default CC off value
+      if (type === 'note') return 'Vel:0';  // Default note off velocity
+    }
+
+    return '';  // PC, tap, and other modes have no off value
+  }
+  function combinedValues(btn: ButtonConfig): string {
+    const mode = btn.mode ?? 'toggle';
+    const on = onValues(btn);
+    const off = offValues(btn);
+
+    // For toggle/momentary buttons, combine on/off into one display
+    if ((mode === 'toggle' || mode === 'momentary') && on && off) {
+      return `${on} ${off}`;
+    }
+
+    // For other modes, show separately or just on value
+    return '';
   }
 </script>
 
@@ -228,8 +274,16 @@
         <div class="btn-type">{typeLabel(btn)}</div>
 
         <div class="btn-vals">
-          <span>{onValues(btn)}</span>
-          <span>{offValues(btn)}</span>
+          {#if combinedValues(btn)}
+            <span class="val-pill">{combinedValues(btn)}</span>
+          {:else}
+            {#if onValues(btn)}
+              <span class="val-pill">{onValues(btn)}</span>
+            {/if}
+            {#if offValues(btn)}
+              <span class="val-pill">{offValues(btn)}</span>
+            {/if}
+          {/if}
         </div>
 
         <div class="btn-num">{i + 1}</div>
@@ -299,7 +353,7 @@
     border-radius: 10px;
     cursor: pointer;
     text-align: left;
-    min-height: 110px;
+    height: 135px;
     transition: border-color 0.15s, background 0.15s;
     color: #e5e7eb;
     gap: 2px;
@@ -369,10 +423,23 @@
 
   .btn-vals {
     display: flex;
-    gap: 12px;
-    font-size: 11px;
-    color: #6b7280;
-    margin-top: 4px;
+    gap: 6px;
+    font-size: 10px;
+    margin-top: auto;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .val-pill {
+    background: rgba(0, 0, 0, 0.35);
+    color: #9ca3af;
+    padding: 3px 7px;
+    border-radius: 10px;
+    font-family: monospace;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    white-space: nowrap;
   }
 
   .btn-num {
@@ -380,9 +447,13 @@
     bottom: 8px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 11px;
-    color: #4b5563;
+    font-size: 10px;
+    color: #9ca3af;
     font-weight: 500;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
   }
 
   .empty-plus {

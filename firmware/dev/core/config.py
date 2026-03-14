@@ -64,11 +64,11 @@ def _clamp_state_field(field, value):
 
 def _validate_channel(channel, default_channel=0):
     """Validate and clamp MIDI channel to 0-15 range.
-    
+
     Args:
         channel: Input channel value (any type)
         default_channel: Fallback value if invalid (0-15)
-        
+
     Returns:
         Valid MIDI channel (0-15)
     """
@@ -80,18 +80,18 @@ def _validate_channel(channel, default_channel=0):
 
 def _validate_command_array(action, index=0, default_channel=0):
     """Validate and normalize a command action (single dict or array).
-    
+
     Args:
         action: Single command dict, array of dicts, or None
         index: Button index (for default values)
         default_channel: Default MIDI channel (0-15)
-        
+
     Returns:
         Validated array of command dicts, or None if invalid/empty
     """
     if action is None:
         return None
-    
+
     # Handle array of commands (new format)
     if isinstance(action, list):
         validated_cmds = []
@@ -119,7 +119,7 @@ def _validate_command_array(action, index=0, default_channel=0):
                 a["threshold_ms"] = thresh
             validated_cmds.append(a)
         return validated_cmds if validated_cmds else None
-    
+
     # Handle single command dict (legacy format)
     elif isinstance(action, dict):
         a_type = action.get("type", "cc")
@@ -141,21 +141,21 @@ def _validate_command_array(action, index=0, default_channel=0):
         if isinstance(thresh, int) and thresh > 0:
             a["threshold_ms"] = thresh
         return [a]  # Convert to array for consistency
-    
+
     return None
 
 
 def normalize_button_config(btn, index=0, global_channel=0):
     """Convert old single-type config to new event-array format.
-    
+
     Detects old format (has 'type' but no 'press'/'release') and migrates to
     event-based arrays. New format passes through unchanged.
-    
+
     Args:
         btn: Button config dict (old or new format)
         index: Button index (for default values)
         global_channel: Global MIDI channel (0-15)
-        
+
     Returns:
         Button config in new event-array format
     """
@@ -167,15 +167,15 @@ def normalize_button_config(btn, index=0, global_channel=0):
         if 'long_release' in btn and isinstance(btn['long_release'], dict):
             btn['long_release'] = [btn['long_release']]
         return btn
-    
+
     # Old format: convert based on type and mode
     msg_type = btn.get('type', 'cc')
     mode = btn.get('mode', 'toggle')
     channel = btn.get('channel', global_channel)
-    
+
     press_cmds = []
     release_cmds = []
-    
+
     if msg_type == 'cc':
         cc = btn.get('cc', 20 + index)
         cc_on = btn.get('cc_on', 127)
@@ -184,7 +184,7 @@ def normalize_button_config(btn, index=0, global_channel=0):
         if mode == 'momentary':
             release_cmds = [{'type': 'cc', 'cc': cc, 'value': cc_off, 'channel': channel}]
         # toggle/select/tap modes: state change on press only, release does nothing
-        
+
     elif msg_type == 'note':
         note = btn.get('note', 60)
         vel_on = btn.get('velocity_on', 127)
@@ -193,32 +193,32 @@ def normalize_button_config(btn, index=0, global_channel=0):
         if mode == 'momentary':
             # NoteOff on release
             release_cmds = [{'type': 'note', 'note': note, 'velocity': vel_off, 'channel': channel}]
-            
+
     elif msg_type == 'pc':
         program = btn.get('program', 0)
         press_cmds = [{'type': 'pc', 'program': program, 'channel': channel}]
         # PC has no release action
-        
+
     elif msg_type == 'pc_inc':
         pc_step = btn.get('pc_step', 1)
         press_cmds = [{'type': 'pc_inc', 'pc_step': pc_step, 'channel': channel}]
-        
+
     elif msg_type == 'pc_dec':
         pc_step = btn.get('pc_step', 1)
         press_cmds = [{'type': 'pc_dec', 'pc_step': pc_step, 'channel': channel}]
-    
+
     # Migrate long_press/long_release if present
     if 'long_press' in btn and isinstance(btn['long_press'], dict):
         btn['long_press'] = [btn['long_press']]
     if 'long_release' in btn and isinstance(btn['long_release'], dict):
         btn['long_release'] = [btn['long_release']]
-    
+
     # Add event arrays to button config
     if press_cmds:
         btn['press'] = press_cmds
     if release_cmds:
         btn['release'] = release_cmds
-    
+
     return btn
 
 
@@ -259,13 +259,17 @@ def validate_button(btn, index=0, global_channel=None):
     validated = {
         "label": btn.get("label", str(index + 1)),
         "color": btn.get("color", "white"),
-        # Accept new 'tap' mode which implies LED tap/blink behavior
+        # Accept 'tap' and 'normal' modes alongside the legacy set
         "mode": btn.get("mode", "toggle"),
         "off_mode": btn.get("off_mode", "dim"),
         "channel": _validate_channel(btn.get("channel", default_channel), default_channel),
         "type": msg_type,
         "keytimes": keytimes,
     }
+
+    # Normalise mode: unknown values fall back to 'toggle'
+    if validated["mode"] not in ("toggle", "normal", "momentary", "select", "tap"):
+        validated["mode"] = "toggle"
 
     # Type-specific fields
     if msg_type == "cc":
@@ -287,7 +291,7 @@ def validate_button(btn, index=0, global_channel=None):
         action = btn.get(field_name)
         if action is None:
             return None
-        
+
         # Handle array of commands (new format)
         if isinstance(action, list):
             validated_cmds = []
@@ -315,7 +319,7 @@ def validate_button(btn, index=0, global_channel=None):
                     a["threshold_ms"] = thresh
                 validated_cmds.append(a)
             return validated_cmds if validated_cmds else None
-        
+
         # Handle single command dict (legacy format)
         elif isinstance(action, dict):
             a_type = action.get("type", "cc")
@@ -337,7 +341,7 @@ def validate_button(btn, index=0, global_channel=None):
             if isinstance(thresh, int) and thresh > 0:
                 a["threshold_ms"] = thresh
             return [a]  # Convert to array for consistency
-        
+
         return None
 
     # Validate event arrays: press, release, long_press, long_release
@@ -400,6 +404,24 @@ def validate_button(btn, index=0, global_channel=None):
         if isinstance(dim_brightness, (int, float)):
             # Clamp to 0-100 range
             validated["dim_brightness"] = max(0, min(100, int(dim_brightness)))
+
+    # Simplified toggle fields: value_on, value_off, default_on (only meaningful for mode='toggle')
+    if validated.get("mode") == "toggle":
+        value_on = btn.get("value_on")
+        value_off = btn.get("value_off")
+        if value_on is not None:
+            try:
+                validated["value_on"] = max(0, min(127, int(value_on)))
+            except (TypeError, ValueError):
+                pass
+        if value_off is not None:
+            try:
+                validated["value_off"] = max(0, min(127, int(value_off)))
+            except (TypeError, ValueError):
+                pass
+        default_on = btn.get("default_on")
+        if default_on is not None:
+            validated["default_on"] = bool(default_on)
 
     # Long press label: optional custom label shown on long press (max 6 chars)
     long_press_label = btn.get("long_press_label")

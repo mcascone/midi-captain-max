@@ -180,17 +180,20 @@
           <label>Switch Mode:</label>
           <select value={btn.mode ?? 'toggle'} onchange={(e) => update('mode', strVal(e))}>
             <option value="toggle">Toggle</option>
+            <option value="normal">Normal (Advanced)</option>
             <option value="momentary">Momentary</option>
             <option value="select">Select</option>
             <option value="tap">Tap</option>
           </select>
         </div>
-        <div class="field narrow">
-          <label>Keytimes:</label>
-          <input type="number" min="1" max="99"
-            value={btn.keytimes ?? 1}
-            onblur={(e) => { const v = numVal(e); if (v) syncButtonStates($selectedButtonIndex, v); }} />
-        </div>
+        {#if (btn.mode ?? 'toggle') === 'normal'}
+          <div class="field narrow">
+            <label>Keytimes:</label>
+            <input type="number" min="1" max="99"
+              value={btn.keytimes ?? 1}
+              onblur={(e) => { const v = numVal(e); if (v) syncButtonStates($selectedButtonIndex, v); }} />
+          </div>
+        {/if}
       </div>
 
       <div class="field-row">
@@ -244,8 +247,55 @@
         <span class="section-title">Actions</span>
       </div>
 
-      {#if hasMultipleStates}
-        <!-- State Tabs -->
+      {#if (btn.mode ?? 'toggle') === 'toggle'}
+        <!-- Simplified toggle: CC/channel/values only — firmware handles on/off dispatch -->
+        <div class="simple-toggle-section">
+          <p class="simple-toggle-help">Firmware sends <strong>Value ON</strong> when toggling on, <strong>Value OFF</strong> when toggling off — no press/release arrays needed.</p>
+          <div class="field-row">
+            <div class="field">
+              <label>CC Number (0–127):</label>
+              <input type="number" min="0" max="127"
+                value={btn.cc ?? ''}
+                placeholder="e.g. 46"
+                onblur={(e) => { const v = numVal(e); update('cc', v); }} />
+            </div>
+            <div class="field">
+              <label>Channel (1–16):</label>
+              <input type="number" min="1" max="16"
+                value={displayChannel ?? (globalCh + 1)}
+                onblur={(e) => { const v = numVal(e); if (v !== undefined) update('channel', v - 1); }} />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Value ON (0–127):</label>
+              <input type="number" min="0" max="127"
+                value={btn.value_on ?? 127}
+                onblur={(e) => { const v = numVal(e); update('value_on', v ?? 127); }} />
+            </div>
+            <div class="field">
+              <label>Value OFF (0–127):</label>
+              <input type="number" min="0" max="127"
+                value={btn.value_off ?? 0}
+                onblur={(e) => { const v = numVal(e); update('value_off', v ?? 0); }} />
+            </div>
+          </div>
+          <label class="inline-checkbox">
+            <input type="checkbox"
+              checked={btn.default_on ?? false}
+              onchange={(e) => update('default_on', (e.target as HTMLInputElement).checked)} />
+            <span>Boot in ON state (sends Value ON at startup)</span>
+          </label>
+        </div>
+        <ButtonCommandsEditor
+          eventLabel="Long Press"
+          commands={btn.long_press ?? []}
+          globalChannel={globalCh}
+          onUpdate={(cmds) => update('long_press', cmds.length > 0 ? cmds : undefined)}
+        />
+
+      {:else if hasMultipleStates}
+        <!-- State Tabs (normal mode with keytimes > 1) -->
         <div class="state-tabs">
           <div class="state-tab-buttons">
             {#each Array(keytimes) as _, i}
@@ -317,8 +367,9 @@
             {/each}
           </div>
         </div>
+
       {:else}
-        <!-- Single keytime: show button-level commands only -->
+        <!-- Single state: normal / momentary / select / tap -->
         <ButtonCommandsEditor
           eventLabel="Press"
           commands={btn.press ?? []}
@@ -694,5 +745,39 @@
   .dim-slider::-moz-range-thumb:hover {
     background: #818cf8;
     transform: scale(1.1);
+  }
+
+  /* Simplified toggle section */
+  .simple-toggle-section {
+    padding: 12px;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+
+  .simple-toggle-help {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin: 0 0 12px;
+    line-height: 1.4;
+  }
+
+  .simple-toggle-help strong { color: #e5e7eb; }
+
+  .inline-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #d1d5db;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+
+  .inline-checkbox input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
   }
 </style>

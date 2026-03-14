@@ -110,7 +110,7 @@ def test_host_driven_select_group_preserves_exclusivity(tmp_path):
 
     # Simulate host sending CC31=127 to turn B on
     from adafruit_midi.control_change import ControlChange
-    fw.midi.receive = lambda: ControlChange(31, 127, channel=0)
+    fw.midi_usb.receive = lambda: ControlChange(31, 127, channel=0)
     fw.handle_midi()
 
     # B should be on and A off

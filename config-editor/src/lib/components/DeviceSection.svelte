@@ -1,12 +1,12 @@
 <script lang="ts">
   import { config, setDevice, updateField } from '$lib/formStore';
-  import type { DeviceType } from '$lib/types';
-  
+  import type { DeviceType, MidiTransport } from '$lib/types';
+
   function handleDeviceChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     setDevice(target.value as DeviceType);
   }
-  
+
   function handleGlobalChannelChange(e: Event) {
     const target = e.target as HTMLInputElement;
     const value = parseInt(target.value);
@@ -24,11 +24,17 @@
     const target = e.target as HTMLInputElement;
     updateField('dev_mode', target.checked);
   }
-  
+
+  function handleMidiTransportChange(e: Event) {
+    const target = e.target as HTMLSelectElement;
+    updateField('midi_transport', target.value as MidiTransport);
+  }
+
   // Display channel as 1-16 (stored internally as 0-15)
   let globalChannel = $derived(($config.global_channel ?? 0) + 1);
   let devMode = $derived($config.dev_mode ?? false);
   let usbDriveName = $derived($config.usb_drive_name ?? '');
+  let midiTransport = $derived(($config.midi_transport ?? 'usb') as MidiTransport);
 
 </script>
 
@@ -37,7 +43,7 @@
     <div class="field-with-help">
       <label>
         <span class="field-label">Device Type:</span>
-        <select 
+        <select
           id="device-type"
           value={$config.device}
           onchange={handleDeviceChange}
@@ -54,11 +60,11 @@
         {/if}
       </p>
     </div>
-    
+
     <div class="field-with-help">
       <label>
         <span class="field-label">Global MIDI Channel:</span>
-        <input 
+        <input
           id="global-channel"
           type="number"
           value={globalChannel}
@@ -70,6 +76,30 @@
       <p class="help-text">
         Default MIDI channel for all buttons (1-16).
         Individual buttons can override this setting.
+      </p>
+    </div>
+
+    <div class="field-with-help">
+      <label>
+        <span class="field-label">MIDI Output:</span>
+        <select
+          id="midi-transport"
+          value={midiTransport}
+          onchange={handleMidiTransportChange}
+        >
+          <option value="usb">USB only</option>
+          <option value="trs">TRS / Serial only</option>
+          <option value="both">USB + TRS (both)</option>
+        </select>
+      </label>
+      <p class="help-text">
+        {#if midiTransport === 'trs'}
+          TRS/Serial MIDI only — GP16/GP17 at 31250 baud. No USB MIDI output.
+        {:else if midiTransport === 'both'}
+          Sends to USB and TRS simultaneously. Use when connecting to both a DAW and a hardware device.
+        {:else}
+          USB MIDI only. Default for use with a computer or DAW.
+        {/if}
       </p>
     </div>
 
@@ -118,7 +148,7 @@
   .field-with-help.full-width {
     grid-column: 1 / -1;
   }
-  
+
   .device-fields label {
     display: grid;
     grid-template-columns: 140px 1fr;
@@ -141,14 +171,14 @@
     height: 18px;
     cursor: pointer;
   }
-  
+
   .field-label {
     font-size: 0.875rem;
     color: #9ca3af;
     text-align: right;
     font-weight: 500;
   }
-  
+
   .device-fields select,
   .device-fields input[type="number"] {
     padding: 0.5rem 0.75rem;
@@ -174,7 +204,7 @@
     outline: 2px solid #8b5cf6;
     outline-offset: 1px;
   }
-  
+
   .help-text {
     font-size: 0.8rem;
     color: #9ca3af;
