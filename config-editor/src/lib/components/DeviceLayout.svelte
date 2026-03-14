@@ -49,6 +49,32 @@
     return label.length > 6 ? label.slice(0, 5) + '…' : label;
   }
 
+  // Get button mode display
+  function getButtonMode(btn: ButtonConfig | null): string {
+    if (!btn) return '';
+    const mode = btn.mode || 'toggle';
+    switch (mode) {
+      case 'toggle': return 'T';
+      case 'momentary': return 'M';
+      case 'select': return 'S';
+      case 'tap': return 'TAP';
+      default: return 'T';
+    }
+  }
+
+  // Get mode badge color
+  function getModeBadgeColor(btn: ButtonConfig | null): string {
+    if (!btn) return '#6b7280';
+    const mode = btn.mode || 'toggle';
+    switch (mode) {
+      case 'toggle': return '#3b82f6'; // blue
+      case 'momentary': return '#10b981'; // green
+      case 'select': return '#f59e0b'; // amber
+      case 'tap': return '#ec4899'; // pink
+      default: return '#6b7280';
+    }
+  }
+
   // Check if button has multiple commands
   function isMultiCommand(btn: ButtonConfig | null): boolean {
     if (!btn) return false;
@@ -134,6 +160,8 @@
       {@const multiCmd = isMultiCommand(btn)}
       {@const cmdCount = getCommandCount(btn)}
       {@const tooltip = getTooltip(btn, index)}
+      {@const mode = getButtonMode(btn)}
+      {@const modeColor = getModeBadgeColor(btn)}
 
       <!-- Button Group -->
       <g
@@ -187,7 +215,7 @@
           {label}
         </text>
 
-        <!-- Multi-command Badge -->
+        <!-- Multi-command Badge (top-right) -->
         {#if multiCmd && cmdCount > 0}
           <g class="badge-group">
             <rect
@@ -206,6 +234,30 @@
               dominant-baseline="middle"
             >
               ×{cmdCount}
+            </text>
+          </g>
+        {/if}
+
+        <!-- Mode Badge (bottom-left) -->
+        {#if mode}
+          <g class="mode-badge-group">
+            <rect
+              x={pos.x + 5}
+              y={pos.y + BUTTON_SIZE - 25}
+              width={mode === 'TAP' ? 35 : 24}
+              height="20"
+              rx="4"
+              class="mode-badge-bg"
+              fill={modeColor}
+            />
+            <text
+              x={pos.x + (mode === 'TAP' ? 22.5 : 17)}
+              y={pos.y + BUTTON_SIZE - 15}
+              class="mode-badge-text"
+              text-anchor="middle"
+              dominant-baseline="middle"
+            >
+              {mode}
             </text>
           </g>
         {/if}
@@ -267,7 +319,22 @@
     fill: linear-gradient(135deg, #1f2937 0%, #2d1b4e 100%);
   }
 
-  .button-label {
+  .
+
+  .mode-badge-group {
+    pointer-events: none;
+  }
+
+  .mode-badge-bg {
+    opacity: 0.9;
+  }
+
+  .mode-badge-text {
+    fill: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }button-label {
     fill: #ffffff;
     font-size: 14px;
     font-weight: 600;

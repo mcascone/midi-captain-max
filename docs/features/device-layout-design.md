@@ -151,6 +151,16 @@ Each button shows its configured LED color:
 - Position: Top-right corner of button
 - Style: Purple badge with white text
 
+### Mode Badge
+- Display button mode indicator
+- Position: Bottom-left corner of button
+- Indicators:
+  - **T** (blue) - Toggle mode
+  - **M** (green) - Momentary mode
+  - **S** (amber) - Select mode
+  - **TAP** (pink) - Tap tempo mode
+- Style: Colored badge with white text
+
 ---
 
 ## Component Structure
@@ -163,7 +173,8 @@ DeviceLayout.svelte
 │   │   ├── Button rect (clickable)
 │   │   ├── LED indicator circle
 │   │   ├── Label text
-│   │   └── Multi-command badge (if applicable)
+│   │   ├── Multi-command badge (if applicable, top-right)
+│   │   └── Mode badge (bottom-left: T/M/S/TAP)
 │   └── Selection highlight
 ```
 
