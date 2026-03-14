@@ -243,6 +243,25 @@
       {/if}
     {/if}
   </div>
+{:else}
+  <div class="encoder-section">
+    <div class="empty-state">
+      {#if isDisabled}
+        <p class="empty-message">
+          <strong>Encoder not available</strong><br/>
+          The encoder is not supported on Mini6 devices. Only STD10 devices have an encoder and expression pedal support.
+        </p>
+      {:else}
+        <p class="empty-message">
+          <strong>Encoder not configured</strong><br/>
+          The encoder configuration is missing from your config file. This typically happens when relying on firmware defaults.
+        </p>
+        <p class="empty-help">
+          To configure the encoder, add an "encoder" section to your config.json file or reload the config to initialize default settings.
+        </p>
+      {/if}
+    </div>
+  </div>
 {/if}
 
 <style>
@@ -345,5 +364,33 @@
   select:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .empty-state {
+    padding: 2rem;
+    background: #0f172a;
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  .empty-message {
+    color: #e5e7eb;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin: 0 0 1rem 0;
+  }
+
+  .empty-message strong {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: #f9fafb;
+  }
+
+  .empty-help {
+    color: #9ca3af;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0;
   }
 </style>

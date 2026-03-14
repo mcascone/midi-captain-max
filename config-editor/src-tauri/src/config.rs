@@ -731,20 +731,23 @@ mod tests {
             "buttons": [],
             "display": {
                 "button_text_size": "large",
-                "status_text_size": "small"
+                "status_text_size": "small",
+                "button_name_text_size": "medium"
             }
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         let display = config.display.as_ref().unwrap();
         assert_eq!(display.button_text_size.as_deref(), Some("large"));
+        assert_eq!(display.status_text_size.as_deref(), Some("small"));
+        assert_eq!(display.button_name_text_size.as_deref(), Some("medium"));
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(
-            config2.display.as_ref().unwrap().button_text_size.as_deref(),
-            Some("large")
-        );
+        let display2 = config2.display.as_ref().unwrap();
+        assert_eq!(display2.button_text_size.as_deref(), Some("large"));
+        assert_eq!(display2.status_text_size.as_deref(), Some("small"));
+        assert_eq!(display2.button_name_text_size.as_deref(), Some("medium"));
     }
 
     #[test]
