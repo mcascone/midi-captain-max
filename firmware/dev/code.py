@@ -698,6 +698,25 @@ def _get_effective_action_cfg(btn_config, action_name, keytime_index):
     return btn_config.get(action_name)
 
 
+def _has_long_press_actions(btn_config):
+    """Check if button has any long-press or long-release actions.
+    
+    Returns True if button-level or any per-state override has
+    long_press or long_release configured.
+    """
+    # Check button-level
+    if btn_config.get("long_press") or btn_config.get("long_release"):
+        return True
+    
+    # Check all states for overrides
+    states = btn_config.get("states", [])
+    for state in states:
+        if state.get("long_press") or state.get("long_release"):
+            return True
+    
+    return False
+
+
 def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
     """Send MIDI from action config (single dict or list of dicts).
 
@@ -1094,10 +1113,8 @@ def handle_switches():
 
         mode = btn_config.get("mode", "toggle")
 
-        # Check for long-press configuration
-        long_press_cfg = btn_config.get("long_press")
-        long_release_cfg = btn_config.get("long_release")
-        long_enabled = bool(long_press_cfg or long_release_cfg)
+        # Check for long-press configuration (button-level or per-state)
+        long_enabled = _has_long_press_actions(btn_config)
 
         # --- Handle edge events ---
         if changed:
@@ -1216,22 +1233,24 @@ def handle_switches():
 
         # --- Handle held buttons for long-press threshold crossing ---
         if pressed and long_enabled and not long_press_triggered[idx] and press_start_times[idx]:
-            # Determine threshold (ms)
+            # Get effective long_press config for current keytime (may be per-state override)
+            effective_long_press = _get_effective_action_cfg(btn_config, "long_press", btn_state.get_keytime())
+            
+            # Determine threshold (ms) from effective config
             threshold_ms = DEFAULT_LONG_PRESS_MS
-            if long_press_cfg and isinstance(long_press_cfg, dict):
-                threshold_ms = long_press_cfg.get("threshold_ms", threshold_ms)
-            elif isinstance(long_press_cfg, list) and len(long_press_cfg) > 0:
+            if effective_long_press and isinstance(effective_long_press, dict):
+                threshold_ms = effective_long_press.get("threshold_ms", threshold_ms)
+            elif isinstance(effective_long_press, list) and len(effective_long_press) > 0:
                 # If it's an array, check first command for threshold
-                first_cmd = long_press_cfg[0]
+                first_cmd = effective_long_press[0]
                 if isinstance(first_cmd, dict):
                     threshold_ms = first_cmd.get("threshold_ms", threshold_ms)
 
             if (now - press_start_times[idx]) >= (threshold_ms / 1000.0):
                 # Trigger long-press action
                 long_press_triggered[idx] = True
-                long_press_cfg = _get_effective_action_cfg(btn_config, "long_press", btn_state.get_keytime())
-                if long_press_cfg:
-                    _send_action_from_cfg(long_press_cfg, btn_num, idx, "long_press")
+                if effective_long_press:
+                    _send_action_from_cfg(effective_long_press, btn_num, idx, "long_press")
 
 
 def handle_encoder_button():
