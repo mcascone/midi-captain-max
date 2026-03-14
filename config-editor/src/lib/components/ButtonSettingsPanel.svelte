@@ -38,11 +38,11 @@
     const r = parseInt(rgb.slice(1, 3), 16);
     const g = parseInt(rgb.slice(3, 5), 16);
     const b = parseInt(rgb.slice(5, 7), 16);
-    // Apply dim factor
+    // Apply dim factor (using Math.floor to match firmware's int() truncation)
     const factor = dimBrightness / 100;
-    const dimR = Math.round(r * factor);
-    const dimG = Math.round(g * factor);
-    const dimB = Math.round(b * factor);
+    const dimR = Math.floor(r * factor);
+    const dimG = Math.floor(g * factor);
+    const dimB = Math.floor(b * factor);
     return `rgb(${dimR}, ${dimG}, ${dimB})`;
   });
 
