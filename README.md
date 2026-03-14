@@ -19,12 +19,12 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 [See here for all open features and issues](https://github.com/MC-Music-Workshop/midi-captain-max/issues).
 
 ## Key Features
-- 🔄 **Bidirectional MIDI** — Host can update LEDs/display state
+- 🔄 **Bidirectional MIDI** — Host can update LEDs/display state with value-based scene matching
 - 📺 **Center display** — Shows button names and MIDI info with smart timeout
-- ⚡ **Multi-command actions** — Send multiple MIDI messages per button press/release
+- ⚡ **Multi-command actions** — Send multiple MIDI messages per button press/release, each with independent channel control
 - ⚙️ **Config-driven** — Visual GUI Config Editor for all settings
 - 🎨 **Visual feedback** — LEDs and LCD reflect actual host state
-- 🔘 **Flexible modes** — Toggle, momentary, select groups, tap tempo
+- 🔘 **Flexible modes** — Toggle, momentary, select groups, tap tempo with accurate LED visualization
 - ⏱️ **Long-press support** — Secondary actions on hold
 - 🎛️ **Full input support** — Footswitches, rotary encoder, expression pedals
 - 🔁 **Keytimes** — Multi-press cycling through states (like OEM SuperMode)
@@ -157,7 +157,7 @@ You can also edit `config.json` directly on the device. The firmware uses an **e
 | Field | Description | Types |
 |-------|-------------|-------|
 | `type` | Command type | `cc`, `note`, `pc`, `pc_inc`, `pc_dec` |
-| `channel` | MIDI channel (0-15, optional) | All |
+| `channel` | MIDI channel (0-15, optional - defaults to button or global channel) | All |
 | `cc` | CC number (0-127) | `cc` |
 | `value` | CC value (0-127) | `cc` |
 | `note` | MIDI note (0-127) | `note` |
@@ -165,6 +165,21 @@ You can also edit `config.json` directly on the device. The firmware uses an **e
 | `program` | Program number (0-127) | `pc` |
 | `pc_step` | Step value for increment/decrement | `pc_inc`, `pc_dec` |
 | `threshold_ms` | Long-press threshold in milliseconds | `long_press` (first command only) |
+
+**Per-Command Channels:**  
+Each command can specify its own `channel` (0-15). This enables one button to control multiple devices:
+
+```json
+{
+  "label": "TAP",
+  "press": [
+    {"type": "cc", "cc": 44, "value": 127, "channel": 0},  // Tap to amp on ch1
+    {"type": "cc", "cc": 1, "value": 127, "channel": 1}    // Tap to delay on ch2
+  ]
+}
+```
+
+If `channel` is omitted, the command uses the button's `channel` field, or falls back to `global_channel` (default 0).
 
 **Mode behaviors:**
 - **`toggle`**: Alternates ON/OFF, sends `press` when ON, `release` when OFF
@@ -293,6 +308,26 @@ These are the default CC numbers (fully customizable):
 The device responds to incoming MIDI to update button states. Send CC messages matching your button's configured `press` commands:
 - `CC 20, value 127` → Button 1 turns ON (LED lights up)
 - `CC 20, value 0` → Button 1 turns OFF (LED off/dim)
+
+**Value-based scene matching:**  
+The firmware matches incoming CC number, channel, **and value** against button configurations. This enables scene switching on devices like the Quad Cortex:
+
+```json
+{
+  "label": "SCENE1",
+  "press": [{"type": "cc", "cc": 43, "value": 0, "channel": 0}]
+},
+{
+  "label": "SCENE2", 
+  "press": [{"type": "cc", "cc": 43, "value": 1, "channel": 0}]
+},
+{
+  "label": "SCENE3",
+  "press": [{"type": "cc", "cc": 43, "value": 2, "channel": 0}]
+}
+```
+
+When the Quad Cortex sends `CC 43, value 1, channel 0`, only the SCENE2 button lights up.
 
 ## Use Cases
 
