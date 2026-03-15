@@ -265,9 +265,6 @@
           <label>Color:</label>
           <ColorSelect value={btn.color} onchange={(c) => update('color', c)} />
         </div>
-      </div>
-
-      <div class="field-row">
         <div class="field">
           <label>LED Off:</label>
           <select value={btn.off_mode ?? 'dim'} onchange={(e) => update('off_mode', strVal(e))}>
@@ -275,6 +272,9 @@
             <option value="off">Off</option>
           </select>
         </div>
+      </div>
+
+      <div class="field-row">
         {#if btn.mode !== 'momentary' && btn.mode !== 'tap' && (btn.keytimes ?? 1) === 1}
           <div class="field">
             <label>Select Group:</label>
