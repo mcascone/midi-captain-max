@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { config } from '$lib/formStore';
+  import { config, getButtonErrors } from '$lib/formStore';
   import { selectedButtonIndex } from '$lib/stores';
   import { BUTTON_COLORS } from '$lib/types';
   import type { ButtonConfig } from '$lib/types';
@@ -9,7 +9,8 @@
   let totalSlots = $derived(deviceType === 'mini6' ? 6 : 10);
 
   // SVG dimensions based on device type
-  let viewBox = $derived(deviceType === 'mini6' ? '0 0 520 400' : '0 0 800 400');
+  let viewBox = $derived(deviceType === 'mini6' ? '0 0 560 400' : '0 0 800 400');
+  let maxWidth = $derived(deviceType === 'mini6' ? 560 : 800);
   let cols = $derived(deviceType === 'mini6' ? 3 : 5);
   let rows = 2;
 
@@ -47,6 +48,12 @@
     const label = btn.label || `${index + 1}`;
     // Truncate to 6 chars with ellipsis
     return label.length > 6 ? label.slice(0, 5) + '…' : label;
+  }
+
+  // Check if button has validation errors
+  function hasButtonErrors(index: number): boolean {
+    const errors = getButtonErrors(index);
+    return errors.size > 0;
   }
 
   // Get button mode display
@@ -100,7 +107,7 @@
   // Get tooltip text
   function getTooltip(btn: ButtonConfig | null, index: number): string {
     if (!btn) return `Button ${index + 1} (not configured)`;
-    
+
     const keytimes = btn.keytimes ?? 1;
 
     // For multi-state buttons
@@ -116,11 +123,12 @@
 
     const formatCmd = (c: any) => {
       const t = c.type ?? 'cc';
-      if (t === 'cc') return `CC${c.cc}=${c.value}`;
-      if (t === 'note') return `Note${c.note} vel${c.velocity}`;
-      if (t === 'pc') return `PC${c.program}`;
-      if (t === 'pc_inc') return `PC+${c.pc_step ?? 1}`;
-      if (t === 'pc_dec') return `PC-${c.pc_step ?? 1}`;
+      const ch = c.channel !== undefined ? ` Ch${c.channel + 1}` : '';
+      if (t === 'cc') return `CC${c.cc}=${c.value}${ch}`;
+      if (t === 'note') return `Note${c.note} vel${c.velocity}${ch}`;
+      if (t === 'pc') return `PC${c.program}${ch}`;
+      if (t === 'pc_inc') return `PC+${c.pc_step ?? 1}${ch}`;
+      if (t === 'pc_dec') return `PC-${c.pc_step ?? 1}${ch}`;
       return t;
     };
 
@@ -152,7 +160,7 @@
 </script>
 
 <div class="device-layout-container">
-  <svg {viewBox} class="device-svg">
+  <svg {viewBox} class="device-svg" style="max-width: {maxWidth}px;">
     {#each Array(totalSlots) as _, index}
       {@const pos = getButtonPosition(index)}
       {@const btn = getButton(index)}
@@ -164,6 +172,7 @@
       {@const tooltip = getTooltip(btn, index)}
       {@const mode = getButtonMode(btn)}
       {@const modeColor = getModeBadgeColor(btn)}
+      {@const hasErrors = hasButtonErrors(index)}
 
       <!-- Button Group -->
       <g
@@ -220,6 +229,7 @@
         <!-- Multi-command Badge (top-right) -->
         {#if multiCmd && cmdCount > 0}
           <g class="badge-group">
+            <title>{tooltip}</title>
             <rect
               x={pos.x + BUTTON_SIZE - 35}
               y={pos.y + 5}
@@ -236,6 +246,27 @@
               dominant-baseline="middle"
             >
               ×{cmdCount}
+            </text>
+          </g>
+        {/if}
+
+        <!-- Error Indicator (top-left) -->
+        {#if hasErrors}
+          <g class="error-indicator">
+            <circle
+              cx={pos.x + 15}
+              cy={pos.y + 15}
+              r="10"
+              fill="#dc2626"
+            />
+            <text
+              x={pos.x + 15}
+              y={pos.y + 15}
+              class="error-icon"
+              text-anchor="middle"
+              dominant-baseline="middle"
+            >
+              !
             </text>
           </g>
         {/if}
@@ -282,7 +313,6 @@
   .device-svg {
     width: 100%;
     height: auto;
-    max-width: 800px;
   }
 
   .button-group {
@@ -360,7 +390,19 @@
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-  }button-label {
+  }
+
+  .error-indicator {
+    pointer-events: none;
+  }
+
+  .error-icon {
+    fill: #ffffff;
+    font-size: 14px;
+    font-weight: 900;
+  }
+
+  button-label {
     fill: #ffffff;
     font-size: 14px;
     font-weight: 600;

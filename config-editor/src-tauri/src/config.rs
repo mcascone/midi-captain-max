@@ -17,6 +17,12 @@ pub enum ButtonColor {
     Orange,
     Purple,
     White,
+    Pink,
+    Lime,
+    Amber,
+    Teal,
+    Violet,
+    Gold,
 }
 
 /// Button trigger mode

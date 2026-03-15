@@ -23,6 +23,9 @@
   let jsonText = $state('');
   let unlistenConnect: (() => void) | undefined;
   let unlistenDisconnect: (() => void) | undefined;
+  let leftPanelCollapsed = $state(false);
+  let leftPanelWidth = $state(600);
+  let isResizing = $state(false);
 
   let devMode = $derived($config.dev_mode ?? false);
   let hasErrors = $derived($validationErrors.length > 0);
@@ -31,6 +34,24 @@
     : $statusMessage.toLowerCase().includes('saved') || $statusMessage.toLowerCase().includes('success') ? 'success'
     : 'idle'
   );
+
+  function startResize(e: MouseEvent) {
+    isResizing = true;
+    e.preventDefault();
+  }
+
+  function handleMouseMove(e: MouseEvent) {
+    if (isResizing && !leftPanelCollapsed) {
+      const newWidth = e.clientX;
+      if (newWidth >= 300 && newWidth <= 1000) {
+        leftPanelWidth = newWidth;
+      }
+    }
+  }
+
+  function stopResize() {
+    isResizing = false;
+  }
 
   onMount(async () => {
     try {
@@ -180,11 +201,98 @@
     $statusMessage = 'Waiting for device to reconnect...';
   }
 
+  function loadDemoConfig() {
+    console.log('=== loadDemoConfig START ===');
+    try {
+      // Load demo STD10 config
+      const demoConfig = {
+        "device": "std10",
+        "global_channel": 0,
+        "usb_drive_name": "MIDICAPTAIN",
+        "dev_mode": false,
+        "display": {
+          "button_text_size": "medium",
+          "status_text_size": "medium",
+          "expression_text_size": "medium"
+        },
+        "buttons": [
+          {"label": "TSC", "press": [{"type": "cc", "cc": 20, "value": 127}], "release": [{"type": "cc", "cc": 20, "value": 0}], "color": "green", "mode": "toggle"},
+          {"label": "CHOR", "press": [{"type": "cc", "cc": 21, "value": 127}], "release": [{"type": "cc", "cc": 21, "value": 0}], "color": "blue", "mode": "toggle"},
+          {"label": "DELAY", "press": [{"type": "cc", "cc": 22, "value": 127}], "release": [{"type": "cc", "cc": 22, "value": 0}], "color": "yellow", "mode": "select", "select_group": "fx"},
+          {"label": "SHIM", "press": [{"type": "cc", "cc": 23, "value": 127}], "release": [{"type": "cc", "cc": 23, "value": 0}], "color": "magenta", "mode": "toggle"},
+          {"label": "TREM", "press": [{"type": "cc", "cc": 24, "value": 127}], "release": [{"type": "cc", "cc": 24, "value": 0}], "color": "white", "mode": "momentary"},
+          {"label": "WOW", "press": [{"type": "cc", "cc": 25, "value": 127}], "release": [{"type": "cc", "cc": 25, "value": 0}], "color": "orange", "mode": "toggle", "off_mode": "off"},
+          {"label": "OCT", "press": [{"type": "cc", "cc": 26, "value": 127}], "release": [{"type": "cc", "cc": 26, "value": 0}], "color": "cyan", "mode": "toggle"},
+          {"label": "FREQ", "press": [{"type": "cc", "cc": 27, "value": 127}], "release": [{"type": "cc", "cc": 27, "value": 0}], "color": "red", "mode": "toggle", "off_mode": "off"},
+          {"label": "PLATE", "press": [{"type": "cc", "cc": 28, "value": 127}, {"type": "pc", "program": 5}], "release": [{"type": "cc", "cc": 28, "value": 0}], "color": "purple", "mode": "toggle"},
+          {"label": "TAP", "press": [{"type": "cc", "cc": 29, "value": 127}], "release": [{"type": "cc", "cc": 29, "value": 0}], "color": "white", "mode": "tap"}
+        ],
+        "encoder": {
+          "enabled": true,
+          "cc": 11,
+          "label": "ENC",
+          "min": 0,
+          "max": 127,
+          "initial": 64,
+          "channel": 0,
+          "push": {
+            "enabled": true,
+            "cc": 14,
+            "label": "PUSH",
+            "mode": "momentary",
+            "channel": 0
+          }
+        },
+        "expression": {
+          "exp1": {
+            "enabled": true,
+            "cc": 12,
+            "label": "EXP1",
+            "min": 0,
+            "max": 127,
+            "polarity": "normal",
+            "threshold": 2,
+            "channel": 0
+          },
+          "exp2": {
+            "enabled": false,
+            "cc": 13,
+            "label": "EXP2",
+            "min": 0,
+            "max": 127,
+            "polarity": "normal",
+            "threshold": 2,
+            "channel": 0
+          }
+        }
+      };
+
+      console.log('Calling loadConfig...');
+      loadConfig(demoConfig);
+      console.log('loadConfig completed');
+
+      console.log('Setting stores...');
+      currentConfigRaw.set(JSON.stringify(demoConfig, null, 2));
+      hasUnsavedChanges.set(false);
+      validationErrors.set([]);
+      statusMessage.set('Demo config loaded (STD10)');
+      console.log('Stores set. currentConfigRaw length:', get(currentConfigRaw).length);
+
+      showToast('Demo config loaded - no device required', 'info');
+      console.log('=== loadDemoConfig END ===');
+    } catch (error) {
+      console.error('Error in loadDemoConfig:', error);
+      statusMessage.set(`Error loading demo: ${error}`);
+    }
+  }
+
   function viewJson() {
     jsonText = JSON.stringify($config, null, 2);
     showJsonModal = true;
   }
 </script>
+
+<svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
 
 <div class="app">
   <!-- header -->
@@ -238,8 +346,16 @@
 
   <!-- main content -->
   <div class="main">
-    {#if $selectedDevice && !$isLoading}
-      <div class="left-panel"><LeftPanel /></div>
+    {#if ($selectedDevice || $currentConfigRaw) && !$isLoading}
+      <div class="left-panel" class:collapsed={leftPanelCollapsed} style="width: {leftPanelCollapsed ? '40px' : leftPanelWidth + 'px'}">
+        <button class="collapse-toggle" onclick={() => leftPanelCollapsed = !leftPanelCollapsed} title={leftPanelCollapsed ? 'Expand panel' : 'Collapse panel'}>
+          {leftPanelCollapsed ? '▶' : '◀'}
+        </button>
+        <LeftPanel />
+      </div>
+      {#if !leftPanelCollapsed}
+      <div class="resizer" onmousedown={startResize} class:resizing={isResizing}></div>
+      {/if}
       <div class="right-panel"><ButtonSettingsPanel /></div>
     {:else if $isLoading}
       <div class="center-state"><div class="spinner"></div><span>Loading…</span></div>
@@ -359,8 +475,78 @@
 
   /* Main */
   .main { display: flex; flex: 1; overflow: hidden; }
-  .left-panel { flex: 1; min-width: 0; overflow-y: auto; border-right: 1px solid #1e1e2e; background: #0f0f1a; }
-  .right-panel { width: 340px; flex-shrink: 0; overflow-y: auto; background: #0f0f1a; }
+  .left-panel {
+    position: relative;
+    flex-shrink: 0;
+    min-width: 0;
+    overflow-y: auto;
+    border-right: 1px solid #1e1e2e;
+    background: #0f0f1a;
+    transition: width 0.3s ease;
+  }
+
+  .left-panel.collapsed {
+    overflow: hidden;
+  }
+
+  .resizer {
+    width: 4px;
+    background: #1e1e2e;
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+    position: relative;
+  }
+
+  .resizer:hover,
+  .resizer.resizing {
+    background: #4f46e5;
+  }
+
+  .resizer::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 0;
+    bottom: 0;
+  }
+
+  .collapse-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #9ca3af;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.2s ease;
+  }
+
+  .collapse-toggle:hover {
+    background: #374151;
+    color: #ffffff;
+    border-color: #4b5563;
+  }
+
+  .collapsed .collapse-toggle {
+    right: 4px;
+  }
+
+  .right-panel {
+    flex: 1;
+    overflow-y: auto;
+    background: #0f0f1a;
+  }
 
   .center-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; }
   .center-title { font-size: 15px; font-weight: 500; color: #6b7280; }

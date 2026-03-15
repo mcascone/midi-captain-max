@@ -5,6 +5,8 @@
   import DeviceSection from './DeviceSection.svelte';
   import EncoderSection from './EncoderSection.svelte';
   import ExpressionSection from './ExpressionSection.svelte';
+
+  let tabsCollapsed = $state(false);
 </script>
 
 <div class="left-panel-container">
@@ -14,13 +16,17 @@
   </div>
 
   <!-- Tabs for settings -->
-  <div class="tabs-container">
+  <div class="tabs-container" class:collapsed={tabsCollapsed}>
+    {#if !tabsCollapsed}
     <Tabs defaultValue="display">
       <Tabs.List class="tabs-list">
         <Tabs.Trigger value="display" class="tab-trigger">Display</Tabs.Trigger>
         <Tabs.Trigger value="device" class="tab-trigger">Device</Tabs.Trigger>
         <Tabs.Trigger value="encoder" class="tab-trigger">Encoder</Tabs.Trigger>
         <Tabs.Trigger value="expression" class="tab-trigger">Expression</Tabs.Trigger>
+        <button class="tabs-collapse-toggle" onclick={() => tabsCollapsed = !tabsCollapsed} title="Collapse settings">
+          ▼
+        </button>
         <Tabs.Indicator />
       </Tabs.List>
       <Tabs.Content value="display" class="tab-content">
@@ -36,6 +42,13 @@
         <ExpressionSection />
       </Tabs.Content>
     </Tabs>
+    {:else}
+    <div class="tabs-collapsed-header">
+      <button class="tabs-expand-toggle" onclick={() => tabsCollapsed = !tabsCollapsed} title="Expand settings">
+        ▲
+      </button>
+    </div>
+    {/if}
   </div>
 </div>
 
@@ -59,11 +72,58 @@
     background: #111827;
   }
 
+  .tabs-collapsed-header {
+    display: flex;
+    justify-content: center;
+    padding: 4px;
+    background: #1f2937;
+  }
+
+  .tabs-expand-toggle {
+    width: 100%;
+    height: 32px;
+    padding: 0;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #9ca3af;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.2s ease;
+  }
+
+  .tabs-expand-toggle:hover {
+    background: #374151;
+    color: #ffffff;
+    border-color: #4b5563;
+  }
+
   .tabs-container :global(.tabs-list) {
     display: flex;
     gap: 0;
     border-bottom: 1px solid #374151;
     background: #1f2937;
+    align-items: center;
+  }
+
+  .tabs-collapse-toggle {
+    margin-left: auto;
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    height: 100%;
+  }
+
+  .tabs-collapse-toggle:hover {
+    color: #ffffff;
+    background: #374151;
   }
 
   .tabs-container :global(.tab-trigger) {
