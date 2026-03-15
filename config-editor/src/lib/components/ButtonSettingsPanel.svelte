@@ -188,21 +188,6 @@
       </select>
     </div>
 
-    <!-- State Tabs (if keytimes > 1) -->
-    {#if hasMultipleStates}
-      <div class="state-tabs-top">
-        {#each Array(keytimes) as _, i}
-          <button
-            class="state-tab-btn"
-            class:active={activeStateTab === `state-${i}`}
-            onclick={() => activeStateTab = `state-${i}`}
-          >
-            State {i + 1}
-          </button>
-        {/each}
-      </div>
-    {/if}
-
     <!-- ── Behavior Section ──────────────────── -->
     <div class="section">
       <div class="section-header">
@@ -229,6 +214,13 @@
               onblur={(e) => { const v = numVal(e); if (v) syncButtonStates($selectedButtonIndex, v); }} />
           </div>
         {/if}
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Color:</label>
+          <ColorSelect value={btn.color} onchange={(c) => update('color', c)} />
+        </div>
       </div>
 
       <div class="field-row">
@@ -323,20 +315,26 @@
           onblur={(e) => update('long_press_label', strVal(e) || undefined)}
         />
       </div>
-
-      <div class="field-row">
-        <div class="field">
-          <label>Color:</label>
-          <ColorSelect value={btn.color} onchange={(c) => update('color', c)} />
-        </div>
-      </div>
     </div>
 
     <!-- ── Actions Section ───────────────────── -->
     <div class="section">
       <div class="section-header">
         <span class="section-icon">⚡</span>
-        <span class="section-title">Actions{hasMultipleStates ? ` - State ${parseInt(activeStateTab.split('-')[1]) + 1}` : ''}</span>
+        <span class="section-title">Actions</span>
+        {#if hasMultipleStates}
+          <div class="header-state-tabs">
+            {#each Array(keytimes) as _, i}
+              <button
+                class="state-tab-btn-header"
+                class:active={activeStateTab === `state-${i}`}
+                onclick={() => activeStateTab = `state-${i}`}
+              >
+                State {i + 1}
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
 
       {#if hasMultipleStates}
@@ -345,13 +343,15 @@
           {#if activeStateTab === `state-${i}`}
             {@const state = btn.states?.[i] ?? {}}
 
-            <!-- Profile Selector for this state -->
-            <ProfileSelector 
-              button={btn} 
-              onUpdate={update}
-              stateIndex={i}
-              onUpdateState={updateState}
-            />
+            <!-- Profile Selector for this state - keyed to force fresh instance per state -->
+            {#key `state-${i}`}
+              <ProfileSelector 
+                button={btn} 
+                onUpdate={update}
+                stateIndex={i}
+                onUpdateState={updateState}
+              />
+            {/key}
 
             <div class="state-visual-config">
               <div class="field-row">
@@ -641,6 +641,36 @@
     flex: 1;
   }
 
+  .header-state-tabs {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .state-tab-btn-header {
+    padding: 4px 10px;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
+    color: #9ca3af;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  .state-tab-btn-header:hover {
+    border-color: #3a3a55;
+    color: #d1d5db;
+  }
+
+  .state-tab-btn-header.active {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #ffffff;
+  }
+
   .section-sublabel {
     font-size: 11px;
     color: #6b7280;
@@ -742,17 +772,6 @@
     color: #4b5563;
     font-size: 13px;
     padding: 40px;
-  }
-
-  /* State tabs at top of panel */
-  .state-tabs-top {
-    display: flex;
-    gap: 6px;
-    margin: 12px 0;
-    padding: 8px 16px;
-    background: #0f0f1e;
-    border-bottom: 2px solid #2a2a3e;
-    overflow-x: auto;
   }
 
   /* State tabs */

@@ -20,14 +20,30 @@
   // Profile mode toggle - independent of profile/action selection
   let profileMode = $state(false);
 
-  // Initialize from button props only once
+  // Track previous stateIndex to detect switches
+  let prevStateIndex = $state<number | undefined>(stateIndex);
+
+  // Initialize from button props and clear selection when switching states
   $effect(() => {
     selectedProfileId = button.profile_id || '';
-    selectedActionId = button.action_id || '';
+    
     // Only set profileMode to true if we have profile data from config
-    // Don't set it to false - let the user control it with the checkbox
     if (button.profile_id) {
       profileMode = true;
+    }
+    
+    // Handle selectedActionId based on context:
+    // - Single state (stateIndex undefined): use button.action_id
+    // - Multi-state: clear selection when switching states
+    if (stateIndex === undefined) {
+      // Single-state mode: persist action_id from button config
+      selectedActionId = button.action_id || '';
+    } else {
+      // Multi-state mode: clear selection when state index changes
+      if (prevStateIndex !== stateIndex) {
+        selectedActionId = '';
+        prevStateIndex = stateIndex;
+      }
     }
   });
 
