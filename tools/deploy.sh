@@ -148,17 +148,27 @@ fi
 
 # Check if device is mounted
 if [ ! -d "$MOUNT_POINT" ]; then
-    echo -e "${RED}❌ Device not found at $MOUNT_POINT${NC}"
+    echo -e "${RED}❌ Device not found${NC}"
     echo ""
-    echo "Make sure your MIDI Captain is:"
-    echo "  1. Connected via USB"
-    echo "  2. Running CircuitPython (not in bootloader mode)"
-    echo "  3. Mounted (try: CIRCUITPY, MIDICAPTAIN, or the usb_drive_name in your config.json)"
+    # Build a readable list of paths that were tried
+    TRIED_PATHS=()
+    for vol_root in "${VOLUME_ROOTS[@]}"; do
+        for cname in "${CANDIDATE_NAMES[@]}"; do
+            TRIED_PATHS+=("$vol_root/$cname")
+        done
+    done
+    echo "Tried: ${TRIED_PATHS[*]}"
     echo ""
-    echo "If CircuitPython is not installed:"
-    echo "  1. Hold Switch 1 (top-left footswitch) while plugging in USB"
-    echo "  2. Copy CircuitPython .uf2 to RPI-RP2 drive"
-    echo "  3. Run this script again"
+    echo "Check that your device is plugged in, then:"
+    # Show OS-appropriate commands
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "  ls /Volumes/                        # see all mounted drives"
+        echo "  ./deploy.sh /Volumes/MyDriveName    # specify a custom drive name"
+    else
+        # Linux
+        echo "  ls /media/$USER/ /run/media/$USER/  # see all mounted drives"
+        echo "  ./deploy.sh /media/$USER/MyDriveName  # specify a custom drive name"
+    fi
     exit 1
 fi
 
