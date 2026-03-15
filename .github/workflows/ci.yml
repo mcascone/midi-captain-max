@@ -273,8 +273,6 @@ jobs:
           echo "✓ Keychain unlocked for code signing" >> $GITHUB_STEP_SUMMARY
 
       - name: Build Tauri app (universal binary)
-        env:
-          APPLE_SIGNING_IDENTITY: "Developer ID Application: Maximilian Cascone (9WNXKEF4SM)"
         run: |
           cd config-editor
           npm run tauri build -- --target universal-apple-darwin
