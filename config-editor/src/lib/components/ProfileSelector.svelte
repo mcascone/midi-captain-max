@@ -12,6 +12,7 @@
   // Selected profile and action (reactive to button changes)
   let selectedProfileId = $state('');
   let selectedActionId = $state('');
+  let targetEvent = $state<'press' | 'release' | 'long_press' | 'long_release'>('press');
 
   // Profile mode toggle - independent of profile/action selection
   let profileMode = $state(false);
@@ -30,6 +31,11 @@
   // Available actions for selected profile
   let availableActions = $derived(
     selectedProfileId ? getProfileActions(selectedProfileId) : []
+  );
+
+  // Get the commands for the selected target event
+  let targetCommands = $derived(
+    button[targetEvent] as MidiCommand[] | undefined
   );
 
   function handleProfileModeToggle() {
@@ -51,9 +57,9 @@
     if (selectedProfileId && actionId) {
       const commands = resolveProfileAction(selectedProfileId, actionId);
       if (commands) {
-        // Update button's press array with resolved commands
-        onUpdate('press', commands);
-        console.log('[ProfileSelector] Resolved MIDI commands:', commands);
+        // Update button's selected event array with resolved commands
+        onUpdate(targetEvent, commands);
+        console.log(`[ProfileSelector] Resolved MIDI commands for ${targetEvent}:`, commands);
       }
     }
   }
@@ -99,6 +105,47 @@
         {/each}
       </div>
 
+      <!-- Event Target Selector -->
+      {#if selectedProfileId}
+        <div class="event-selector">
+          <div class="section-label">Assign To Event</div>
+          <div class="event-buttons">
+            <button
+              type="button"
+              class="event-button"
+              class:active={targetEvent === 'press'}
+              onclick={() => targetEvent = 'press'}
+            >
+              Press
+            </button>
+            <button
+              type="button"
+              class="event-button"
+              class:active={targetEvent === 'release'}
+              onclick={() => targetEvent = 'release'}
+            >
+              Release
+            </button>
+            <button
+              type="button"
+              class="event-button"
+              class:active={targetEvent === 'long_press'}
+              onclick={() => targetEvent = 'long_press'}
+            >
+              Long Press
+            </button>
+            <button
+              type="button"
+              class="event-button"
+              class:active={targetEvent === 'long_release'}
+              onclick={() => targetEvent = 'long_release'}
+            >
+              Long Release
+            </button>
+          </div>
+        </div>
+      {/if}
+
       <!-- Actions Grid -->
       {#if selectedProfileId && availableActions}
         <div class="section-label">Select Action</div>
@@ -118,14 +165,14 @@
       {/if}
 
       <!-- Resolved MIDI Preview -->
-      {#if selectedProfileId && selectedActionId && button.press}
+      {#if selectedProfileId && selectedActionId && targetCommands}
         <div class="midi-preview">
           <div class="preview-header">
             <span class="preview-icon">⚡</span>
-            <strong>Resolved MIDI</strong>
+            <strong>Resolved MIDI ({targetEvent.replace('_', ' ')})</strong>
           </div>
           <div class="midi-commands">
-            {#each button.press as cmd}
+            {#each targetCommands as cmd}
               <span class="midi-chip">
                 {#if cmd.type === 'cc'}
                   CC{cmd.cc}={cmd.value}
@@ -251,6 +298,45 @@
     font-size: 14px;
     font-weight: 600;
     color: #e5e7eb;
+  }
+
+  /* Event Selector */
+  .event-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .event-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .event-button {
+    padding: 0.625rem 0.75rem;
+    background: #13131f;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
+    color: #d1d5db;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+  }
+
+  .event-button:hover {
+    border-color: #3a3a4e;
+    background: #1a1a2e;
+    color: #e5e7eb;
+  }
+
+  .event-button.active {
+    background: rgba(249, 115, 22, 0.15);
+    border-color: #f97316;
+    color: #fb923c;
+    font-weight: 600;
   }
 
   /* Actions Grid */
