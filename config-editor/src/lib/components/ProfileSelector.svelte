@@ -38,6 +38,67 @@
     button[targetEvent] as MidiCommand[] | undefined
   );
 
+  // Compare two MIDI commands for equality
+  function commandsMatch(cmd1: MidiCommand, cmd2: MidiCommand): boolean {
+    return (
+      cmd1.type === cmd2.type &&
+      cmd1.channel === cmd2.channel &&
+      cmd1.cc === cmd2.cc &&
+      cmd1.value === cmd2.value &&
+      cmd1.note === cmd2.note &&
+      cmd1.velocity === cmd2.velocity &&
+      cmd1.program === cmd2.program &&
+      cmd1.pc_step === cmd2.pc_step
+    );
+  }
+
+  // Compare two arrays of MIDI commands for equality
+  function commandArraysMatch(arr1: MidiCommand[] | undefined, arr2: MidiCommand[] | undefined): boolean {
+    if (!arr1 || !arr2) return false;
+    if (arr1.length !== arr2.length) return false;
+    return arr1.every((cmd1, i) => commandsMatch(cmd1, arr2[i]));
+  }
+
+  // Find which action (if any) matches the current target event commands
+  let matchedActionId = $derived.by(() => {
+    if (!selectedProfileId || !targetCommands || targetCommands.length === 0) return null;
+    
+    const actions = getProfileActions(selectedProfileId);
+    if (!actions) return null;
+
+    for (const action of actions) {
+      const resolvedCommands = resolveProfileAction(selectedProfileId, action.id);
+      if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
+        return action.id;
+      }
+    }
+    return null;
+  });
+
+  // Auto-detect profile and action from existing commands when profile mode is enabled
+  $effect(() => {
+    if (profileMode && !selectedProfileId && targetCommands && targetCommands.length > 0) {
+      // Try to find a matching profile and action
+      for (const profile of profiles) {
+        const actions = getProfileActions(profile.id);
+        if (!actions) continue;
+
+        for (const action of actions) {
+          const resolvedCommands = resolveProfileAction(profile.id, action.id);
+          if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
+            // Found a match!
+            selectedProfileId = profile.id;
+            selectedActionId = action.id;
+            onUpdate('profile_id', profile.id);
+            onUpdate('action_id', action.id);
+            console.log(`[ProfileSelector] Auto-detected: ${profile.name} - ${action.label}`);
+            return;
+          }
+        }
+      }
+    }
+  });
+
   function handleProfileModeToggle() {
     profileMode = !profileMode;
     if (!profileMode) {
@@ -154,7 +215,7 @@
             <button
               type="button"
               class="action-button"
-              class:active={selectedActionId === action.id}
+              class:active={matchedActionId === action.id}
               title={action.description}
               onclick={() => handleActionChange(action.id)}
             >
@@ -165,11 +226,14 @@
       {/if}
 
       <!-- Resolved MIDI Preview -->
-      {#if selectedProfileId && selectedActionId && targetCommands}
+      {#if selectedProfileId && matchedActionId && targetCommands}
         <div class="midi-preview">
           <div class="preview-header">
             <span class="preview-icon">⚡</span>
             <strong>Resolved MIDI ({targetEvent.replace('_', ' ')})</strong>
+            {#if matchedActionId && !button.action_id}
+              <span class="auto-detected-badge" title="Action auto-detected from MIDI commands">Auto</span>
+            {/if}
           </div>
           <div class="midi-commands">
             {#each targetCommands as cmd}
@@ -395,6 +459,18 @@
     font-size: 11px;
     font-weight: 700;
     color: #818cf8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex: 1;
+  }
+
+  .auto-detected-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
