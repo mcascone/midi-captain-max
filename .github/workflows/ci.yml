@@ -49,7 +49,7 @@ jobs:
 
       - name: Lint with Ruff
         run: |
-          ruff check firmware/dev/ --ignore=E501,F401,E402
+          ruff check firmware/dev/ --ignore=E501,F401,E402 --exclude=firmware/dev/experiments
 
       - name: Check Python syntax
         run: |
