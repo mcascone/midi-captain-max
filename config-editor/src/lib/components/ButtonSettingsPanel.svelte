@@ -139,13 +139,6 @@
     return (e.target as HTMLInputElement | HTMLSelectElement).value;
   }
 
-  function prevButton() {
-    if ($selectedButtonIndex > 0) selectedButtonIndex.update(n => n - 1);
-  }
-  function nextButton() {
-    if ($selectedButtonIndex < $config.buttons.length - 1) selectedButtonIndex.update(n => n + 1);
-  }
-
   function copyButton() {
     if (!btn) return;
     // Create a deep copy excluding internal state
@@ -208,10 +201,6 @@
     <!-- ── ID Section ─────────────────────────── -->
     <div class="section">
       <div class="section-header">
-        <div class="nav-arrows">
-          <button class="nav-btn" onclick={prevButton} disabled={$selectedButtonIndex === 0}>‹</button>
-          <button class="nav-btn" onclick={nextButton} disabled={$selectedButtonIndex >= buttons.length - 1}>›</button>
-        </div>
         <span class="section-icon">↔</span>
         <span class="section-title">ID</span>
       </div>
@@ -628,29 +617,6 @@
     gap: 8px;
     margin-bottom: 12px;
   }
-
-  .nav-arrows {
-    display: flex;
-    gap: 2px;
-    margin-right: 4px;
-  }
-
-  .nav-btn {
-    background: #1f1f35;
-    border: 1px solid #3a3a55;
-    border-radius: 4px;
-    color: #9ca3af;
-    font-size: 16px;
-    width: 26px;
-    height: 26px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-  }
-  .nav-btn:hover:not(:disabled) { color: #f3f4f6; }
-  .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
   .section-icon {
     font-size: 14px;
