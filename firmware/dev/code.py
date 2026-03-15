@@ -60,6 +60,8 @@ from core.constants import (
 from handlers import midi as midi_handlers
 from handlers import display as display_handlers
 from handlers import timers as timer_handlers
+from handlers import button as button_handlers
+from handlers import encoder as encoder_handlers
 
 # =============================================================================
 # Font Size Configuration
@@ -874,63 +876,31 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
 def set_button_state(switch_idx, on):
     """Update LED and display for a button (1-indexed).
 
-    Now uses ButtonState objects and supports keytime colors.
+    Delegates to handlers.button module for actual implementation.
     """
-    idx = switch_idx - 1
-
-    # (helper _send_action_from_cfg moved to module scope)
-    if idx < 0 or idx >= BUTTON_COUNT:
-        return
-
-    btn_state = button_states[idx]
-    btn_config = buttons[idx] if idx < len(buttons) else {"color": "white"}
-
-    # Get color for current keytime state
-    color_rgb = get_button_color(btn_config, btn_state.get_keytime())
-    off_mode = btn_config.get("off_mode", LED_DEFAULT_OFF_MODE)  # "dim" or "off"
-    dim_brightness = btn_config.get("dim_brightness", LED_DEFAULT_DIM_BRIGHTNESS)  # 0-100
-
-    # Update LED
-    led_idx = switch_to_led(switch_idx)
-    if led_idx is not None:
-        rgb = color_rgb if on else get_off_color(color_rgb, off_mode, dim_brightness)
-        base = led_idx * 3
-        for j in range(3):
-            if base + j < LED_COUNT:
-                pixels[base + j] = rgb
-        pixels.show()
-
-    # If this button uses 'tap' led_mode, manage blink state/timers
-    try:
-        idx = switch_idx - 1
-        btn_cfg = buttons[idx] if idx < len(buttons) else {}
-        if btn_cfg.get("led_mode") == "tap":
-            # Turning on: start blinking with short flash
-            if on:
-                blink_state[idx] = True
-                blink_next_toggle[idx] = time.monotonic() + 0.1  # 100ms flash
-            else:
-                # Turning off: ensure LED shows off state and stop blinking
-                blink_state[idx] = False
-                blink_next_toggle[idx] = 0.0
-    except (IndexError, KeyError) as e:
-        print(f"Tap mode state update error for button {idx}: {e}")
-    except Exception as e:
-        print(f"Unexpected tap mode error: {e}")
-
-    # Update display
-    if idx < len(button_labels):
-        color_hex = rgb_to_hex(color_rgb if on else get_off_color_for_display(color_rgb, off_mode))
-        button_labels[idx].color = color_hex
-        if idx < len(button_boxes):
-            _, box_palette = button_boxes[idx]
-            box_palette[1] = color_hex
+    global blink_state, blink_next_toggle
+    blink_state, blink_next_toggle = button_handlers.set_button_state(
+        switch_idx,
+        on,
+        buttons,
+        button_states,
+        button_labels,
+        button_boxes,
+        pixels,
+        LED_COUNT,
+        blink_state,
+        blink_next_toggle,
+        switch_to_led,
+        get_button_color
+    )
 
 
 def init_leds():
-    """Initialize all LEDs to off/dim state."""
-    for i in range(1, BUTTON_COUNT + 1):
-        set_button_state(i, False)
+    """Initialize all LEDs to off/dim state.
+    
+    Delegates to handlers.button module for actual implementation.
+    """
+    button_handlers.init_leds(BUTTON_COUNT, set_button_state)
 
 
 def clamp_pc_value(value):
@@ -944,12 +914,10 @@ def clamp_pc_value(value):
 def flash_pc_button(button_idx, flash_ms=None):
     """Light LED briefly for PC button press feedback.
 
-    Args:
-        button_idx: 1-indexed button number (matches set_button_state convention)
-        flash_ms: flash duration in milliseconds
+    Delegates to handlers.button module for actual implementation.
     """
-    set_button_state(button_idx, True)
-    pc_flash_timers[button_idx - 1] = time.monotonic() + flash_ms / 1000.0
+    global pc_flash_timers
+    pc_flash_timers = button_handlers.flash_pc_button(button_idx, flash_ms, pc_flash_timers, set_button_state)
 
 
 def update_pc_flash_timers():
@@ -1393,128 +1361,77 @@ def handle_switches():
 
 
 def handle_encoder_button():
-    """Handle encoder push button."""
+    """Handle encoder push button.
+    
+    Delegates to handlers.encoder module for actual implementation.
+    """
     global encoder_push_state
-
-    if not ENC_PUSH_ENABLED:
-        return
-
-    sw = switches[0]  # Encoder push is switch index 0
-    changed, pressed = sw.changed()
-    if changed:
-        if ENC_PUSH_MODE == "toggle":
-            # Toggle mode: flip state on press only
-            if pressed:
-                encoder_push_state = not encoder_push_state
-                cc_val = ENC_PUSH_CC_ON if encoder_push_state else ENC_PUSH_CC_OFF
-                send_midi_message(ControlChange(CC_ENCODER_PUSH, cc_val), channel=ENC_PUSH_CHANNEL)
-                print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, toggle)")
-                set_label_text(button_name_label, ENC_PUSH_LABEL)
-                set_label_text(status_label, f"TX CC{CC_ENCODER_PUSH}={'ON' if encoder_push_state else 'OFF'}")
-                arm_label_return_timeout()
-        else:
-            # Momentary mode: send on press and release
-            cc_val = ENC_PUSH_CC_ON if pressed else ENC_PUSH_CC_OFF
-            send_midi_message(ControlChange(CC_ENCODER_PUSH, cc_val), channel=ENC_PUSH_CHANNEL)
-            print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, momentary)")
-            set_label_text(button_name_label, ENC_PUSH_LABEL)
-            set_label_text(status_label, f"TX CC{CC_ENCODER_PUSH}={cc_val}")
-            arm_label_return_timeout()
+    encoder_push_state = encoder_handlers.handle_encoder_button(
+        switches,
+        ENC_PUSH_ENABLED,
+        ENC_PUSH_MODE,
+        encoder_push_state,
+        ENC_PUSH_CC_ON,
+        ENC_PUSH_CC_OFF,
+        CC_ENCODER_PUSH,
+        ENC_PUSH_CHANNEL,
+        ENC_PUSH_LABEL,
+        send_midi_message,
+        lambda text: set_label_text(button_name_label, text),
+        lambda text: set_label_text(status_label, text),
+        lambda: arm_label_return_timeout()
+    )
 
 
 def handle_encoder():
-    """Handle rotary encoder."""
+    """Handle rotary encoder.
+    
+    Delegates to handlers.encoder module for actual implementation.
+    """
     global encoder_last_pos, encoder_value, encoder_slot
-
-    if not ENC_ENABLED:
-        return
-
-    pos = encoder.position
-    if pos != encoder_last_pos:
-        delta = pos - encoder_last_pos
-        encoder_last_pos = pos
-
-        # Update internal value (always 0-127)
-        encoder_value = max(0, min(127, encoder_value + delta))
-
-        if ENC_STEPS and ENC_STEPS > 1:
-            # Stepped mode: calculate which slot we're in
-            # Slot boundaries: 0-25=slot0, 26-50=slot1, etc. for 5 slots
-            slot_size = 128 // ENC_STEPS
-            new_slot = min(encoder_value // slot_size, ENC_STEPS - 1)
-
-            if new_slot != encoder_slot:
-                encoder_slot = new_slot
-                # Output CC is the slot number (0 to steps-1)
-                send_midi_message(ControlChange(CC_ENCODER, encoder_slot), channel=ENC_CHANNEL)
-                print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_slot} (slot)")
-                set_label_text(button_name_label, ENC_LABEL)
-                set_label_text(status_label, f"ENC slot {encoder_slot}")
-                arm_label_return_timeout()
-        else:
-            # Normal mode: send every change
-            send_midi_message(ControlChange(CC_ENCODER, encoder_value), channel=ENC_CHANNEL)
-            print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_value}")
-            set_label_text(button_name_label, ENC_LABEL)
-            set_label_text(status_label, f"ENC={encoder_value}")
-            arm_label_return_timeout()
+    encoder_last_pos, encoder_value, encoder_slot = encoder_handlers.handle_encoder(
+        encoder,
+        ENC_ENABLED,
+        encoder_last_pos,
+        encoder_value,
+        encoder_slot,
+        ENC_STEPS,
+        CC_ENCODER,
+        ENC_CHANNEL,
+        ENC_LABEL,
+        send_midi_message,
+        lambda text: set_label_text(button_name_label, text),
+        lambda text: set_label_text(status_label, text),
+        lambda: arm_label_return_timeout()
+    )
 
 
 def handle_expression():
-    """Handle expression pedals."""
+    """Handle expression pedals.
+    
+    Delegates to handlers.encoder module for actual implementation.
+    """
     global exp1_min, exp1_max, exp1_last
     global exp2_min, exp2_max, exp2_last
-
-    if not HAS_EXPRESSION:
-        return
-
-    # Expression 1
-    if exp1_config.get("enabled", True) and exp1 is not None:
-        raw1 = exp1.value
-        exp1_max = max(raw1, exp1_max)
-        exp1_min = min(raw1, exp1_min)
-
-        if exp1_max > exp1_min:
-            # Map to 0-127, then apply config range
-            normalized = (raw1 - exp1_min) / (exp1_max - exp1_min)
-            if exp1_config.get("polarity", "normal") == "reverse":
-                normalized = 1.0 - normalized
-            out_min = exp1_config.get("min", 0)
-            out_max = exp1_config.get("max", 127)
-            val1 = int(out_min + normalized * (out_max - out_min))
-            val1 = max(0, min(127, val1))  # Clamp to valid MIDI range
-
-            # Hysteresis: only send if change exceeds threshold
-            threshold = exp1_config.get("threshold", 2)
-            if abs(val1 - exp1_last) >= threshold:
-                exp1_last = val1
-                send_midi_message(ControlChange(CC_EXP1, val1), channel=EXP1_CHANNEL)
-                lbl = exp1_config.get("label", "EXP1")
-                print(f"[{lbl}] Ch{EXP1_CHANNEL+1} CC{CC_EXP1}={val1}")
-
-    # Expression 2
-    if exp2_config.get("enabled", True) and exp2 is not None:
-        raw2 = exp2.value
-        exp2_max = max(raw2, exp2_max)
-        exp2_min = min(raw2, exp2_min)
-
-        if exp2_max > exp2_min:
-            # Map to 0-127, then apply config range
-            normalized = (raw2 - exp2_min) / (exp2_max - exp2_min)
-            if exp2_config.get("polarity", "normal") == "reverse":
-                normalized = 1.0 - normalized
-            out_min = exp2_config.get("min", 0)
-            out_max = exp2_config.get("max", 127)
-            val2 = int(out_min + normalized * (out_max - out_min))
-            val2 = max(0, min(127, val2))  # Clamp to valid MIDI range
-
-            # Hysteresis: only send if change exceeds threshold
-            threshold = exp2_config.get("threshold", 2)
-            if abs(val2 - exp2_last) >= threshold:
-                exp2_last = val2
-                send_midi_message(ControlChange(CC_EXP2, val2), channel=EXP2_CHANNEL)
-                lbl = exp2_config.get("label", "EXP2")
-                print(f"[{lbl}] Ch{EXP2_CHANNEL+1} CC{CC_EXP2}={val2}")
+    
+    exp1_min, exp1_max, exp1_last, exp2_min, exp2_max, exp2_last = encoder_handlers.handle_expression(
+        exp1,
+        exp2,
+        HAS_EXPRESSION,
+        exp1_config,
+        exp2_config,
+        CC_EXP1,
+        CC_EXP2,
+        EXP1_CHANNEL,
+        EXP2_CHANNEL,
+        exp1_min,
+        exp1_max,
+        exp1_last,
+        exp2_min,
+        exp2_max,
+        exp2_last,
+        send_midi_message
+    )
 
 
 # =============================================================================
