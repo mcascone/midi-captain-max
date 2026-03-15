@@ -24,7 +24,7 @@
   let unlistenConnect: (() => void) | undefined;
   let unlistenDisconnect: (() => void) | undefined;
   let leftPanelCollapsed = $state(false);
-  let leftPanelWidth = $state(600);
+  let leftPanelWidth = $state(780);
   let isResizing = $state(false);
 
   let devMode = $derived($config.dev_mode ?? false);
