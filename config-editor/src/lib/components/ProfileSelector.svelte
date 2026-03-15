@@ -123,6 +123,11 @@
     selectedActionId = actionId;
     onUpdate('action_id', actionId);
 
+    // If button is in simplified toggle mode, switch to normal mode for explicit events
+    if ((button.mode === 'toggle' || !button.mode) && !button.press?.length && !button.release?.length) {
+      onUpdate('mode', 'normal');
+    }
+
     // Resolve and preview the MIDI commands
     if (selectedProfileId && actionId) {
       let commands = resolveProfileAction(selectedProfileId, actionId);
@@ -288,7 +293,7 @@
             <button
               type="button"
               class="action-button"
-              class:active={matchedActionId === action.id}
+              class:active={matchedActionId === action.id || selectedActionId === action.id}
               title={action.description}
               onclick={() => handleActionChange(action.id)}
             >

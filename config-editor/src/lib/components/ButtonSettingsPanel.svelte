@@ -100,6 +100,7 @@
   });
 
   function update(field: string, value: unknown) {
+    console.log(`[ButtonSettingsPanel] update(field="${field}", value=`, value, ')');
     updateField(`buttons[${$selectedButtonIndex}].${field}`, value);
   }
 
