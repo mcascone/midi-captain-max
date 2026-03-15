@@ -14,35 +14,133 @@
     'lime', 'amber', 'teal', 'violet', 'gold'
   ];
 
+  let isOpen = $state(false);
+
   function select(color: ButtonColor) {
     onchange(color);
+    isOpen = false;
   }
+
+  function toggleOpen() {
+    isOpen = !isOpen;
+  }
+
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    if (!target.closest('.color-select-container')) {
+      isOpen = false;
+    }
+  }
+
+  $effect(() => {
+    if (isOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  });
 </script>
 
-<div class="color-picker-grid">
-  {#each colors as color}
-    <button
-      class="color-circle"
-      class:selected={color === value}
-      onclick={() => select(color)}
-      type="button"
-      title={color}
-      aria-label={`Select ${color} color`}
-    >
-      <span class="color-inner" style="background-color: {BUTTON_COLORS[color]}"></span>
-      {#if color === value}
-        <span class="checkmark">✓</span>
-      {/if}
-    </button>
-  {/each}
+<div class="color-select-container">
+  <button
+    class="color-select-trigger"
+    class:open={isOpen}
+    onclick={toggleOpen}
+    type="button"
+    aria-label="Select color"
+  >
+    <span class="selected-color" style="background-color: {BUTTON_COLORS[value]}"></span>
+    <span class="color-label">{value}</span>
+    <span class="chevron">{isOpen ? '▲' : '▼'}</span>
+  </button>
+
+  {#if isOpen}
+    <div class="color-picker-popover">
+      <div class="color-picker-grid">
+        {#each colors as color}
+          <button
+            class="color-circle"
+            class:selected={color === value}
+            onclick={() => select(color)}
+            type="button"
+            title={color}
+            aria-label={`Select ${color} color`}
+          >
+            <span class="color-inner" style="background-color: {BUTTON_COLORS[color]}"></span>
+            {#if color === value}
+              <span class="checkmark">✓</span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
+  .color-select-container {
+    position: relative;
+  }
+
+  .color-select-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    background: #1a1a2e;
+    border: 1px solid #2a2a40;
+    border-radius: 6px;
+    color: #e5e7eb;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .color-select-trigger:hover {
+    border-color: #3a3a55;
+  }
+
+  .color-select-trigger.open {
+    border-color: #6366f1;
+  }
+
+  .selected-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #2a2a40;
+  }
+
+  .color-label {
+    flex: 1;
+    text-align: left;
+    font-size: 13px;
+    text-transform: capitalize;
+  }
+
+  .chevron {
+    font-size: 10px;
+    color: #9ca3af;
+  }
+
+  .color-picker-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 100;
+    background: #1a1a2e;
+    border: 1px solid #2a2a40;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
+
   .color-picker-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 8px;
-    max-width: 200px;
   }
 
   .color-circle {

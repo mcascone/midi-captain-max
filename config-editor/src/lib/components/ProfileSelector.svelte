@@ -5,21 +5,157 @@
   interface Props {
     button: ButtonConfig;
     onUpdate: (field: string, value: any) => void;
+    stateIndex?: number;  // For keytimes - which state we're editing
+    onUpdateState?: (stateIndex: number, field: string, value: any) => void;
   }
 
-  let { button, onUpdate }: Props = $props();
+  let { button, onUpdate, stateIndex, onUpdateState }: Props = $props();
 
-  // Selected profile and action
-  let selectedProfileId = $state(button.profile_id || '');
-  let selectedActionId = $state(button.action_id || '');
+  // Selected profile and action (reactive to button changes)
+  let selectedProfileId = $state('');
+  let selectedActionId = $state('');
+  let targetEvent = $state<'press' | 'release' | 'long_press' | 'long_release'>('press');
+  let channelOverride = $state<number | undefined>(undefined);
+
+  // Profile mode toggle - independent of profile/action selection
+  let profileMode = $state(false);
+
+  // Track previous stateIndex to detect switches
+  let prevStateIndex = $state<number | undefined>(stateIndex);
+
+  // Memoization cache for resolved profile actions to avoid re-resolving on every reactive update
+  const resolvedCommandsCache = new Map<string, MidiCommand[] | undefined>();
+  
+  function getCachedResolvedCommands(profileId: string, actionId: string): MidiCommand[] | undefined {
+    const cacheKey = `${profileId}:${actionId}`;
+    if (!resolvedCommandsCache.has(cacheKey)) {
+      resolvedCommandsCache.set(cacheKey, resolveProfileAction(profileId, actionId));
+    }
+    return resolvedCommandsCache.get(cacheKey);
+  }
+  
+  // Clear cache when profile changes
+  $effect(() => {
+    resolvedCommandsCache.clear();
+    selectedProfileId; // Subscribe to changes
+  });
+
+  // Initialize from button props and clear selection when switching states
+  $effect(() => {
+    selectedProfileId = button.profile_id || '';
+    
+    // Only set profileMode to true if we have profile data from config
+    if (button.profile_id) {
+      profileMode = true;
+    }
+    
+    // Handle selectedActionId based on context:
+    // - Single state (stateIndex undefined): use button.action_id
+    // - Multi-state: clear selection when switching states
+    if (stateIndex === undefined) {
+      // Single-state mode: persist action_id from button config
+      selectedActionId = button.action_id || '';
+    } else {
+      // Multi-state mode: clear selection when state index changes
+      if (prevStateIndex !== stateIndex) {
+        selectedActionId = '';
+        prevStateIndex = stateIndex;
+      }
+    }
+  });
 
   // Available actions for selected profile
   let availableActions = $derived(
     selectedProfileId ? getProfileActions(selectedProfileId) : []
   );
 
-  // Profile mode toggle
-  let profileMode = $state(Boolean(button.profile_id && button.action_id));
+  // Get the commands for the selected target event (from state or button)
+  let targetCommands = $derived(
+    stateIndex !== undefined && button.states?.[stateIndex]
+      ? button.states[stateIndex][targetEvent] as MidiCommand[] | undefined
+      : button[targetEvent] as MidiCommand[] | undefined
+  );
+
+  // Check which events have commands assigned (from state or button)
+  let eventHasCommands = $derived.by(() => {
+    const source = stateIndex !== undefined && button.states?.[stateIndex]
+      ? button.states[stateIndex]
+      : button;
+    return {
+      press: Boolean(source.press && source.press.length > 0),
+      release: Boolean(source.release && source.release.length > 0),
+      long_press: Boolean(source.long_press && source.long_press.length > 0),
+      long_release: Boolean(source.long_release && source.long_release.length > 0),
+    };
+  });
+
+  // Compare two MIDI commands for equality
+  function commandsMatch(cmd1: MidiCommand, cmd2: MidiCommand): boolean {
+    // Normalize pc_step: firmware treats undefined as 1 for pc_inc/pc_dec
+    const normalizeStep = (cmd: MidiCommand) => {
+      if ((cmd.type === 'pc_inc' || cmd.type === 'pc_dec') && cmd.pc_step === undefined) {
+        return 1;
+      }
+      return cmd.pc_step;
+    };
+    
+    return (
+      cmd1.type === cmd2.type &&
+      cmd1.channel === cmd2.channel &&
+      cmd1.cc === cmd2.cc &&
+      cmd1.value === cmd2.value &&
+      cmd1.note === cmd2.note &&
+      cmd1.velocity === cmd2.velocity &&
+      cmd1.program === cmd2.program &&
+      normalizeStep(cmd1) === normalizeStep(cmd2)
+    );
+  }
+
+  // Compare two arrays of MIDI commands for equality
+  function commandArraysMatch(arr1: MidiCommand[] | undefined, arr2: MidiCommand[] | undefined): boolean {
+    if (!arr1 || !arr2) return false;
+    if (arr1.length !== arr2.length) return false;
+    return arr1.every((cmd1, i) => commandsMatch(cmd1, arr2[i]));
+  }
+
+  // Find which action (if any) matches the current target event commands
+  let matchedActionId = $derived.by(() => {
+    if (!selectedProfileId || !targetCommands || targetCommands.length === 0) return null;
+    
+    const actions = getProfileActions(selectedProfileId);
+    if (!actions) return null;
+
+    for (const action of actions) {
+      const resolvedCommands = getCachedResolvedCommands(selectedProfileId, action.id);
+      if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
+        return action.id;
+      }
+    }
+    return null;
+  });
+
+  // Auto-detect profile and action from existing commands when profile mode is enabled
+  $effect(() => {
+    if (profileMode && !selectedProfileId && targetCommands && targetCommands.length > 0) {
+      // Try to find a matching profile and action
+      for (const profile of profiles) {
+        const actions = getProfileActions(profile.id);
+        if (!actions) continue;
+
+        for (const action of actions) {
+          const resolvedCommands = getCachedResolvedCommands(profile.id, action.id);
+          if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
+            // Found a match!
+            selectedProfileId = profile.id;
+            selectedActionId = action.id;
+            onUpdate('profile_id', profile.id);
+            onUpdate('action_id', action.id);
+            return;
+          }
+        }
+      }
+    }
+  });
 
   function handleProfileModeToggle() {
     profileMode = !profileMode;
@@ -32,28 +168,63 @@
     }
   }
 
-  function handleProfileChange(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    selectedProfileId = target.value;
-    selectedActionId = ''; // Reset action when profile changes
-    onUpdate('profile_id', target.value || undefined);
-    onUpdate('action_id', undefined);
-  }
+  function handleActionChange(actionId: string) {
+    selectedActionId = actionId;
+    
+    // Update profile metadata - only on button level in single-state mode
+    // In multi-state mode, action_id is state-specific (not persisted to config)
+    if (stateIndex === undefined) {
+      onUpdate('action_id', actionId);
+    }
 
-  function handleActionChange(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    selectedActionId = target.value;
-    onUpdate('action_id', target.value || undefined);
+    // If button is in simplified toggle mode, switch to normal mode for explicit events
+    if ((button.mode === 'toggle' || !button.mode) && !button.press?.length && !button.release?.length) {
+      onUpdate('mode', 'normal');
+    }
 
     // Resolve and preview the MIDI commands
-    if (selectedProfileId && target.value) {
-      const commands = resolveProfileAction(selectedProfileId, target.value);
+    if (selectedProfileId && actionId) {
+      let commands = getCachedResolvedCommands(selectedProfileId, actionId);
       if (commands) {
-        // Update button's press array with resolved commands
-        onUpdate('press', commands);
-        console.log('[ProfileSelector] Resolved MIDI commands:', commands);
+        // Apply channel override if set
+        if (channelOverride !== undefined) {
+          commands = commands.map(cmd => ({ ...cmd, channel: channelOverride }));
+        }
+        
+        // Update commands - use state-specific or button-level depending on context
+        if (stateIndex !== undefined && onUpdateState) {
+          // Updating a specific state (keytimes > 1)
+          onUpdateState(stateIndex, targetEvent, commands);
+        } else {
+          // Updating button-level commands (keytimes = 1)
+          onUpdate(targetEvent, commands);
+        }
       }
     }
+  }
+
+  function handleClearProfile() {
+    selectedProfileId = '';
+    selectedActionId = '';
+    onUpdate('profile_id', undefined);
+    onUpdate('action_id', undefined);
+    
+    // Clear all event commands
+    // In multi-state mode, clear commands from ALL states to match UI labeling
+    if (stateIndex !== undefined && onUpdateState && button.states) {
+      // Clear commands from all states
+      for (let i = 0; i < button.states.length; i++) {
+        onUpdateState(i, 'press', undefined);
+        onUpdateState(i, 'release', undefined);
+        onUpdateState(i, 'long_press', undefined);
+        onUpdateState(i, 'long_release', undefined);
+      }
+    }
+    // Also clear button-level commands (covers both single-state and fallback)
+    onUpdate('press', undefined);
+    onUpdate('release', undefined);
+    onUpdate('long_press', undefined);
+    onUpdate('long_release', undefined);
   }
 </script>
 
@@ -67,71 +238,183 @@
       />
       Use Device Profile
     </label>
+    {#if profileMode && (selectedProfileId || button.profile_id)}
+      <button
+        type="button"
+        class="clear-button"
+        onclick={handleClearProfile}
+        title="Clear profile and all commands"
+      >
+        Clear
+      </button>
+    {/if}
   </div>
 
   {#if profileMode}
     <div class="profile-fields">
-      <!-- Profile Selection -->
-      <div class="form-group">
-        <label for="profile-select">Device Profile</label>
-        <select
-          id="profile-select"
-          value={selectedProfileId}
-          onchange={handleProfileChange}
-        >
-          <option value="">Select a device...</option>
-          {#each profiles as profile}
-            <option value={profile.id}>
-              {profile.manufacturer} {profile.name}
-              {#if profile.type !== 'fixed'}({profile.type}){/if}
-            </option>
-          {/each}
-        </select>
+      <!-- Profile Cards Grid -->
+      <div class="section-label">Select Device</div>
+      <div class="profile-cards">
+        {#each profiles as profile}
+          <button
+            type="button"
+            class="profile-card"
+            class:active={selectedProfileId === profile.id}
+            onclick={() => {
+              selectedProfileId = profile.id;
+              selectedActionId = '';
+              onUpdate('profile_id', profile.id);
+              onUpdate('action_id', undefined);
+            }}
+          >
+            <div class="profile-card-header">
+              <span class="profile-name">{profile.manufacturer}</span>
+              <span class="profile-type-badge" class:fixed={profile.type === 'fixed'}>
+                {profile.type}
+              </span>
+            </div>
+            <div class="profile-model">{profile.name}</div>
+          </button>
+        {/each}
       </div>
 
-      <!-- Action Selection -->
+      <!-- Channel Override -->
       {#if selectedProfileId}
-        <div class="form-group">
-          <label for="action-select">Action</label>
-          <select
-            id="action-select"
-            value={selectedActionId}
-            onchange={handleActionChange}
-          >
-            <option value="">Select an action...</option>
-            {#each availableActions || [] as action}
-              <option value={action.id} title={action.description}>
-                {action.label}
-              </option>
-            {/each}
-          </select>
+        <div class="channel-override">
+          <label for="channel-override">
+            <span class="channel-label">Channel Override</span>
+            <span class="channel-hint">(optional - overrides profile default)</span>
+          </label>
+          <input
+            id="channel-override"
+            type="number"
+            min="1"
+            max="16"
+            placeholder="Default"
+            value={channelOverride !== undefined ? channelOverride + 1 : ''}
+            oninput={(e) => {
+              const val = (e.target as HTMLInputElement).value;
+              if (val === '') {
+                channelOverride = undefined;
+              } else {
+                const parsed = parseInt(val) - 1;
+                // Validate: must be numeric and in range 0-15
+                if (!isNaN(parsed) && parsed >= 0 && parsed <= 15) {
+                  channelOverride = parsed;
+                } else {
+                  channelOverride = undefined;
+                }
+              }
+            }}
+          />
+        </div>
+      {/if}
+
+      <!-- Event Target Selector -->
+      {#if selectedProfileId}
+        <div class="event-selector">
+          <div class="section-label">Assign To Event</div>
+          <div class="event-buttons">
+            <button
+              type="button"
+              class="event-button"
+              class:active={targetEvent === 'press'}
+              class:has-commands={eventHasCommands.press}
+              onclick={() => targetEvent = 'press'}
+            >
+              <span class="event-label">Press</span>
+              {#if eventHasCommands.press}
+                <span class="event-badge">{(stateIndex !== undefined && button.states?.[stateIndex]?.press?.length) || button.press?.length || 0}</span>
+              {/if}
+            </button>
+            <button
+              type="button"
+              class="event-button"
+              class:active={targetEvent === 'release'}
+              class:has-commands={eventHasCommands.release}
+              onclick={() => targetEvent = 'release'}
+            >
+              <span class="event-label">Release</span>
+              {#if eventHasCommands.release}
+                <span class="event-badge">{(stateIndex !== undefined && button.states?.[stateIndex]?.release?.length) || button.release?.length || 0}</span>
+              {/if}
+            </button>
+            <button
+              type="button"
+              class="event-button"
+              class:active={targetEvent === 'long_press'}
+              class:has-commands={eventHasCommands.long_press}
+              onclick={() => targetEvent = 'long_press'}
+            >
+              <span class="event-label">Long Press</span>
+              {#if eventHasCommands.long_press}
+                <span class="event-badge">{(stateIndex !== undefined && button.states?.[stateIndex]?.long_press?.length) || button.long_press?.length || 0}</span>
+              {/if}
+            </button>
+            <button
+              type="button"
+              class="event-button"
+              class:active={targetEvent === 'long_release'}
+              class:has-commands={eventHasCommands.long_release}
+              onclick={() => targetEvent = 'long_release'}
+            >
+              <span class="event-label">Long Release</span>
+              {#if eventHasCommands.long_release}
+                <span class="event-badge">{(stateIndex !== undefined && button.states?.[stateIndex]?.long_release?.length) || button.long_release?.length || 0}</span>
+              {/if}
+            </button>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Actions Grid -->
+      {#if selectedProfileId && availableActions}
+        <div class="section-label">Select Action</div>
+        <div class="actions-grid">
+          {#each availableActions as action}
+            <button
+              type="button"
+              class="action-button"
+              class:active={matchedActionId === action.id || selectedActionId === action.id}
+              title={action.description}
+              onclick={() => handleActionChange(action.id)}
+            >
+              {action.label}
+            </button>
+          {/each}
         </div>
       {/if}
 
       <!-- Resolved MIDI Preview -->
-      {#if selectedProfileId && selectedActionId && button.press}
+      {#if selectedProfileId && targetCommands && targetCommands.length > 0}
         <div class="midi-preview">
-          <strong>Resolved MIDI:</strong>
-          <ul>
-            {#each button.press as cmd}
-              <li>
+          <div class="preview-header">
+            <span class="preview-icon">⚡</span>
+            <strong>Resolved MIDI ({targetEvent.replace('_', ' ')})</strong>
+            {#if matchedActionId && !button.action_id}
+              <span class="auto-detected-badge" title="Action auto-detected from MIDI commands">Auto</span>
+            {/if}
+          </div>
+          <div class="midi-commands">
+            {#each targetCommands as cmd}
+              <span class="midi-chip">
                 {#if cmd.type === 'cc'}
-                  CC{cmd.cc} = {cmd.value}
+                  CC{cmd.cc}={cmd.value}
                 {:else if cmd.type === 'note'}
                   Note {cmd.note} vel={cmd.velocity}
                 {:else if cmd.type === 'pc'}
                   PC {cmd.program}
                 {:else if cmd.type === 'pc_inc'}
-                  PC+ (step {cmd.pc_step || 1})
+                  PC+{cmd.pc_step || 1}
                 {:else if cmd.type === 'pc_dec'}
-                  PC- (step {cmd.pc_step || 1})
+                  PC-{cmd.pc_step || 1}
                 {/if}
                 {#if cmd.channel !== undefined}
-                  (Ch {cmd.channel + 1})
+                  <span class="midi-channel">Ch{cmd.channel + 1}</span>
                 {/if}
-              </li>
+              </span>
             {/each}
-          </ul>
+          </div>
         </div>
       {/if}
     </div>
@@ -142,11 +425,16 @@
   .profile-selector {
     margin-bottom: 1rem;
     padding: 1rem;
-    background: #f5f5f5;
-    border-radius: 4px;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 6px;
   }
 
   .profile-mode-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
     margin-bottom: 1rem;
   }
 
@@ -155,7 +443,28 @@
     align-items: center;
     gap: 0.5rem;
     font-weight: 600;
+    color: #e0e0e0;
     cursor: pointer;
+  }
+
+  .clear-button {
+    padding: 0.375rem 0.75rem;
+    background: transparent;
+    border: 1px solid #ef4444;
+    border-radius: 4px;
+    color: #ef4444;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .clear-button:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #f87171;
+    color: #f87171;
   }
 
   .profile-fields {
@@ -164,54 +473,296 @@
     gap: 1rem;
   }
 
-  .form-group {
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: -0.5rem;
+  }
+
+  /* Profile Cards Grid */
+  .profile-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .profile-card {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.5rem;
+    padding: 0.875rem;
+    background: #13131f;
+    border: 2px solid #2a2a3e;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
   }
 
-  .form-group label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #333;
+  .profile-card:hover {
+    border-color: #3a3a4e;
+    background: #1a1a2e;
   }
 
-  .form-group select {
+  .profile-card.active {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.1);
+  }
+
+  .profile-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .profile-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .profile-type-badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: #2a2a3e;
+    color: #9ca3af;
+    text-transform: uppercase;
+  }
+
+  .profile-type-badge.fixed {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+
+  .profile-model {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e5e7eb;
+  }
+
+  /* Channel Override */
+  .channel-override {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .channel-override label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .channel-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .channel-hint {
+    font-size: 10px;
+    color: #6b7280;
+    font-weight: 400;
+  }
+
+  .channel-override input {
+    width: 80px;
     padding: 0.5rem;
-    border: 1px solid #ccc;
+    background: #13131f;
+    border: 1px solid #2a2a3e;
     border-radius: 4px;
-    font-size: 0.875rem;
-    background: white;
+    color: #e5e7eb;
+    font-size: 13px;
+    transition: border-color 0.15s;
   }
 
-  .form-group select:focus {
+  .channel-override input:focus {
     outline: none;
-    border-color: #007acc;
-    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
   }
 
-  .midi-preview {
-    padding: 0.75rem;
-    background: white;
-    border: 1px solid #ddd;
+  .channel-override input::placeholder {
+    color: #6b7280;
+  }
+
+  /* Event Selector */
+  .event-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .event-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .event-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    background: #13131f;
+    border: 1px solid #2a2a3e;
     border-radius: 4px;
-    font-size: 0.875rem;
+    color: #d1d5db;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
   }
 
-  .midi-preview strong {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: #007acc;
+  .event-button:hover {
+    border-color: #3a3a4e;
+    background: #1a1a2e;
+    color: #e5e7eb;
   }
 
-  .midi-preview ul {
-    margin: 0;
-    padding-left: 1.25rem;
-    list-style-type: disc;
+  .event-button.has-commands {
+    border-color: #3a3a55;
   }
 
-  .midi-preview li {
-    margin: 0.25rem 0;
+  .event-button.active {
+    background: rgba(249, 115, 22, 0.15);
+    border-color: #f97316;
+    color: #fb923c;
+    font-weight: 600;
+  }
+
+  .event-label {
+    flex: 1;
+  }
+
+  .event-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: rgba(99, 102, 241, 0.25);
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #a5b4fc;
+  }
+
+  .event-button.active .event-badge {
+    background: rgba(249, 115, 22, 0.3);
+    color: #fdba74;
+  }
+
+  /* Actions Grid */
+  .actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .action-button {
+    padding: 0.625rem 0.75rem;
+    background: #13131f;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
+    color: #d1d5db;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+  }
+
+  .action-button:hover {
+    border-color: #3a3a4e;
+    background: #1a1a2e;
+    color: #e5e7eb;
+  }
+
+  .action-button.active {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: #6366f1;
+    color: #818cf8;
+    font-weight: 600;
+  }
+
+  /* MIDI Preview */
+  .midi-preview {
+    padding: 0.875rem;
+    background: #13131f;
+    border: 1px solid #2a2a3e;
+    border-radius: 6px;
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+  }
+
+  .preview-icon {
+    font-size: 16px;
+  }
+
+  .preview-header strong {
+    font-size: 11px;
+    font-weight: 700;
+    color: #818cf8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex: 1;
+  }
+
+  .auto-detected-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .midi-commands {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .midi-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
     font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a5b4fc;
+  }
+
+  .midi-channel {
+    padding: 0.125rem 0.375rem;
+    background: rgba(99, 102, 241, 0.2);
+    border-radius: 3px;
+    font-size: 10px;
+    color: #c7d2fe;
   }
 </style>

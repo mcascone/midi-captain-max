@@ -51,6 +51,10 @@ function convertProfileCommand(cmd: ProfileMidiCommand): MidiCommand {
       return { ...base, note: cmd.note, velocity: cmd.velocity };
     case 'pc':
       return { ...base, program: cmd.program };
+    case 'pc_inc':
+      return { ...base, type: 'pc_inc', pc_step: cmd.pc_step };
+    case 'pc_dec':
+      return { ...base, type: 'pc_dec', pc_step: cmd.pc_step };
     default:
       // Should never reach here with typed ProfileMidiCommand
       return base;

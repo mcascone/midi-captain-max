@@ -9,13 +9,16 @@ The goal is to move beyond OEM parity and provide a programmable MIDI control en
 
 Core features:
 
-1. Visual Button Editor
-2. Device Profiles
-3. Conditional / Smart Actions
+1. Visual Button Editor ✅ **Completed** (PR #10)
+2. Device Profiles ✅ **Completed** (PR #15)
+3. Conditional / Smart Actions ⏳ **Planned**
 
 ---
 
-# Feature 1 — Visual Button Editor
+# Feature 1 — Visual Button Editor ✅
+
+**Status:** Completed in PR #10  
+**Implementation:** DeviceLayout component with interactive button grid
 
 ## Summary
 
@@ -53,7 +56,11 @@ Button Settings Panel
 
 ---
 
-# Feature 2 — Device Profiles
+# Feature 2 — Device Profiles ✅
+
+**Status:** Completed in PR #15  
+**Implementation:** ProfileSelector component + 6 built-in profiles  
+**Documentation:** [device-profiles.md](device-profiles.md), [device-profiles-schemas.md](device-profiles-schemas.md)
 
 ## Summary
 
@@ -70,24 +77,29 @@ CC 43 Value 1
 
 ## Profile Types
 
-Fixed Profiles
+**Fixed Profiles** — Hardware-specific, no customization
+- Neural DSP Quad Cortex
+- Line 6 Helix
+- Line 6 HX Stomp
+- Kemper Profiler
 
-- Quad Cortex
-
-Hybrid Profiles
-
-- Helix
-- Kemper
-
-Template Profiles
-
+**Template Profiles** — Starting points for customization
 - Ableton Live
-- MainStage
-- Gig Performer
+- Apple MainStage
+
+## Implementation Details
+
+✅ 6 profiles included covering major platforms  
+✅ Full `pc_inc`/`pc_dec` support for patch navigation  
+✅ Channel override per action  
+✅ Per-event assignment (Press/Release/Long Press/Long Release)  
+✅ State-specific profile support for keytimes  
+✅ Auto-detection badges when profile matches existing commands  
+✅ MIDI preview showing resolved commands before save  
 
 ---
 
-# Editor Integration
+# Editor Integration ✅
 
 Profiles should appear as a layer above raw MIDI configuration.
 

@@ -24,7 +24,7 @@
   let unlistenConnect: (() => void) | undefined;
   let unlistenDisconnect: (() => void) | undefined;
   let leftPanelCollapsed = $state(false);
-  let leftPanelWidth = $state(600);
+  let leftPanelWidth = $state(780);
   let isResizing = $state(false);
 
   let devMode = $derived($config.dev_mode ?? false);
@@ -202,7 +202,6 @@
   }
 
   function loadDemoConfig() {
-    console.log('=== loadDemoConfig START ===');
     try {
       // Load demo STD10 config
       const demoConfig = {
@@ -275,7 +274,6 @@
 
       showToast('Demo config loaded - no device required', 'info');
     } catch (error) {
-      console.error('Error in loadDemoConfig:', error);
       statusMessage.set(`Error loading demo: ${error}`);
     }
   }
