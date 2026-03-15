@@ -478,7 +478,7 @@ long_press_triggered = [False] * BUTTON_COUNT
 # Guard to avoid executing the short-press action more than once per press/release
 short_action_executed = [False] * BUTTON_COUNT
 # Default threshold (ms) if not provided per-button; can be overridden in config
-DEFAULT_LONG_PRESS_MS = config.get("long_press_threshold_ms", 500)
+LONG_PRESS_THRESHOLD_MS = config.get("long_press_threshold_ms", DEFAULT_LONG_PRESS_MS)
 
 pc_values = [0] * MIDI_CHANNEL_COUNT  # Current PC value per MIDI channel, shared across all pc_inc/pc_dec buttons
 pc_flash_timers = [0.0] * BUTTON_COUNT  # Expiry time (monotonic) for PC button flash; 0 = inactive
@@ -1315,7 +1315,7 @@ def handle_switches():
             effective_long_press = _get_effective_action_cfg(btn_config, "long_press", btn_state.get_keytime())
 
             # Determine threshold (ms) from effective config
-            threshold_ms = DEFAULT_LONG_PRESS_MS
+            threshold_ms = LONG_PRESS_THRESHOLD_MS
             if effective_long_press and isinstance(effective_long_press, dict):
                 threshold_ms = effective_long_press.get("threshold_ms", threshold_ms)
             elif isinstance(effective_long_press, list) and len(effective_long_press) > 0:
