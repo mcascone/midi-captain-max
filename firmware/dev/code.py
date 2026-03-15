@@ -56,6 +56,11 @@ from core.constants import (
     clamp_midi_value, clamp_tap_interval_ms
 )
 
+# Import handler modules (extracted from main for better organization)
+from handlers import midi as midi_handlers
+from handlers import display as display_handlers
+from handlers import timers as timer_handlers
+
 # =============================================================================
 # Font Size Configuration
 # =============================================================================
@@ -409,33 +414,9 @@ print(f"MIDI initialized: transport={MIDI_TRANSPORT}")
 def send_midi_message(msg, channel=0):
     """Send a MIDI message to USB, TRS, or both transports on specified channel.
 
-    Transport is controlled by the 'midi_transport' config key:
-      "usb"  - USB MIDI only (default)
-      "trs"  - TRS/serial MIDI only
-      "both" - send to both transports simultaneously
-
-    RX (host → device) always comes from USB only via midi_usb.receive().
-
-    Args:
-        msg: MIDI message object (ControlChange, NoteOn, ProgramChange, etc.)
-        channel: MIDI channel 0-15 (wire channels, displayed as 1-16 in UI)
-
-    Note: adafruit_midi doesn't support per-message channels on send - the channel
-    parameter on message constructors is for RX only. We temporarily set the
-    transport's out_channel before each send.
+    Delegates to handlers.midi module for actual implementation.
     """
-    if MIDI_TRANSPORT in ("usb", "both"):
-        try:
-            midi_usb.out_channel = channel
-            midi_usb.send(msg)
-        except Exception as e:
-            print(f"[WARN] USB MIDI send failed: {e}")
-    if MIDI_TRANSPORT in ("trs", "both"):
-        try:
-            midi_trs.out_channel = channel
-            midi_trs.send(msg)
-        except Exception as e:
-            print(f"[WARN] TRS MIDI send failed: {e}")
+    midi_handlers.send_midi_message(msg, channel, midi_usb, midi_trs, MIDI_TRANSPORT)
 
 # Encoder config (from config.json or defaults)
 enc_config = config.get("encoder", {"enabled": True, "cc": 11, "label": "ENC", "min": 0, "max": 127, "initial": MIDI_VALUE_CENTER})
@@ -673,22 +654,10 @@ _label_prev_len = {}
 def set_label_text(lbl, text):
     """Update a displayio.Label's text with space padding for clean overwrite.
 
-    Pads with spaces to previous text length to ensure single bitmap update,
-    avoiding flicker and GC churn from double-update (clear then set).
-
-    Args:
-        lbl: displayio.Label instance
-        text: New text string to display
+    Delegates to handlers.display module for actual implementation.
     """
-    lbl_id = id(lbl)
-    prev_len = _label_prev_len.get(lbl_id, 0)
-
-    # Pad with spaces if new text is shorter than previous
-    if len(text) < prev_len:
-        text = text + " " * (prev_len - len(text))
-
-    lbl.text = text
-    _label_prev_len[lbl_id] = len(text.rstrip())  # Store unpadded length
+    global _label_prev_len
+    _label_prev_len = display_handlers.set_label_text(lbl, text, _label_prev_len)
 
 
 def get_button_color(btn_config, keytime_index):
@@ -707,32 +676,18 @@ def get_button_color(btn_config, keytime_index):
 def arm_label_return_timeout(btn_config=None):
     """Arm or cancel the return-to-selected-button timeout.
 
-    If btn_config is provided and has select_group, cancels the timeout (select buttons stay displayed).
-    Otherwise, arms the timeout for non-select buttons/encoder to return after inactivity.
-
-    Args:
-        btn_config: Button configuration dict, or None for encoders/non-button events
+    Delegates to handlers.display module for actual implementation.
     """
     global label_timeout_return_to_select
-
-    if btn_config and btn_config.get("select_group"):
-        # Select button pressed - cancel timeout (stay on this button)
-        label_timeout_return_to_select = 0.0
-    else:
-        # Non-select button or encoder - arm timeout to return to selected
-        label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+    label_timeout_return_to_select = display_handlers.arm_label_return_timeout(btn_config)
 
 
 def find_selected_button():
     """Find the currently selected button (button with select_group and state=True).
 
-    Returns:
-        tuple: (button_index, button_config) or (None, None) if no button is selected
+    Delegates to handlers.display module for actual implementation.
     """
-    for i, btn_config in enumerate(buttons):
-        if btn_config.get("select_group") and button_states[i].state:
-            return i, btn_config
-    return None, None
+    return display_handlers.find_selected_button(buttons, button_states)
 
 
 def show_selected_button_label():
@@ -979,8 +934,11 @@ def init_leds():
 
 
 def clamp_pc_value(value):
-    """Clamp PC value to valid MIDI range (0-127)."""
-    return max(0, min(127, value))
+    """Clamp PC value to valid MIDI range (0-127).
+    
+    Delegates to handlers.midi module for actual implementation.
+    """
+    return midi_handlers.clamp_pc_value(value)
 
 
 def flash_pc_button(button_idx, flash_ms=None):
@@ -995,79 +953,47 @@ def flash_pc_button(button_idx, flash_ms=None):
 
 
 def update_pc_flash_timers():
-    """Turn off LEDs whose flash period has expired. Call each main loop."""
-    now = time.monotonic()
-    for i in range(BUTTON_COUNT):
-        if pc_flash_timers[i] > 0 and now >= pc_flash_timers[i]:
-            pc_flash_timers[i] = 0.0
-            set_button_state(i + 1, False)
+    """Turn off LEDs whose flash period has expired. Call each main loop.
+    
+    Delegates to handlers.timers module for actual implementation.
+    """
+    global pc_flash_timers
+    pc_flash_timers = timer_handlers.update_pc_flash_timers(pc_flash_timers, BUTTON_COUNT, set_button_state)
 
 
 def update_blink_timers():
     """Toggle blink states for buttons configured with led_mode 'tap'.
-
-    Blinking is non-blocking and driven by monotonic time checks.
-    When a button is active (logical state True) and has led_mode 'tap',
-    its LED alternates between ON color and OFF color at `tap_rate_ms`.
+    
+    Delegates to handlers.timers module for actual implementation.
     """
-    now = time.monotonic()
-    for i in range(BUTTON_COUNT):
-        try:
-            btn_cfg = buttons[i] if i < len(buttons) else {}
-            if btn_cfg.get("led_mode") != "tap":
-                # ensure any lingering blink timers are cleared
-                blink_next_toggle[i] = 0.0
-                blink_state[i] = False
-                continue
-
-            # Blink while logical state is active OR while within the recent
-            # tap active window (user tapped recently).
-            active_window = now < tap_active_until[i]
-            if not (button_states[i].state or active_window):
-                if blink_state[i]:
-                    blink_state[i] = False
-                    set_button_state(i + 1, False)
-                    blink_next_toggle[i] = 0.0
-                continue
-
-            # Active and tap mode: initialize timer if needed
-            if blink_next_toggle[i] == 0.0:
-                blink_state[i] = True
-                set_button_state(i + 1, True)
-                blink_next_toggle[i] = now + 0.1  # Start with 100ms flash
-                continue
-
-            if now >= blink_next_toggle[i]:
-                blink_state[i] = not blink_state[i]
-                set_button_state(i + 1, blink_state[i])
-                
-                # Use different durations for on vs off to match tempo
-                # ON = short flash (100ms), OFF = rest of beat interval
-                if blink_state[i]:
-                    # Just turned ON - flash briefly
-                    blink_next_toggle[i] = now + 0.1  # 100ms flash
-                else:
-                    # Just turned OFF - wait for next beat
-                    beat_interval = blink_rate_ms[i] / 1000.0
-                    flash_duration = 0.1
-                    blink_next_toggle[i] = now + max(0.05, beat_interval - flash_duration)
-        except (IndexError, ZeroDivisionError, TypeError) as e:
-            # Defensive: don't let blinking crash the loop
-            print(f"[WARN] Blink timing failed for button {i}: {e}")
+    global blink_next_toggle, blink_state
+    blink_next_toggle, blink_state = timer_handlers.update_blink_timers(
+        buttons,
+        BUTTON_COUNT,
+        button_states,
+        blink_next_toggle,
+        blink_state,
+        blink_rate_ms,
+        tap_active_until,
+        set_button_state
+    )
 
 
 def update_label_timeout():
-    """Check if label timeout has expired and return to showing selected button."""
-    global label_timeout_return_to_select
-
-    if label_timeout_return_to_select == 0.0:
-        return  # No timeout active
-
-    now = time.monotonic()
-    if now >= label_timeout_return_to_select:
-        # Timeout expired - return to showing selected button
-        label_timeout_return_to_select = 0.0
-        show_selected_button_label()
+    """Check if label timeout has expired and return to showing selected button.
+    
+    Delegates to handlers.display module for actual implementation.
+    """
+    global _label_prev_len
+    _label_prev_len = display_handlers.update_label_timeout(
+        label_timeout_return_to_select,
+        buttons,
+        button_states,
+        button_name_label,
+        status_label,
+        set_label_text,
+        _label_prev_len
+    )
 
 
 # =============================================================================
@@ -1097,34 +1023,10 @@ def handle_midi():
 
 def _get_button_expected_cc_value(btn_config):
     """Extract expected CC number, channel, and value from button's press action.
-
-    Returns tuple: (cc, channel, value) or None if button doesn't send CC on press.
-    Used for bidirectional MIDI sync with value-based scene switching (Quad Cortex style).
+    
+    Delegates to handlers.midi module for actual implementation.
     """
-    press_cfg = btn_config.get("press")
-    if not press_cfg:
-        return None
-
-    # Normalize to list
-    if isinstance(press_cfg, dict):
-        commands = [press_cfg]
-    elif isinstance(press_cfg, list):
-        commands = press_cfg
-    else:
-        return None
-
-    # Find first CC command
-    for cmd in commands:
-        if not isinstance(cmd, dict):
-            continue
-        if cmd.get("type", "cc") == "cc":
-            cc = cmd.get("cc")
-            channel = cmd.get("channel", btn_config.get("channel", 0))
-            value = cmd.get("value", cmd.get("cc_on", 127))
-            if cc is not None:
-                return (cc, channel, value)
-
-    return None
+    return midi_handlers.get_button_expected_cc_value(btn_config)
 
 
 def _process_incoming_midi(msg):
