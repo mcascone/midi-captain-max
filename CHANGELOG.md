@@ -2,7 +2,72 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-03-14
+## [Unreleased] - 2026-03-15
+
+### Added
+- **Device Profiles** (PRD Feature 2): Built-in MIDI mappings for popular devices
+  - 6 profiles included: Quad Cortex, Helix, HX Stomp, Kemper, Ableton Live, MainStage
+  - Full support for `pc_inc`/`pc_dec` command types with configurable step size
+  - Profile resolver converts high-level actions (e.g., "Scene A") to MIDI commands
+- **ProfileSelector component**: Visual profile assignment UI
+  - Profile selection with labeled action cards
+  - Per-event assignment (Press/Release/Long Press/Long Release)
+  - Channel override for customizing profile defaults
+  - Auto-detection badges showing matched actions
+  - MIDI preview showing resolved commands before saving
+  - State-specific profile support for keytimes/multi-state buttons
+- **Multi-state UI enhancements** in ButtonSettingsPanel:
+  - Animated state tabs with color coding
+  - State-specific ProfileSelector instances
+  - Compact layout with improved visual hierarchy
+- **Section icons**: Added #️⃣ for ID section, 🎛️ for Behavior section
+- **Resizable panel layout**: Default 65%/35% split (780px left panel on 1200px window)
+- **Compact ColorSelect**: Replaced always-visible grid with popover color picker
+
+### Changed
+- Left panel default width increased from 50% to 65% (780px) for better button editing space
+- ProfileMidiCommand type extended with `pc_inc` and `pc_dec` variants
+- ValidationErrors refactored to use derived store for reactive error access
+- Documentation improvements in device-profiles-schemas.md with type-specific field mapping
+
+### Fixed
+- **Type violations**: Added missing `pc_inc`/`pc_dec` support to ProfileMidiCommand type and resolver
+- **Console spam**: Removed all debug console.log statements from ProfileSelector and ButtonSettingsPanel
+- **Event badge counts**: Fixed multi-state buttons to show state-specific command counts (not base button counts)
+- **MIDI preview persistence**: Changed gating from matchedActionId to targetCommands.length to prevent disappearing after edits
+- **ColorSelect click handler**: Added `instanceof Element` guard before calling `.closest()` to prevent Text node errors
+- **Channel override NaN handling**: Added validation to prevent writing `channel: NaN` into commands from non-numeric input
+- **Profile clearing in multi-state**: Now clears commands from ALL states (not just current) when clearing profile
+- **Unused imports**: Removed unused 'fade' import from ButtonSettingsPanel
+- **CI macOS code signing**: Persist keychain password across CI steps and unlock before build
+  - Export KEYCHAIN_PATH and KEYCHAIN_PASSWORD to GITHUB_ENV
+  - Added explicit unlock step before Tauri build
+  - Fixed keychain search list to include temporary keychain alongside existing
+  - Added cleanup step to delete keychain after build
+- **CI Windows MSI build**: Changed version format from `0.1.0-dev+N` to `0.1.0-dev.N`
+  - Build metadata (`+...`) not supported by npm/tauri
+  - Pre-release format with dot separator is MSI-compatible (numeric only, <65535)
+
+### Tests & CI
+- All existing tests passing with new profile types
+- CI builds now succeed on all platforms (macOS, Windows, Linux)
+- macOS code signing working with proper keychain unlock sequence
+- Windows MSI packaging compatible with npm semver requirements
+
+### Documentation
+- Updated device-profiles-schemas.md with type-specific MIDI field documentation
+- Added clear mapping of which fields (cc/value, note/velocity, program, pc_step) apply to each command type
+- Clarified channel field is optional and zero-based (0-15)
+
+### Deployment
+- Branch: `fix/profile-selector-styling`
+- PR: https://github.com/MC-Music-Workshop/midi-captain-max/pull/15
+- All 14 Copilot review comments addressed
+- Ready for merge after CI validation
+
+---
+
+## [Previous Release] - 2026-03-14
 
 ### Added
 - **Center display with dual-line layout**: Button name (large, 60px font) + MIDI info (medium, 20px font) centered on screen.

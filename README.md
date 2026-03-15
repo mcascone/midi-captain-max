@@ -22,6 +22,7 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 - 🔄 **Bidirectional MIDI** — Host can update LEDs/display state with value-based scene matching
 - 📺 **Center display** — Shows button names and MIDI info with smart timeout
 - ⚡ **Multi-command actions** — Send multiple MIDI messages per button press/release, each with independent channel control
+- 🎯 **Device Profiles** — Built-in MIDI mappings for popular devices (Quad Cortex, Helix, Kemper, Ableton, MainStage)
 - ⚙️ **Config-driven** — Visual GUI Config Editor for all settings
 - 🎨 **Visual feedback** — LEDs and LCD reflect actual host state
 - 🔘 **Flexible modes** — Toggle, momentary, select groups, tap tempo with accurate LED visualization
@@ -101,6 +102,31 @@ Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi
 - ✅ **Real-time validation** — Catch errors before saving
 - 🎨 **Color picker** — Visual color selection
 - 🔍 **Device detection** — Automatically detects connected MIDI Captain
+- 🎯 **Device Profiles** — Quick setup with built-in MIDI mappings
+
+## Device Profiles
+
+The config editor includes **built-in profiles** for popular music production devices, making setup faster and eliminating MIDI reference lookups.
+
+### Included Profiles
+
+- **Neural DSP Quad Cortex** — Scene select, stomp/preset modes, tuner
+- **Line 6 Helix** — Snapshots, stomps, tap tempo, tuner
+- **Line 6 HX Stomp** — Snapshots, stomps (compact 6-switch layout)
+- **Kemper Profiler** — Rig select, stomp modes, tap tempo, tuner
+- **Ableton Live** — Track control, clip launch, scene select, transport
+- **Apple MainStage** — Patch select, bypass, tap tempo
+
+### Using Profiles
+
+1. Open a button in the editor
+2. Enable "Use Device Profile"
+3. Select your device from the dropdown
+4. Choose an action (e.g., "Scene A", "Snapshot 1")
+5. Assign to Press/Release/Long Press event
+6. Optional: Override the MIDI channel
+
+The editor shows a live preview of the MIDI commands that will be sent. You can mix profile actions with custom MIDI commands on the same button!
 
 ## Manual Configuration
 
