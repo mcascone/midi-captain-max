@@ -307,21 +307,27 @@ pub fn validate_config(json: String) -> Result<(), ConfigError> {
 /// Safely eject/unmount a device volume
 #[command]
 pub fn eject_device(path: String) -> Result<String, ConfigError> {
+    // Validate path is on a recognized MIDI Captain device
+    validate_device_path(&path)?;
+    
     let path = Path::new(&path);
-    let volume_path = get_volume_path(path).ok_or_else(|| ConfigError {
+    let canonical = path.canonicalize().map_err(|e| ConfigError {
+        message: format!("Could not canonicalize path: {}", e),
+        details: None,
+    })?;
+    
+    let volume_path = get_volume_path(&canonical).ok_or_else(|| ConfigError {
         message: "Could not determine volume path".to_string(),
         details: None,
     })?;
     
-    let volume_name = volume_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("device");
+    let volume_name = get_path_volume_name(&canonical)
+        .unwrap_or_else(|| "device".to_string());
     
     #[cfg(target_os = "macos")]
     {
         let output = std::process::Command::new("diskutil")
-            .args(&["eject", volume_path.to_str().unwrap()])
+            .args(&["eject", &volume_path.to_string_lossy()])
             .output()
             .map_err(|e| ConfigError {
                 message: format!("Failed to eject device: {}", e),
@@ -343,7 +349,7 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
     {
         // Try gio first (modern GNOME/GTK)
         let gio_result = std::process::Command::new("gio")
-            .args(&["mount", "-u", volume_path.to_str().unwrap()])
+            .args(&["mount", "-u", &volume_path.to_string_lossy()])
             .output();
         
         if let Ok(output) = gio_result {
@@ -354,7 +360,7 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
         
         // Fallback to umount
         let output = std::process::Command::new("umount")
-            .arg(volume_path.to_str().unwrap())
+            .arg(&volume_path.to_string_lossy())
             .output()
             .map_err(|e| ConfigError {
                 message: format!("Failed to unmount device: {}", e),

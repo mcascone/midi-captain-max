@@ -172,7 +172,7 @@ async function saveToDevice() {
 async function promptEjectDevice() {
   if (!$selectedDevice) return;
   
-  const shouldEject = await confirm(
+  const shouldEject = confirm(
     'Config saved! Would you like to safely eject the device?\n\n' +
     'After ejecting:\n' +
     '1. Press the power button on the back of the device to turn it off\n' +

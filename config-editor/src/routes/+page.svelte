@@ -165,15 +165,15 @@
       $statusMessage = 'Config saved successfully';
       showToast('Config saved successfully', 'success');
       
-      // Prompt to eject device
-      await promptEjectDevice();
-      
     } catch (e: any) {
       $statusMessage = `Error saving config: ${e.message || e}`;
       showToast($statusMessage, 'error', 5000);
     } finally {
       $isLoading = false;
     }
+    
+    // Prompt to eject device after saving (UI unlocked)
+    await promptEjectDevice();
   }
 
   async function promptEjectDevice() {
@@ -245,7 +245,7 @@
       '1. Press the power button on the BACK of the device to turn it off\n' +
       '2. Wait 2 seconds\n' +
       '3. Press the power button again to turn it back on\n\n' +
-      '💡 Tip: After saving, use "Eject Device" for a cleaner workflow.',
+      '💡 Tip: After saving, you\'ll be prompted to eject the device for a cleaner workflow.',
       { title: 'Reset Device', kind: 'info' }
     );
     $statusMessage = 'Waiting for device to reconnect...';
