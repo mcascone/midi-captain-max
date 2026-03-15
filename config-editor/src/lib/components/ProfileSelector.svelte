@@ -13,14 +13,18 @@
   let selectedProfileId = $state('');
   let selectedActionId = $state('');
 
-  // Profile mode toggle
+  // Profile mode toggle - independent of profile/action selection
   let profileMode = $state(false);
 
-  // Initialize from button props
+  // Initialize from button props only once
   $effect(() => {
     selectedProfileId = button.profile_id || '';
     selectedActionId = button.action_id || '';
-    profileMode = Boolean(button.profile_id && button.action_id);
+    // Only set profileMode to true if we have profile data from config
+    // Don't set it to false - let the user control it with the checkbox
+    if (button.profile_id) {
+      profileMode = true;
+    }
   });
 
   // Available actions for selected profile
