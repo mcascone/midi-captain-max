@@ -408,9 +408,6 @@ export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
   return normalized;
 }
 
-// Derived store exposing just the validationErrors Map from formState
-export const validationErrors = derived(formState, ($state) => $state.validationErrors);
-
 export function validate() {
   const state = get(formState);
   const result = validateConfig(state.config);
