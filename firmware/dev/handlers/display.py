@@ -88,14 +88,14 @@ def update_label_timeout(label_timeout, buttons, button_states, button_name_labe
         label_prev_len: Dict tracking previous label lengths
 
     Returns:
-        Updated label_prev_len dict
+        tuple: (updated_timeout, label_prev_len) - timeout is reset to 0.0 when expired
     """
     if label_timeout == 0.0:
-        return label_prev_len  # No timeout active
+        return 0.0, label_prev_len  # No timeout active
 
     now = time.monotonic()
     if now >= label_timeout:
-        # Timeout expired - show selected button
+        # Timeout expired - show selected button and reset timeout
         idx, btn_config = find_selected_button(buttons, button_states)
         if idx is not None:
             label_prev_len = set_label_text_func(button_name_label, btn_config.get("label", str(idx + 1)), label_prev_len)
@@ -104,5 +104,6 @@ def update_label_timeout(label_timeout, buttons, button_states, button_name_labe
             # No select button active - clear display to ready state
             label_prev_len = set_label_text_func(button_name_label, "", label_prev_len)
             label_prev_len = set_label_text_func(status_label, "Ready", label_prev_len)
+        return 0.0, label_prev_len  # Clear timeout after handling
 
-    return label_prev_len
+    return label_timeout, label_prev_len  # Keep timeout active

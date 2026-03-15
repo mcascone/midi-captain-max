@@ -49,12 +49,13 @@ def set_button_state(
         tuple: (blink_state, blink_next_toggle) - updated state lists
     """
     idx = switch_idx - 1
-    button_count = len(buttons)
 
-    if idx < 0 or idx >= button_count:
+    # Use button_states length as bounds check (physical button count)
+    if idx < 0 or idx >= len(button_states):
         return blink_state, blink_next_toggle
 
     btn_state = button_states[idx]
+    # Provide fallback config if button is beyond config array
     btn_config = buttons[idx] if idx < len(buttons) else {"color": "white"}
 
     # Get color for current keytime state

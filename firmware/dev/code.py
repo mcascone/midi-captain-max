@@ -917,6 +917,8 @@ def flash_pc_button(button_idx, flash_ms=None):
     Delegates to handlers.button module for actual implementation.
     """
     global pc_flash_timers
+    if flash_ms is None:
+        flash_ms = PC_FLASH_DURATION_MS
     pc_flash_timers = button_handlers.flash_pc_button(button_idx, flash_ms, pc_flash_timers, set_button_state)
 
 
@@ -952,8 +954,8 @@ def update_label_timeout():
     
     Delegates to handlers.display module for actual implementation.
     """
-    global _label_prev_len
-    _label_prev_len = display_handlers.update_label_timeout(
+    global _label_prev_len, label_timeout_return_to_select
+    label_timeout_return_to_select, _label_prev_len = display_handlers.update_label_timeout(
         label_timeout_return_to_select,
         buttons,
         button_states,
