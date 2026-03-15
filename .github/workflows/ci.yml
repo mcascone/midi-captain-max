@@ -33,6 +33,10 @@ jobs:
           VERSION=$(git describe --tags --always 2>/dev/null || git rev-parse --short HEAD)
           # Strip 'v' prefix and commit-distance suffix for semver (e.g. v1.5.0-11-gabc1234 → 1.5.0)
           SEMVER=$(echo "$VERSION" | sed 's/^v//' | sed 's/-[0-9]*-g[a-f0-9]*$//')
+          # If no tags exist, SEMVER will be just a commit hash (no dots) - use default dev version
+          if ! echo "$SEMVER" | grep -q '\.'; then
+            SEMVER="0.1.0-dev+${SEMVER}"
+          fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "SEMVER=${SEMVER}" >> $GITHUB_OUTPUT
           echo "Building version: \`$VERSION\` (semver: \`$SEMVER\`)" >> $GITHUB_STEP_SUMMARY
