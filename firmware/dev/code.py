@@ -43,6 +43,17 @@ from adafruit_midi.note_off import NoteOff
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
 from core.config import load_config as _load_config_from_file, validate_config, get_display_config, get_button_state_config
 from core.button import Switch, ButtonState
+from core.constants import (
+    DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_CENTER_X, DISPLAY_CENTER_Y,
+    DISPLAY_BACKGROUND_COLOR, DISPLAY_STATUS_TEXT_COLOR,
+    LED_GLOBAL_BRIGHTNESS, LED_DEFAULT_OFF_MODE, LED_DEFAULT_DIM_BRIGHTNESS,
+    DEFAULT_MIDI_CHANNEL, MIDI_CHANNEL_COUNT,
+    LABEL_RETURN_TIMEOUT_SEC, DEFAULT_LONG_PRESS_MS, PC_FLASH_DURATION_MS,
+    TAP_HISTORY_SIZE, TAP_MIN_INTERVAL_MS, TAP_MAX_INTERVAL_MS,
+    TAP_DEFAULT_RATE_MS, TAP_ACTIVE_WINDOW_MULTIPLIER,
+    VBAT_FILTER_ALPHA, PC_VALUES_SIZE,
+    clamp_midi_value, clamp_tap_interval_ms
+)
 
 # =============================================================================
 # Font Size Configuration
@@ -89,8 +100,11 @@ def _read_device_from_config():
             device = json.load(f).get("device")
             if device in ("mini6", "std10"):
                 return device
-    except Exception:
-        pass
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        # Config file missing, invalid JSON, or no device field
+        print(f"Device detection from config failed: {e}")
+    except Exception as e:
+        print(f"Unexpected error reading device from config: {e}")
     return None
 
 
@@ -113,8 +127,11 @@ def _probe_hardware():
             if t.value:
                 count += 1
             t.deinit()
-        except Exception:
-            pass
+        except (ValueError, AttributeError) as e:
+            # Pin doesn't exist on this board or can't be configured
+            print(f"Pin probe failed for {pin}: {e}")
+        except Exception as e:
+            print(f"Unexpected pin probe error: {e}")
     return "std10" if count >= 3 else "mini6"
 
 
@@ -173,7 +190,11 @@ def _read_version():
     try:
         with open("/VERSION", "r") as f:
             return f.read().strip()
-    except Exception:
+    except FileNotFoundError:
+        print("VERSION file not found, using 'dev'")
+        return "dev"
+    except Exception as e:
+        print(f"Error reading VERSION: {e}")
         return "dev"
 
 
@@ -300,7 +321,7 @@ BUTTON_NAME_FONT, BUTTON_NAME_FONT_HEIGHT = load_font(button_name_text_size)
 # =============================================================================
 
 # NeoPixels
-pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness=0.3, auto_write=False)
+pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness=LED_GLOBAL_BRIGHTNESS, auto_write=False)
 
 # Display
 displayio.release_displays()
@@ -473,9 +494,8 @@ short_action_executed = [False] * BUTTON_COUNT
 # Default threshold (ms) if not provided per-button; can be overridden in config
 DEFAULT_LONG_PRESS_MS = config.get("long_press_threshold_ms", 500)
 
-pc_values = [0] * 16                 # Current PC value per MIDI channel (0-15), shared across all pc_inc/pc_dec buttons
+pc_values = [0] * MIDI_CHANNEL_COUNT  # Current PC value per MIDI channel, shared across all pc_inc/pc_dec buttons
 pc_flash_timers = [0.0] * BUTTON_COUNT  # Expiry time (monotonic) for PC button flash; 0 = inactive
-PC_FLASH_DURATION_MS = 200              # Default PC button flash duration in ms
 
 encoder_value = ENC_INITIAL  # Internal value 0-127
 encoder_slot = -1  # Current slot (set on first change)
@@ -495,8 +515,7 @@ for i in range(BUTTON_COUNT):
         blink_rate_ms[i] = config.get("tap_rate_ms", 500)
 
 # Tap-tempo tracking: per-button recent tap timestamps (monotonic seconds)
-# We store up to TAP_HISTORY taps and compute average interval to set blink rate.
-TAP_HISTORY = 4
+# We store up to TAP_HISTORY_SIZE taps and compute average interval to set blink rate.
 tap_timestamps = [[] for _ in range(BUTTON_COUNT)]
 # Per-button tap active expiry (monotonic seconds). While now < tap_active_until[i]
 # the button will visually blink.
@@ -510,9 +529,9 @@ def record_tap_tempo(idx, now):
     try:
         buf = tap_timestamps[idx]
         buf.append(now)
-        # Keep only the most recent TAP_HISTORY timestamps
-        if len(buf) > TAP_HISTORY:
-            del buf[0:len(buf)-TAP_HISTORY]
+        # Keep only the most recent TAP_HISTORY_SIZE timestamps
+        if len(buf) > TAP_HISTORY_SIZE:
+            del buf[0:len(buf)-TAP_HISTORY_SIZE]
 
         # Need at least two taps to compute an interval
         if len(buf) < 2:
@@ -522,18 +541,19 @@ def record_tap_tempo(idx, now):
         intervals = [ (buf[i] - buf[i-1]) for i in range(1, len(buf)) ]
         avg_interval = sum(intervals) / len(intervals)
         # Convert to ms and clamp
-        ms = int(max(50, min(5000, avg_interval * 1000)))
+        ms = clamp_tap_interval_ms(avg_interval * 1000)
         blink_rate_ms[idx] = ms
         # Extend the active window for this tap so blinking is visible
-        tap_active_until[idx] = now + (blink_rate_ms[idx] / 1000.0) * 2
+        tap_active_until[idx] = now + (blink_rate_ms[idx] / 1000.0) * TAP_ACTIVE_WINDOW_MULTIPLIER
         print(f"[TAP] Button {idx+1} tempo set to {ms} ms ({60_000//ms} BPM approx)")
-    except Exception:
-        pass
+    except (ZeroDivisionError, ValueError) as e:
+        print(f"Tap tempo calculation error for button {idx}: {e}")
+    except Exception as e:
+        print(f"Unexpected tap tempo error: {e}")
 
 # Center display label timeout: auto-return to showing selected button after inactivity
 # When a non-select button is pressed, show its label briefly, then return to selected
 label_timeout_return_to_select = 0.0  # Expiry time (monotonic); 0 = no timeout active
-LABEL_RETURN_TIMEOUT_SEC = 3.0        # Seconds of inactivity before returning to selected button
 
 # =============================================================================
 # Display Setup
@@ -544,7 +564,7 @@ main_group = displayio.Group()
 # Background
 bg_bitmap = displayio.Bitmap(240, 240, 1)
 bg_palette = displayio.Palette(1)
-bg_palette[0] = 0x000000
+bg_palette[0] = DISPLAY_BACKGROUND_COLOR
 bg_sprite = displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette, x=0, y=0)
 main_group.append(bg_sprite)
 
@@ -627,7 +647,7 @@ main_group.append(button_name_label)
 status_label = label.Label(
     STATUS_FONT,
     text="Ready",
-    color=0x888888,  # Dimmer color for technical info
+    color=DISPLAY_STATUS_TEXT_COLOR,  # Gray for technical info
     anchor_point=(0.5, 0.5),
     anchored_position=(120, 145),
 )
@@ -905,8 +925,8 @@ def set_button_state(switch_idx, on):
 
     # Get color for current keytime state
     color_rgb = get_button_color(btn_config, btn_state.get_keytime())
-    off_mode = btn_config.get("off_mode", "dim")  # "dim" or "off"
-    dim_brightness = btn_config.get("dim_brightness", 15)  # 0-100, default 15%
+    off_mode = btn_config.get("off_mode", LED_DEFAULT_OFF_MODE)  # "dim" or "off"
+    dim_brightness = btn_config.get("dim_brightness", LED_DEFAULT_DIM_BRIGHTNESS)  # 0-100
 
     # Update LED
     led_idx = switch_to_led(switch_idx)
@@ -954,7 +974,7 @@ def clamp_pc_value(value):
     return max(0, min(127, value))
 
 
-def flash_pc_button(button_idx, flash_ms=PC_FLASH_DURATION_MS):
+def flash_pc_button(button_idx, flash_ms=None):
     """Light LED briefly for PC button press feedback.
 
     Args:
