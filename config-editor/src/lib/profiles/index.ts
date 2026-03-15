@@ -2,12 +2,18 @@
 import type { DeviceProfile } from './types';
 import { quadCortexProfile } from './quad-cortex';
 import { helixProfile } from './helix';
+import { hxStompProfile } from './hx-stomp';
 import { kemperProfile } from './kemper';
+import { abletonLiveProfile } from './ableton-live';
+import { mainStageProfile } from './mainstage';
 
 export * from './types';
 export * from './quad-cortex';
 export * from './helix';
+export * from './hx-stomp';
 export * from './kemper';
+export * from './ableton-live';
+export * from './mainstage';
 export * from './resolver';
 
 /**
@@ -16,7 +22,10 @@ export * from './resolver';
 export const profiles: DeviceProfile[] = [
   quadCortexProfile,
   helixProfile,
-  kemperProfile
+  hxStompProfile,
+  kemperProfile,
+  abletonLiveProfile,
+  mainStageProfile
 ];
 
 /**
@@ -25,7 +34,10 @@ export const profiles: DeviceProfile[] = [
 export const profilesById: Record<string, DeviceProfile> = {
   [quadCortexProfile.id]: quadCortexProfile,
   [helixProfile.id]: helixProfile,
-  [kemperProfile.id]: kemperProfile
+  [hxStompProfile.id]: hxStompProfile,
+  [kemperProfile.id]: kemperProfile,
+  [abletonLiveProfile.id]: abletonLiveProfile,
+  [mainStageProfile.id]: mainStageProfile
 };
 
 /**

@@ -13,6 +13,7 @@
   let selectedProfileId = $state('');
   let selectedActionId = $state('');
   let targetEvent = $state<'press' | 'release' | 'long_press' | 'long_release'>('press');
+  let channelOverride = $state<number | undefined>(undefined);
 
   // Profile mode toggle - independent of profile/action selection
   let profileMode = $state(false);
@@ -124,13 +125,29 @@
 
     // Resolve and preview the MIDI commands
     if (selectedProfileId && actionId) {
-      const commands = resolveProfileAction(selectedProfileId, actionId);
+      let commands = resolveProfileAction(selectedProfileId, actionId);
       if (commands) {
+        // Apply channel override if set
+        if (channelOverride !== undefined) {
+          commands = commands.map(cmd => ({ ...cmd, channel: channelOverride }));
+        }
         // Update button's selected event array with resolved commands
         onUpdate(targetEvent, commands);
         console.log(`[ProfileSelector] Resolved MIDI commands for ${targetEvent}:`, commands);
       }
     }
+  }
+
+  function handleClearProfile() {
+    selectedProfileId = '';
+    selectedActionId = '';
+    onUpdate('profile_id', undefined);
+    onUpdate('action_id', undefined);
+    // Clear all event commands
+    onUpdate('press', undefined);
+    onUpdate('release', undefined);
+    onUpdate('long_press', undefined);
+    onUpdate('long_release', undefined);
   }
 </script>
 
@@ -144,6 +161,16 @@
       />
       Use Device Profile
     </label>
+    {#if profileMode && (selectedProfileId || button.profile_id)}
+      <button
+        type="button"
+        class="clear-button"
+        onclick={handleClearProfile}
+        title="Clear profile and all commands"
+      >
+        Clear
+      </button>
+    {/if}
   </div>
 
   {#if profileMode}
@@ -173,6 +200,28 @@
           </button>
         {/each}
       </div>
+
+      <!-- Channel Override -->
+      {#if selectedProfileId}
+        <div class="channel-override">
+          <label for="channel-override">
+            <span class="channel-label">Channel Override</span>
+            <span class="channel-hint">(optional - overrides profile default)</span>
+          </label>
+          <input
+            id="channel-override"
+            type="number"
+            min="1"
+            max="16"
+            placeholder="Default"
+            value={channelOverride !== undefined ? channelOverride + 1 : ''}
+            oninput={(e) => {
+              const val = (e.target as HTMLInputElement).value;
+              channelOverride = val === '' ? undefined : parseInt(val) - 1;
+            }}
+          />
+        </div>
+      {/if}
 
       <!-- Event Target Selector -->
       {#if selectedProfileId}
@@ -295,6 +344,10 @@
   }
 
   .profile-mode-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
     margin-bottom: 1rem;
   }
 
@@ -305,6 +358,26 @@
     font-weight: 600;
     color: #e0e0e0;
     cursor: pointer;
+  }
+
+  .clear-button {
+    padding: 0.375rem 0.75rem;
+    background: transparent;
+    border: 1px solid #ef4444;
+    border-radius: 4px;
+    color: #ef4444;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .clear-button:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #f87171;
+    color: #f87171;
   }
 
   .profile-fields {
@@ -386,6 +459,54 @@
     font-size: 14px;
     font-weight: 600;
     color: #e5e7eb;
+  }
+
+  /* Channel Override */
+  .channel-override {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .channel-override label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .channel-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .channel-hint {
+    font-size: 10px;
+    color: #6b7280;
+    font-weight: 400;
+  }
+
+  .channel-override input {
+    width: 80px;
+    padding: 0.5rem;
+    background: #13131f;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
+    color: #e5e7eb;
+    font-size: 13px;
+    transition: border-color 0.15s;
+  }
+
+  .channel-override input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  }
+
+  .channel-override input::placeholder {
+    color: #6b7280;
   }
 
   /* Event Selector */
