@@ -1,4 +1,4 @@
-[![CI](https://github.com/MC-Music-Workshop/midi-captain-max/actions/workflows/ci.yml/badge.svg)](https://github.com/MC-Music-Workshop/midi-captain-max/actions/workflows/ci.yml)
+[![CI](https://github.com/guisperandio/midi-captain-max/actions/workflows/ci.yml/badge.svg)](https://github.com/guisperandio/midi-captain-max/actions/workflows/ci.yml)
 
 # MIDI Captain MAX Custom Firmware
 
@@ -16,7 +16,7 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 
 **Multi-command actions:** Each button event (press, release, long-press, long-release) can send multiple MIDI commands in sequence — change amp channel and delay preset with one footswitch!
 
-[See here for all open features and issues](https://github.com/MC-Music-Workshop/midi-captain-max/issues).
+[See here for all open features and issues](https://github.com/guisperandio/midi-captain-max/issues).
 
 ## Key Features
 - 🔄 **Bidirectional MIDI** — Host can update LEDs/display state with value-based scene matching
@@ -41,11 +41,11 @@ This firmware transforms your MIDI Captain into a **bidirectional MIDI controlle
 
 # Installation
 
-1. [Download the latest firmware.zip and appropriate GUI Config Editor](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
-3. Connect your MIDI Captain via USB (hold Button 1 while powering on)
-4. Copy all files and folders from the zip to the device drive (CIRCUITPY or MIDICAPTAIN)
-5. On mini6, rename `config-mini6.json` to `config.json`, overwriting the existing one.
-6. Power off/on or unplug and replug USB to restart
+1. [Download the latest firmware.zip and appropriate GUI Config Editor](https://github.com/guisperandio/midi-captain-max/releases/latest)
+2. Connect your MIDI Captain via USB (hold Button 1 while powering on)
+3. Copy all files and folders from the zip to the device drive (CIRCUITPY or MIDICAPTAIN)
+4. On mini6, rename `config-mini6.json` to `config.json`, overwriting the existing one.
+5. Power off/on or unplug and replug USB to restart
 
 ## Configuration
 
@@ -76,24 +76,25 @@ The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration
 - **macOS:** `MIDI-Captain-MAX-Config-Editor-[version].dmg`
 - **Windows:** `MIDI-Captain-MAX-Config-Editor-[version].msi` or `MIDI-Captain-MAX-Config-Editor-[version]-setup.exe`
 
-Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi-captain-max/releases/latest)
+Get the latest release from [Releases](https://github.com/guisperandio/midi-captain-max/releases/latest)
 
-## Installation
+### Installation
 
-### MacOS
+**MacOS:**
 1. Open the DMG and drag the app to your Applications folder
 
-### Windows
+**Windows:**
 1. Run the MSI installer or setup.exe
 2. At this time, Windows builds are unsigned. Users will see a Windows SmartScreen warning.
 3. To continue installation, click "More Info" --> "Run Anyway".
     - Signing certificates will be obtained in the near future.
 
-## Usage
+### Usage
 
-2. Launch the app and connect your MIDI Captain
-3. Edit button labels, CC numbers, and colors using the visual editor
-4. Save directly to the device.
+1. Launch the app and connect your MIDI Captain
+2. Edit button labels, CC numbers, and colors using the visual editor
+3. Configure Device Profiles for quick MIDI setup
+4. Save directly to the device — option to safely eject when done
 5. Power cycle the device to load the new settings.
 
 # Features
@@ -103,6 +104,7 @@ Get the latest release from [Releases](https://github.com/MC-Music-Workshop/midi
 - 🎨 **Color picker** — Visual color selection
 - 🔍 **Device detection** — Automatically detects connected MIDI Captain
 - 🎯 **Device Profiles** — Quick setup with built-in MIDI mappings
+- ⏏️ **Safe eject** — Cleanly ejects device after saving (macOS/Linux)
 
 ## Device Profiles
 
@@ -386,4 +388,4 @@ This project builds on work by **Helmut Keller** ([hfrk.de](https://hfrk.de)), w
 
 ## Questions, Comments, Suggestions are welcome
 
-[Open an issue](https://github.com/MC-Music-Workshop/midi-captain-max/issues) or check [AGENTS.md](AGENTS.md) for developer documentation.
+[Open an issue](https://github.com/guisperandio/midi-captain-max/issues) or check [AGENTS.md](AGENTS.md) for developer documentation.
