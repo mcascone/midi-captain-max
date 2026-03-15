@@ -14,12 +14,24 @@ actions:
     label: string
     midi:
       type: cc | note | pc | pc_inc | pc_dec
-      channel: int  # 0-15 (corresponds to MIDI channels 1-16)
-      cc: int
-      value: int
-      pc_step: int  # For pc_inc/pc_dec types
+      channel: int  # Optional, 0-15 (corresponds to MIDI channels 1-16)
+      
+      # Type-specific fields:
+      # For type: cc
+      cc: int       # CC number (0-127)
+      value: int    # CC value (0-127)
+      
+      # For type: note
+      note: int     # Note number (0-127)
+      velocity: int # Velocity (0-127)
+      
+      # For type: pc
+      program: int  # Program number (0-127)
+      
+      # For type: pc_inc | pc_dec
+      pc_step: int  # Step size (default: 1)
 
-> Note: `channel` is zero-based (0-15). In the UI, these are shown as MIDI channels 1-16.
+> Note: `channel` is zero-based (0-15) and optional (defaults to button/global channel). In the UI, these are shown as MIDI channels 1-16.
 
 ---
 

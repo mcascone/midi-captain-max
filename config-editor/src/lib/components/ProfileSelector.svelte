@@ -183,18 +183,22 @@
     onUpdate('profile_id', undefined);
     onUpdate('action_id', undefined);
     
-    // Clear all event commands - use state-specific or button-level
-    if (stateIndex !== undefined && onUpdateState) {
-      onUpdateState(stateIndex, 'press', undefined);
-      onUpdateState(stateIndex, 'release', undefined);
-      onUpdateState(stateIndex, 'long_press', undefined);
-      onUpdateState(stateIndex, 'long_release', undefined);
-    } else {
-      onUpdate('press', undefined);
-      onUpdate('release', undefined);
-      onUpdate('long_press', undefined);
-      onUpdate('long_release', undefined);
+    // Clear all event commands
+    // In multi-state mode, clear commands from ALL states to match UI labeling
+    if (stateIndex !== undefined && onUpdateState && button.states) {
+      // Clear commands from all states
+      for (let i = 0; i < button.states.length; i++) {
+        onUpdateState(i, 'press', undefined);
+        onUpdateState(i, 'release', undefined);
+        onUpdateState(i, 'long_press', undefined);
+        onUpdateState(i, 'long_release', undefined);
+      }
     }
+    // Also clear button-level commands (covers both single-state and fallback)
+    onUpdate('press', undefined);
+    onUpdate('release', undefined);
+    onUpdate('long_press', undefined);
+    onUpdate('long_release', undefined);
   }
 </script>
 
@@ -264,7 +268,17 @@
             value={channelOverride !== undefined ? channelOverride + 1 : ''}
             oninput={(e) => {
               const val = (e.target as HTMLInputElement).value;
-              channelOverride = val === '' ? undefined : parseInt(val) - 1;
+              if (val === '') {
+                channelOverride = undefined;
+              } else {
+                const parsed = parseInt(val) - 1;
+                // Validate: must be numeric and in range 0-15
+                if (!isNaN(parsed) && parsed >= 0 && parsed <= 15) {
+                  channelOverride = parsed;
+                } else {
+                  channelOverride = undefined;
+                }
+              }
             }}
           />
         </div>
