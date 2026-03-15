@@ -102,7 +102,7 @@ impl From<serde_json::Error> for ConfigError {
 ///    `usb_drive_name` matches the actual volume name (case-insensitive).
 ///    This limits the surface: an arbitrary volume won't pass validation
 ///    just because someone placed a config.json on it.
-fn validate_device_path(path: &str) -> Result<(), ConfigError> {
+fn validate_device_path(path: &str) -> Result<PathBuf, ConfigError> {
     let path = Path::new(path);
 
     // Canonicalize to resolve any .. or symlinks
@@ -119,7 +119,7 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
 
     // Accept well-known volume names
     if DEVICE_VOLUMES.iter().any(|v| volume_name.eq_ignore_ascii_case(v)) {
-        return Ok(());
+        return Ok(canonical);
     }
 
     // Accept volumes that contain a valid MIDI Captain config.json.
@@ -132,14 +132,14 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
         if crate::device::is_midi_captain_config(&config_path) {
             match crate::device::parse_midi_captain_config(&config_path) {
                 Some(declared_name) if declared_name.eq_ignore_ascii_case(&volume_name) => {
-                    return Ok(());
+                    return Ok(canonical);
                 }
                 None => {
                     // No custom name declared — require CircuitPython marker file
                     // boot_out.txt is created by CircuitPython on every boot
                     let boot_out = volume_path.join("boot_out.txt");
                     if boot_out.exists() {
-                        return Ok(());
+                        return Ok(canonical);
                     }
                     // Fall through to error - no usb_drive_name and no CircuitPython marker
                 }
@@ -234,8 +234,8 @@ fn write_sync(path: &Path, data: &[u8]) -> Result<(), std::io::Error> {
 /// Read config from a file path
 #[command]
 pub fn read_config(path: String) -> Result<MidiCaptainConfig, ConfigError> {
-    validate_device_path(&path)?;
-    let contents = fs::read_to_string(&path)?;
+    let canonical = validate_device_path(&path)?;
+    let contents = fs::read_to_string(&canonical)?;
     let config: MidiCaptainConfig = serde_json::from_str(&contents)?;
     Ok(config)
 }
@@ -243,8 +243,8 @@ pub fn read_config(path: String) -> Result<MidiCaptainConfig, ConfigError> {
 /// Read raw JSON from a file (for text editor)
 #[command]
 pub fn read_config_raw(path: String) -> Result<String, ConfigError> {
-    validate_device_path(&path)?;
-    let contents = fs::read_to_string(&path)?;
+    let canonical = validate_device_path(&path)?;
+    let contents = fs::read_to_string(&canonical)?;
     // Pretty-print the JSON
     let value: serde_json::Value = serde_json::from_str(&contents)?;
     let pretty = serde_json::to_string_pretty(&value)?;
@@ -254,12 +254,10 @@ pub fn read_config_raw(path: String) -> Result<String, ConfigError> {
 /// Write config to a file path
 #[command]
 pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), ConfigError> {
-    validate_device_path(&path)?;
-    
-    let path_obj = Path::new(&path);
+    let canonical = validate_device_path(&path)?;
     
     // Verify volume is still mounted
-    verify_device_connected(path_obj)?;
+    verify_device_connected(&canonical)?;
     
     // Validate before writing
     if let Err(errors) = config.validate() {
@@ -270,7 +268,7 @@ pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), Confi
     }
 
     let json = serde_json::to_string_pretty(&config)?;
-    write_sync(path_obj, json.as_bytes())?;
+    write_sync(&canonical, json.as_bytes())?;
 
     Ok(())
 }
@@ -278,12 +276,10 @@ pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), Confi
 /// Write raw JSON to a file (from text editor)
 #[command]
 pub fn write_config_raw(path: String, json: String) -> Result<(), ConfigError> {
-    validate_device_path(&path)?;
-    
-    let path_obj = Path::new(&path);
+    let canonical = validate_device_path(&path)?;
     
     // Verify volume is still mounted
-    verify_device_connected(path_obj)?;
+    verify_device_connected(&canonical)?;
     
     // Validate JSON is parseable
     let config: MidiCaptainConfig = serde_json::from_str(&json)?;
@@ -298,7 +294,7 @@ pub fn write_config_raw(path: String, json: String) -> Result<(), ConfigError> {
 
     // Pretty-print and write
     let pretty = serde_json::to_string_pretty(&config)?;
-    write_sync(path_obj, pretty.as_bytes())?;
+    write_sync(&canonical, pretty.as_bytes())?;
 
     Ok(())
 }
@@ -316,4 +312,88 @@ pub fn validate_config(json: String) -> Result<(), ConfigError> {
     }
 
     Ok(())
+}
+
+/// Safely eject/unmount a device volume
+#[command]
+pub fn eject_device(path: String) -> Result<String, ConfigError> {
+    // Validate path and get canonical path (avoids double canonicalization)
+    let canonical = validate_device_path(&path)?;
+    
+    let volume_path = get_volume_path(&canonical).ok_or_else(|| ConfigError {
+        message: "Could not determine volume path".to_string(),
+        details: None,
+    })?;
+    
+    let volume_name = get_path_volume_name(&canonical)
+        .unwrap_or_else(|| "device".to_string());
+    
+    let volume_path_str = volume_path.to_string_lossy().to_string();
+    
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("diskutil")
+            .args(&["eject", &volume_path_str])
+            .output()
+            .map_err(|e| ConfigError {
+                message: format!("Failed to eject device: {}", e),
+                details: None,
+            })?;
+        
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ConfigError {
+                message: format!("Eject failed: {}", stderr),
+                details: None,
+            });
+        }
+        
+        Ok(format!("Device '{}' ejected successfully", volume_name))
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        // Try gio first (modern GNOME/GTK)
+        let gio_result = std::process::Command::new("gio")
+            .args(&["mount", "-u", &volume_path_str])
+            .output();
+        
+        if let Ok(output) = gio_result {
+            if output.status.success() {
+                return Ok(format!("Device '{}' ejected successfully", volume_name));
+            }
+        }
+        
+        // Fallback to umount
+        let output = std::process::Command::new("umount")
+            .arg(&volume_path_str)
+            .output()
+            .map_err(|e| ConfigError {
+                message: format!("Failed to unmount device: {}", e),
+                details: None,
+            })?;
+        
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ConfigError {
+                message: format!("Unmount failed: {}", stderr),
+                details: None,
+            });
+        }
+        
+        Ok(format!("Device '{}' unmounted successfully", volume_name))
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        // Windows doesn't have a simple eject command for USB drives
+        // Recommend using the system tray "Safely Remove Hardware"
+        Err(ConfigError {
+            message: format!(
+                "Please use Windows 'Safely Remove Hardware' to eject '{}'.\n\nLook for the USB icon in the system tray (bottom-right), click it, and select 'Eject {}'.",
+                volume_name, volume_name
+            ),
+            details: None,
+        })
+    }
 }
