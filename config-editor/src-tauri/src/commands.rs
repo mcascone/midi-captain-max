@@ -324,10 +324,12 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
     let volume_name = get_path_volume_name(&canonical)
         .unwrap_or_else(|| "device".to_string());
     
+    let volume_path_str = volume_path.to_string_lossy().to_string();
+    
     #[cfg(target_os = "macos")]
     {
         let output = std::process::Command::new("diskutil")
-            .args(&["eject", &volume_path.to_string_lossy()])
+            .args(&["eject", &volume_path_str])
             .output()
             .map_err(|e| ConfigError {
                 message: format!("Failed to eject device: {}", e),
@@ -349,7 +351,7 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
     {
         // Try gio first (modern GNOME/GTK)
         let gio_result = std::process::Command::new("gio")
-            .args(&["mount", "-u", &volume_path.to_string_lossy()])
+            .args(&["mount", "-u", &volume_path_str])
             .output();
         
         if let Ok(output) = gio_result {
@@ -360,7 +362,7 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
         
         // Fallback to umount
         let output = std::process::Command::new("umount")
-            .arg(&volume_path.to_string_lossy())
+            .arg(&volume_path_str)
             .output()
             .map_err(|e| ConfigError {
                 message: format!("Failed to unmount device: {}", e),
