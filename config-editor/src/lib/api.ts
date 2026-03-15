@@ -34,6 +34,10 @@ export async function startDeviceWatcher(): Promise<void> {
   return invoke('start_device_watcher');
 }
 
+export async function ejectDevice(path: string): Promise<string> {
+  return invoke('eject_device', { path });
+}
+
 // Event listeners
 export function onDeviceConnected(callback: (device: DetectedDevice) => void) {
   return listen<DetectedDevice>('device-connected', (event) => {

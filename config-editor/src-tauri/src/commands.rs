@@ -303,3 +303,85 @@ pub fn validate_config(json: String) -> Result<(), ConfigError> {
 
     Ok(())
 }
+
+/// Safely eject/unmount a device volume
+#[command]
+pub fn eject_device(path: String) -> Result<String, ConfigError> {
+    let path = Path::new(&path);
+    let volume_path = get_volume_path(path).ok_or_else(|| ConfigError {
+        message: "Could not determine volume path".to_string(),
+        details: None,
+    })?;
+    
+    let volume_name = volume_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("device");
+    
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("diskutil")
+            .args(&["eject", volume_path.to_str().unwrap()])
+            .output()
+            .map_err(|e| ConfigError {
+                message: format!("Failed to eject device: {}", e),
+                details: None,
+            })?;
+        
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ConfigError {
+                message: format!("Eject failed: {}", stderr),
+                details: None,
+            });
+        }
+        
+        Ok(format!("Device '{}' ejected successfully", volume_name))
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        // Try gio first (modern GNOME/GTK)
+        let gio_result = std::process::Command::new("gio")
+            .args(&["mount", "-u", volume_path.to_str().unwrap()])
+            .output();
+        
+        if let Ok(output) = gio_result {
+            if output.status.success() {
+                return Ok(format!("Device '{}' ejected successfully", volume_name));
+            }
+        }
+        
+        // Fallback to umount
+        let output = std::process::Command::new("umount")
+            .arg(volume_path.to_str().unwrap())
+            .output()
+            .map_err(|e| ConfigError {
+                message: format!("Failed to unmount device: {}", e),
+                details: None,
+            })?;
+        
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ConfigError {
+                message: format!("Unmount failed: {}", stderr),
+                details: None,
+            });
+        }
+        
+        Ok(format!("Device '{}' unmounted successfully", volume_name))
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        // Windows doesn't have a simple eject command for USB drives
+        // Recommend using the system tray "Safely Remove Hardware"
+        Err(ConfigError {
+            message: format!(
+                "Please use Windows 'Safely Remove Hardware' to eject '{}'.\n\nLook for the USB icon in the system tray (bottom-right), click it, and select 'Eject {}'.",
+                volume_name, volume_name
+            ),
+            details: None,
+        })
+    }
+}

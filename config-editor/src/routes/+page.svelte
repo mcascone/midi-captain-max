@@ -10,7 +10,7 @@
   } from '$lib/stores';
   import {
     scanDevices, startDeviceWatcher, readConfigRaw, writeConfigRaw,
-    onDeviceConnected, onDeviceDisconnected
+    onDeviceConnected, onDeviceDisconnected, ejectDevice
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
   import LeftPanel from '$lib/components/LeftPanel.svelte';
@@ -164,11 +164,58 @@
       $hasUnsavedChanges = false;
       $statusMessage = 'Config saved successfully';
       showToast('Config saved successfully', 'success');
+      
+      // Prompt to eject device
+      await promptEjectDevice();
+      
     } catch (e: any) {
       $statusMessage = `Error saving config: ${e.message || e}`;
       showToast($statusMessage, 'error', 5000);
     } finally {
       $isLoading = false;
+    }
+  }
+
+  async function promptEjectDevice() {
+    if (!$selectedDevice) return;
+    
+    const shouldEject = confirm(
+      'Config saved! Would you like to safely eject the device?\n\n' +
+      'After ejecting:\n' +
+      '1. Press the power button on the BACK of the device to turn it off\n' +
+      '2. Wait 2 seconds\n' +
+      '3. Press the power button again to turn it back on\n\n' +
+      'The new config will be loaded on startup.'
+    );
+    
+    if (!shouldEject) return;
+    
+    try {
+      const devicePath = $selectedDevice.path.toString();
+      const deviceName = $selectedDevice.name;
+      
+      const result = await ejectDevice(devicePath);
+      showToast(result, 'success');
+      
+      // Clear current device selection
+      $selectedDevice = null;
+      $statusMessage = `${deviceName} ejected - waiting for reconnection...`;
+      
+      // Auto-select next available device if any
+      if ($devices.length > 1) {
+        const nextDevice = $devices.find(d => d.name !== deviceName);
+        if (nextDevice) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await selectDevice(nextDevice);
+        }
+      }
+      
+    } catch (e: any) {
+      // On Windows or if eject fails, show manual instructions
+      await message(
+        e.message || 'Could not eject device automatically.\n\nPlease eject manually using your system\'s device manager.',
+        { title: 'Eject Device', kind: 'info' }
+      );
     }
   }
 
@@ -194,8 +241,11 @@
   async function resetDevice() {
     if (!$selectedDevice) return;
     await message(
-      'To apply config changes, reset your MIDI Captain device:\n\n' +
-      '1. Unplug the USB cable\n2. Wait 2 seconds\n3. Plug it back in',
+      'To apply config changes, restart your MIDI Captain:\n\n' +
+      '1. Press the power button on the BACK of the device to turn it off\n' +
+      '2. Wait 2 seconds\n' +
+      '3. Press the power button again to turn it back on\n\n' +
+      '💡 Tip: After saving, use "Eject Device" for a cleaner workflow.',
       { title: 'Reset Device', kind: 'info' }
     );
     $statusMessage = 'Waiting for device to reconnect...';
