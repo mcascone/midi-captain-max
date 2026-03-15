@@ -216,15 +216,15 @@
           "expression_text_size": "medium"
         },
         "buttons": [
-          {"label": "TSC", "press": [{"type": "cc", "cc": 20, "value": 127}], "release": [{"type": "cc", "cc": 20, "value": 0}], "color": "green", "mode": "toggle"},
-          {"label": "CHOR", "press": [{"type": "cc", "cc": 21, "value": 127}], "release": [{"type": "cc", "cc": 21, "value": 0}], "color": "blue", "mode": "toggle"},
+          {"label": "TSC", "press": [{"type": "cc", "cc": 20, "value": 127}], "release": [{"type": "cc", "cc": 20, "value": 0}], "color": "green", "mode": "normal"},
+          {"label": "CHOR", "press": [{"type": "cc", "cc": 21, "value": 127}], "release": [{"type": "cc", "cc": 21, "value": 0}], "color": "blue", "mode": "normal"},
           {"label": "DELAY", "press": [{"type": "cc", "cc": 22, "value": 127}], "release": [{"type": "cc", "cc": 22, "value": 0}], "color": "yellow", "mode": "select", "select_group": "fx"},
-          {"label": "SHIM", "press": [{"type": "cc", "cc": 23, "value": 127}], "release": [{"type": "cc", "cc": 23, "value": 0}], "color": "magenta", "mode": "toggle"},
+          {"label": "SHIM", "press": [{"type": "cc", "cc": 23, "value": 127}], "release": [{"type": "cc", "cc": 23, "value": 0}], "color": "magenta", "mode": "normal"},
           {"label": "TREM", "press": [{"type": "cc", "cc": 24, "value": 127}], "release": [{"type": "cc", "cc": 24, "value": 0}], "color": "white", "mode": "momentary"},
-          {"label": "WOW", "press": [{"type": "cc", "cc": 25, "value": 127}], "release": [{"type": "cc", "cc": 25, "value": 0}], "color": "orange", "mode": "toggle", "off_mode": "off"},
-          {"label": "OCT", "press": [{"type": "cc", "cc": 26, "value": 127}], "release": [{"type": "cc", "cc": 26, "value": 0}], "color": "cyan", "mode": "toggle"},
-          {"label": "FREQ", "press": [{"type": "cc", "cc": 27, "value": 127}], "release": [{"type": "cc", "cc": 27, "value": 0}], "color": "red", "mode": "toggle", "off_mode": "off"},
-          {"label": "PLATE", "press": [{"type": "cc", "cc": 28, "value": 127}, {"type": "pc", "program": 5}], "release": [{"type": "cc", "cc": 28, "value": 0}], "color": "purple", "mode": "toggle"},
+          {"label": "WOW", "press": [{"type": "cc", "cc": 25, "value": 127}], "release": [{"type": "cc", "cc": 25, "value": 0}], "color": "orange", "mode": "normal", "off_mode": "off"},
+          {"label": "OCT", "press": [{"type": "cc", "cc": 26, "value": 127}], "release": [{"type": "cc", "cc": 26, "value": 0}], "color": "cyan", "mode": "normal"},
+          {"label": "FREQ", "press": [{"type": "cc", "cc": 27, "value": 127}], "release": [{"type": "cc", "cc": 27, "value": 0}], "color": "red", "mode": "normal", "off_mode": "off"},
+          {"label": "PLATE", "press": [{"type": "cc", "cc": 28, "value": 127}, {"type": "pc", "program": 5}], "release": [{"type": "cc", "cc": 28, "value": 0}], "color": "purple", "mode": "normal"},
           {"label": "TAP", "press": [{"type": "cc", "cc": 29, "value": 127}], "release": [{"type": "cc", "cc": 29, "value": 0}], "color": "white", "mode": "tap"}
         ],
         "encoder": {
@@ -267,19 +267,13 @@
         }
       };
 
-      console.log('Calling loadConfig...');
       loadConfig(demoConfig);
-      console.log('loadConfig completed');
-
-      console.log('Setting stores...');
       currentConfigRaw.set(JSON.stringify(demoConfig, null, 2));
       hasUnsavedChanges.set(false);
       validationErrors.set([]);
       statusMessage.set('Demo config loaded (STD10)');
-      console.log('Stores set. currentConfigRaw length:', get(currentConfigRaw).length);
 
       showToast('Demo config loaded - no device required', 'info');
-      console.log('=== loadDemoConfig END ===');
     } catch (error) {
       console.error('Error in loadDemoConfig:', error);
       statusMessage.set(`Error loading demo: ${error}`);

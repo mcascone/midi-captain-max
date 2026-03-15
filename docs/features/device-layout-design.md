@@ -32,9 +32,9 @@ Row 2:  [6] [7] [8] [9] [10]
 
 - **Viewbox:** 0 0 800 400
 - **Button size:** 120×120px (with rounded corners)
-- **Button spacing:** 40px horizontal, 60px vertical
+- **Button spacing:** 40px horizontal, 60px vertical (with 20px additional row gap)
 - **Row 1 Y:** 60
-- **Row 2 Y:** 240
+- **Row 2 Y:** 240 (calculated: 60 + 120 + 40 + 20)
 - **LED indicator:** Circle positioned above button center
 - **Label:** Text centered on button
 
@@ -68,11 +68,11 @@ Row 2:  [4] [5] [6]
 
 ### SVG Specifications
 
-- **Viewbox:** 0 0 520 400
+- **Viewbox:** 0 0 560 400
 - **Button size:** 120×120px (with rounded corners)
-- **Button spacing:** 40px horizontal, 40px vertical
+- **Button spacing:** 40px horizontal, 60px vertical (with 20px additional row gap)
 - **Row 1 Y:** 60
-- **Row 2 Y:** 220
+- **Row 2 Y:** 240 (calculated: 60 + 120 + 40 + 20)
 - **LED indicator:** Circle positioned above button center
 - **Label:** Text centered on button
 

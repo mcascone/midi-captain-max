@@ -181,7 +181,7 @@
         role="button"
         tabindex={0}
         aria-label="Button {index + 1}"
-        aria-selected={selected}
+        aria-pressed={selected}
         onclick={() => handleButtonClick(index)}
         onkeydown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -347,10 +347,6 @@
     stroke-width: 3;
   }
 
-  .button-rect.multi-command {
-    fill: linear-gradient(135deg, #1f2937 0%, #2d1b4e 100%);
-  }
-
   .button-label {
     fill: #ffffff;
     font-size: 14px;
@@ -400,32 +396,6 @@
     fill: #ffffff;
     font-size: 14px;
     font-weight: 900;
-  }
-
-  button-label {
-    fill: #ffffff;
-    font-size: 14px;
-    font-weight: 600;
-    pointer-events: none;
-    user-select: none;
-  }
-
-  .led {
-    transition: fill 0.2s ease;
-  }
-
-  .badge-group {
-    pointer-events: none;
-  }
-
-  .badge-bg {
-    fill: #8b5cf6;
-  }
-
-  .badge-text {
-    fill: #ffffff;
-    font-size: 11px;
-    font-weight: 700;
   }
 
   /* Keyboard accessibility */

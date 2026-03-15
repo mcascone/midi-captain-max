@@ -137,16 +137,12 @@
 
   function pasteButton() {
     if (!btn || !$buttonClipboard) return;
-    // Preserve only the label from the target button - everything else gets pasted
+    // Preserve only the label from the target button - everything else gets replaced
     const targetLabel = btn.label;
     const pasted = { ...$buttonClipboard, label: targetLabel };
 
-    // Update all fields from clipboard
-    Object.keys(pasted).forEach(key => {
-      if (key !== 'label') {
-        updateField(`buttons[${$selectedButtonIndex}].${key}`, (pasted as any)[key]);
-      }
-    });
+    // Replace the entire button config to clear stale fields
+    updateField(`buttons[${$selectedButtonIndex}]`, pasted);
 
     showToast(`Pasted config to button "${targetLabel}"`, 'success', 2000);
   }
@@ -507,16 +503,6 @@
     text-transform: uppercase;
     color: #9ca3af;
     letter-spacing: 0.15em;
-  }
-
-  .error-badge {
-    background: #dc2626;
-    color: white;
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-weight: 600;
-    margin-left: 8px;
   }
 
   .header-actions {
