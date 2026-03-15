@@ -45,9 +45,10 @@ from core.config import load_config as _load_config_from_file, validate_config, 
 from core.button import Switch, ButtonState
 from core.constants import (
     DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_CENTER_X, DISPLAY_CENTER_Y,
-    DISPLAY_BACKGROUND_COLOR, DISPLAY_STATUS_TEXT_COLOR,
+    DISPLAY_BACKGROUND_COLOR, DISPLAY_STATUS_TEXT_COLOR, COLOR_WHITE,
     LED_GLOBAL_BRIGHTNESS, LED_DEFAULT_OFF_MODE, LED_DEFAULT_DIM_BRIGHTNESS,
-    DEFAULT_MIDI_CHANNEL, MIDI_CHANNEL_COUNT,
+    DEFAULT_MIDI_CHANNEL, MIDI_CHANNEL_COUNT, MIDI_VALUE_CENTER,
+    USB_MIDI_BUFFER_SIZE,
     LABEL_RETURN_TIMEOUT_SEC, DEFAULT_LONG_PRESS_MS, PC_FLASH_DURATION_MS,
     TAP_HISTORY_SIZE, TAP_MIN_INTERVAL_MS, TAP_MAX_INTERVAL_MS,
     TAP_DEFAULT_RATE_MS, TAP_ACTIVE_WINDOW_MULTIPLIER,
@@ -388,7 +389,7 @@ midi_usb = adafruit_midi.MIDI(
     midi_in=usb_midi.ports[0],
     midi_out=usb_midi.ports[1],
     in_channel=None,  # receive on all channels; per-button channel filtering done in handle_midi()
-    in_buf_size=64,
+    in_buf_size=USB_MIDI_BUFFER_SIZE,
 )
 
 # TRS / Serial MIDI via UART — GP16 (TX) / GP17 (RX) per hardware-reference.md
@@ -437,7 +438,7 @@ def send_midi_message(msg, channel=0):
             print(f"[WARN] TRS MIDI send failed: {e}")
 
 # Encoder config (from config.json or defaults)
-enc_config = config.get("encoder", {"enabled": True, "cc": 11, "label": "ENC", "min": 0, "max": 127, "initial": 64})
+enc_config = config.get("encoder", {"enabled": True, "cc": 11, "label": "ENC", "min": 0, "max": 127, "initial": MIDI_VALUE_CENTER})
 enc_push_config = enc_config.get("push", {"enabled": True, "cc": 14, "label": "PUSH", "mode": "momentary"})
 
 CC_ENCODER = enc_config.get("cc", 11)
@@ -446,7 +447,7 @@ ENC_LABEL = enc_config.get("label", "ENC")
 ENC_PUSH_LABEL = enc_push_config.get("label", "PUSH")
 ENC_MIN = enc_config.get("min", 0)
 ENC_MAX = enc_config.get("max", 127)
-ENC_INITIAL = enc_config.get("initial", 64)
+ENC_INITIAL = enc_config.get("initial", MIDI_VALUE_CENTER)
 ENC_ENABLED = enc_config.get("enabled", True) and HAS_ENCODER
 ENC_PUSH_ENABLED = enc_push_config.get("enabled", True) and HAS_ENCODER
 ENC_PUSH_MODE = enc_push_config.get("mode", "momentary")
@@ -643,7 +644,7 @@ for i in range(BUTTON_COUNT):
 button_name_label = label.Label(
     BUTTON_NAME_FONT,
     text="",
-    color=0xFFFFFF,
+    color=COLOR_WHITE,
     anchor_point=(0.5, 0.5),
     anchored_position=(120, 100),
 )

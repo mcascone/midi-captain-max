@@ -19,6 +19,7 @@ DISPLAY_HEIGHT = 240
 # Display colors
 DISPLAY_BACKGROUND_COLOR = 0x000000  # Black
 DISPLAY_STATUS_TEXT_COLOR = 0x888888  # Gray for technical info
+COLOR_WHITE = 0xFFFFFF  # White (standard RGB)
 
 # Display positioning
 DISPLAY_CENTER_X = 120
@@ -48,6 +49,10 @@ MIDI_CHANNEL_COUNT = 16
 # MIDI value ranges
 MIDI_MIN_VALUE = 0
 MIDI_MAX_VALUE = 127
+MIDI_VALUE_CENTER = 64  # Center value for encoders, etc.
+
+# MIDI communication
+USB_MIDI_BUFFER_SIZE = 64  # USB MIDI input buffer size
 
 # =============================================================================
 # Timing Configuration (milliseconds and seconds)
