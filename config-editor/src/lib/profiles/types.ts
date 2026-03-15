@@ -3,7 +3,7 @@
 export type ProfileType = 'fixed' | 'hybrid' | 'template';
 
 export interface ProfileMidiCommand {
-  type: 'cc' | 'note' | 'pc';
+  type: 'cc' | 'note' | 'pc' | 'pc_inc' | 'pc_dec';
   channel?: number;  // 0-15 (optional, defaults to button channel)
   // CC fields
   cc?: number;
@@ -13,6 +13,8 @@ export interface ProfileMidiCommand {
   velocity?: number;
   // PC fields
   program?: number;
+  // PC inc/dec fields
+  pc_step?: number;
 }
 
 export interface ProfileAction {

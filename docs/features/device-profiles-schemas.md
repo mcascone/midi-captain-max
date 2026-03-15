@@ -13,10 +13,13 @@ actions:
   - id: string
     label: string
     midi:
-      type: cc | note | pc
-      channel: int
+      type: cc | note | pc | pc_inc | pc_dec
+      channel: int  # 0-15 (corresponds to MIDI channels 1-16)
       cc: int
       value: int
+      pc_step: int  # For pc_inc/pc_dec types
+
+> Note: `channel` is zero-based (0-15). In the UI, these are shown as MIDI channels 1-16.
 
 ---
 
@@ -33,7 +36,7 @@ actions:
     label: Scene A
     midi:
       type: cc
-      channel: 1
+      channel: 0
       cc: 43
       value: 0
 
@@ -41,6 +44,6 @@ actions:
     label: Scene B
     midi:
       type: cc
-      channel: 1
+      channel: 0
       cc: 43
       value: 1

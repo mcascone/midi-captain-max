@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fade, slide } from 'svelte/transition';
+  import { slide } from 'svelte/transition';
   import { config, updateField, syncButtonStates, getButtonErrors } from '$lib/formStore';
   import { selectedButtonIndex, buttonClipboard, showToast } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
@@ -117,7 +117,6 @@
   });
 
   function update(field: string, value: unknown) {
-    console.log(`[ButtonSettingsPanel] update(field="${field}", value=`, value, ')');
     updateField(`buttons[${$selectedButtonIndex}].${field}`, value);
   }
 

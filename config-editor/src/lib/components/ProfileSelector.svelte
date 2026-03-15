@@ -125,7 +125,6 @@
             selectedActionId = action.id;
             onUpdate('profile_id', profile.id);
             onUpdate('action_id', action.id);
-            console.log(`[ProfileSelector] Auto-detected: ${profile.name} - ${action.label}`);
             return;
           }
         }
@@ -285,7 +284,7 @@
             >
               <span class="event-label">Press</span>
               {#if eventHasCommands.press}
-                <span class="event-badge">{button.press?.length || 0}</span>
+                <span class="event-badge">{(stateIndex !== undefined && button.states?.[stateIndex]?.press?.length) || button.press?.length || 0}</span>
               {/if}
             </button>
             <button
@@ -297,7 +296,7 @@
             >
               <span class="event-label">Release</span>
               {#if eventHasCommands.release}
-                <span class="event-badge">{button.release?.length || 0}</span>
+                <span class="event-badge">{(stateIndex !== undefined && button.states?.[stateIndex]?.release?.length) || button.release?.length || 0}</span>
               {/if}
             </button>
             <button
@@ -309,7 +308,7 @@
             >
               <span class="event-label">Long Press</span>
               {#if eventHasCommands.long_press}
-                <span class="event-badge">{button.long_press?.length || 0}</span>
+                <span class="event-badge">{(stateIndex !== undefined && button.states?.[stateIndex]?.long_press?.length) || button.long_press?.length || 0}</span>
               {/if}
             </button>
             <button
@@ -321,7 +320,7 @@
             >
               <span class="event-label">Long Release</span>
               {#if eventHasCommands.long_release}
-                <span class="event-badge">{button.long_release?.length || 0}</span>
+                <span class="event-badge">{(stateIndex !== undefined && button.states?.[stateIndex]?.long_release?.length) || button.long_release?.length || 0}</span>
               {/if}
             </button>
           </div>
@@ -347,7 +346,7 @@
       {/if}
 
       <!-- Resolved MIDI Preview -->
-      {#if selectedProfileId && matchedActionId && targetCommands}
+      {#if selectedProfileId && targetCommands && targetCommands.length > 0}
         <div class="midi-preview">
           <div class="preview-header">
             <span class="preview-icon">⚡</span>

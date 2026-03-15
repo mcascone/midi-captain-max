@@ -26,7 +26,10 @@
   }
 
   function handleClickOutside(event: MouseEvent) {
-    const target = event.target as HTMLElement;
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
     if (!target.closest('.color-select-container')) {
       isOpen = false;
     }
