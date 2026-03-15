@@ -274,8 +274,8 @@
         </div>
       </div>
 
-      <div class="field-row">
-        {#if btn.mode !== 'momentary' && btn.mode !== 'tap' && (btn.keytimes ?? 1) === 1}
+      {#if btn.mode !== 'momentary' && btn.mode !== 'tap' && (btn.keytimes ?? 1) === 1}
+        <div class="field-row">
           <div class="field">
             <label>Select Group:</label>
             <input
@@ -293,8 +293,8 @@
               </datalist>
             {/if}
           </div>
-        {/if}
-      </div>
+        </div>
+      {/if}
 
       {#if (btn.off_mode ?? 'dim') === 'dim'}
         <div class="dim-brightness-section">
