@@ -34,9 +34,9 @@ jobs:
           # Strip 'v' prefix and commit-distance suffix for semver (e.g. v1.5.0-11-gabc1234 → 1.5.0)
           SEMVER=$(echo "$VERSION" | sed 's/^v//' | sed 's/-[0-9]*-g[a-f0-9]*$//')
           # If no tags exist, SEMVER will be just a commit hash (no dots) - use default dev version
-          # Use dot-separated pre-release format (npm-compatible, avoids MSI build metadata issues)
+          # MSI requires numeric-only pre-release identifiers (max 65535)
           if ! echo "$SEMVER" | grep -q '\.'; then
-            SEMVER="0.1.0-dev.${GITHUB_RUN_NUMBER}"
+            SEMVER="0.1.0-${GITHUB_RUN_NUMBER}"
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "SEMVER=${SEMVER}" >> $GITHUB_OUTPUT
