@@ -136,11 +136,17 @@ You can also edit `config.json` directly on the device. The firmware uses an **e
 
 ```json
 {
+  "device": "std10",
+  "global_channel": 0,
+  "usb_drive_name": "MYCAPTAIN",
+  "dev_mode": false,
   "buttons": [
     {
       "label": "DELAY",
       "color": "blue",
       "mode": "toggle",
+      "off_mode": "dim",
+      "channel": 0,
       "press": [
         {"type": "cc", "cc": 20, "value": 127}
       ],
@@ -151,17 +157,113 @@ You can also edit `config.json` directly on the device. The firmware uses an **e
     {
       "label": "DRIVE",
       "color": "orange",
+      "mode": "momentary",
       "press": [
         {"type": "cc", "cc": 23, "value": 127},
         {"type": "pc", "program": 5}
       ],
+      "release": [
+        {"type": "cc", "cc": 23, "value": 0}
+      ],
       "long_press": [
         {"type": "cc", "cc": 40, "value": 127, "threshold_ms": 700}
+      ],
+      "long_release": [
+        {"type": "cc", "cc": 40, "value": 0}
+      ]
+    },
+    {
+      "label": "CLEAN",
+      "color": "green",
+      "mode": "select",
+      "select_group": "channel",
+      "default_selected": true,
+      "press": [
+        {"type": "pc", "program": 0}
+      ]
+    },
+    {
+      "label": "CRCH",
+      "color": "red",
+      "mode": "select",
+      "select_group": "channel",
+      "press": [
+        {"type": "pc", "program": 1}
+      ]
+    },
+    {
+      "label": "TAP",
+      "color": "cyan",
+      "mode": "momentary",
+      "press": [
+        {"type": "cc", "cc": 44, "value": 127, "channel": 0},
+        {"type": "cc", "cc": 1, "value": 127, "channel": 1}
+      ]
+    },
+    {
+      "label": "VERB",
+      "color": "blue",
+      "mode": "toggle",
+      "keytimes": 3,
+      "press": [
+        {"type": "cc", "cc": 20, "value": 64}
+      ],
+      "states": [
+        {"cc": 20, "value": 64, "color": "blue", "label": "50%"},
+        {"cc": 20, "value": 96, "color": "cyan", "label": "75%"},
+        {"cc": 20, "value": 127, "color": "white", "label": "100%"}
       ]
     }
-  ]
+  ],
+  "encoder": {
+    "enabled": true,
+    "cc": 11,
+    "label": "MOD",
+    "min": 0,
+    "max": 127,
+    "initial": 64,
+    "channel": 0,
+    "push": {
+      "enabled": true,
+      "mode": "toggle",
+      "label": "PUSH",
+      "cc": 14,
+      "cc_on": 127,
+      "cc_off": 0,
+      "channel": 0
+    }
+  },
+  "expression": {
+    "exp1": {
+      "enabled": true,
+      "cc": 12,
+      "label": "EXP1",
+      "min": 0,
+      "max": 127,
+      "polarity": "normal",
+      "threshold": 2,
+      "channel": 0
+    }
+  },
+  "display": {
+    "button_text_size": "medium",
+    "status_text_size": "medium",
+    "expression_text_size": "medium"
+  }
 }
 ```
+
+This example demonstrates:
+- **Toggle mode** with press/release (Button 1: DELAY)
+- **Momentary mode** with long-press/long-release (Button 2: DRIVE)
+- **Multi-command actions** sending CC + PC simultaneously (Button 2)
+- **Select groups** for radio-button behavior (Buttons 3-4: channel switching)
+- **Default selected** button activated on boot (Button 3: CLEAN)
+- **Per-command channels** controlling multiple devices (Button 5: TAP)
+- **Keytimes** with per-state overrides (Button 6: VERB cycling 3 reverb levels)
+- **Encoder** configuration with push button
+- **Expression pedal** setup
+- **Display** text size settings
 
 ### Button Configuration Fields
 
