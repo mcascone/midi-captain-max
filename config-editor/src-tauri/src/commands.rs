@@ -125,8 +125,8 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
     // Accept volumes that contain a valid MIDI Captain config.json.
     // If usb_drive_name is explicitly declared in the config, it must match
     // the actual volume name — preventing a stray config.json on an unrelated
-    // volume from passing. If usb_drive_name is not declared, any valid
-    // MIDI Captain config is accepted.
+    // volume from passing. If usb_drive_name is not declared, require CircuitPython
+    // marker file (boot_out.txt) to prove this is a real CircuitPython device.
     if let Some(volume_path) = get_volume_path(&canonical) {
         let config_path = volume_path.join("config.json");
         if crate::device::is_midi_captain_config(&config_path) {
@@ -135,8 +135,13 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
                     return Ok(());
                 }
                 None => {
-                    // No custom name declared — accept any valid MIDI Captain volume
-                    return Ok(());
+                    // No custom name declared — require CircuitPython marker file
+                    // boot_out.txt is created by CircuitPython on every boot
+                    let boot_out = volume_path.join("boot_out.txt");
+                    if boot_out.exists() {
+                        return Ok(());
+                    }
+                    // Fall through to error - no usb_drive_name and no CircuitPython marker
                 }
                 _ => {} // declared name doesn't match this volume
             }

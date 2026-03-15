@@ -160,8 +160,15 @@ if [ ! -d "$MOUNT_POINT" ]; then
     echo "Tried: ${TRIED_PATHS[*]}"
     echo ""
     echo "Check that your device is plugged in, then:"
-    echo "  ls /Volumes/                        # see all mounted drives"
-    echo "  ./deploy.sh /Volumes/MyDriveName    # specify a custom drive name"
+    # Show OS-appropriate commands
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "  ls /Volumes/                        # see all mounted drives"
+        echo "  ./deploy.sh /Volumes/MyDriveName    # specify a custom drive name"
+    else
+        # Linux
+        echo "  ls /media/$USER/ /run/media/$USER/  # see all mounted drives"
+        echo "  ./deploy.sh /media/$USER/MyDriveName  # specify a custom drive name"
+    fi
     exit 1
 fi
 
