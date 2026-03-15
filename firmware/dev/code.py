@@ -364,7 +364,7 @@ MIDI_TRANSPORT = config.get("midi_transport", "usb")
 midi_usb = adafruit_midi.MIDI(
     midi_in=usb_midi.ports[0],
     midi_out=usb_midi.ports[1],
-    in_channel=0,
+    in_channel=None,  # receive on all channels; per-button channel filtering done in handle_midi()
     in_buf_size=64,
 )
 
@@ -1217,12 +1217,12 @@ def _deselect_group(group_name, keep_idx):
                         if msg_type == "cc":
                             cc = state_cfg.get("cc", 20 + j)
                             cc_off = state_cfg.get("cc_off", 0)
-                            send_midi_message(ControlChange(cc, cc_off, channel=ch))
+                            send_midi_message(ControlChange(cc, cc_off), channel=ch)
                             print(f"[MIDI TX] Ch{ch+1} CC{cc}={cc_off} (deselect sibling {j+1}, group {group_name})")
                         elif msg_type == "note":
                             note = state_cfg.get("note", 60)
                             vel_off = state_cfg.get("velocity_off", 0)
-                            send_midi_message(NoteOff(note, vel_off, channel=ch))
+                            send_midi_message(NoteOff(note, vel_off), channel=ch)
                             print(f"[MIDI TX] Ch{ch+1} NoteOff{note} (deselect sibling {j+1}, group {group_name})")
             except Exception:
                 pass
@@ -1475,7 +1475,7 @@ def handle_encoder_button():
             if pressed:
                 encoder_push_state = not encoder_push_state
                 cc_val = ENC_PUSH_CC_ON if encoder_push_state else ENC_PUSH_CC_OFF
-                send_midi_message(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
+                send_midi_message(ControlChange(CC_ENCODER_PUSH, cc_val), channel=ENC_PUSH_CHANNEL)
                 print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, toggle)")
                 set_label_text(button_name_label, ENC_PUSH_LABEL)
                 set_label_text(status_label, f"TX CC{CC_ENCODER_PUSH}={'ON' if encoder_push_state else 'OFF'}")
@@ -1483,7 +1483,7 @@ def handle_encoder_button():
         else:
             # Momentary mode: send on press and release
             cc_val = ENC_PUSH_CC_ON if pressed else ENC_PUSH_CC_OFF
-            send_midi_message(ControlChange(CC_ENCODER_PUSH, cc_val, channel=ENC_PUSH_CHANNEL))
+            send_midi_message(ControlChange(CC_ENCODER_PUSH, cc_val), channel=ENC_PUSH_CHANNEL)
             print(f"[MIDI TX] Ch{ENC_PUSH_CHANNEL+1} CC{CC_ENCODER_PUSH}={cc_val} (encoder push, momentary)")
             set_label_text(button_name_label, ENC_PUSH_LABEL)
             set_label_text(status_label, f"TX CC{CC_ENCODER_PUSH}={cc_val}")
@@ -1514,14 +1514,14 @@ def handle_encoder():
             if new_slot != encoder_slot:
                 encoder_slot = new_slot
                 # Output CC is the slot number (0 to steps-1)
-                send_midi_message(ControlChange(CC_ENCODER, encoder_slot, channel=ENC_CHANNEL))
+                send_midi_message(ControlChange(CC_ENCODER, encoder_slot), channel=ENC_CHANNEL)
                 print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_slot} (slot)")
                 set_label_text(button_name_label, ENC_LABEL)
                 set_label_text(status_label, f"ENC slot {encoder_slot}")
                 arm_label_return_timeout()
         else:
             # Normal mode: send every change
-            send_midi_message(ControlChange(CC_ENCODER, encoder_value, channel=ENC_CHANNEL))
+            send_midi_message(ControlChange(CC_ENCODER, encoder_value), channel=ENC_CHANNEL)
             print(f"[ENCODER] Ch{ENC_CHANNEL+1} CC{CC_ENCODER}={encoder_value}")
             set_label_text(button_name_label, ENC_LABEL)
             set_label_text(status_label, f"ENC={encoder_value}")
@@ -1556,7 +1556,7 @@ def handle_expression():
             threshold = exp1_config.get("threshold", 2)
             if abs(val1 - exp1_last) >= threshold:
                 exp1_last = val1
-                send_midi_message(ControlChange(CC_EXP1, val1, channel=EXP1_CHANNEL))
+                send_midi_message(ControlChange(CC_EXP1, val1), channel=EXP1_CHANNEL)
                 lbl = exp1_config.get("label", "EXP1")
                 print(f"[{lbl}] Ch{EXP1_CHANNEL+1} CC{CC_EXP1}={val1}")
 
@@ -1580,7 +1580,7 @@ def handle_expression():
             threshold = exp2_config.get("threshold", 2)
             if abs(val2 - exp2_last) >= threshold:
                 exp2_last = val2
-                send_midi_message(ControlChange(CC_EXP2, val2, channel=EXP2_CHANNEL))
+                send_midi_message(ControlChange(CC_EXP2, val2), channel=EXP2_CHANNEL)
                 lbl = exp2_config.get("label", "EXP2")
                 print(f"[{lbl}] Ch{EXP2_CHANNEL+1} CC{CC_EXP2}={val2}")
 
