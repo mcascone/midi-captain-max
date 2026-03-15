@@ -23,6 +23,23 @@
   // Track previous stateIndex to detect switches
   let prevStateIndex = $state<number | undefined>(stateIndex);
 
+  // Memoization cache for resolved profile actions to avoid re-resolving on every reactive update
+  const resolvedCommandsCache = new Map<string, MidiCommand[] | undefined>();
+  
+  function getCachedResolvedCommands(profileId: string, actionId: string): MidiCommand[] | undefined {
+    const cacheKey = `${profileId}:${actionId}`;
+    if (!resolvedCommandsCache.has(cacheKey)) {
+      resolvedCommandsCache.set(cacheKey, resolveProfileAction(profileId, actionId));
+    }
+    return resolvedCommandsCache.get(cacheKey);
+  }
+  
+  // Clear cache when profile changes
+  $effect(() => {
+    resolvedCommandsCache.clear();
+    selectedProfileId; // Subscribe to changes
+  });
+
   // Initialize from button props and clear selection when switching states
   $effect(() => {
     selectedProfileId = button.profile_id || '';
@@ -74,6 +91,14 @@
 
   // Compare two MIDI commands for equality
   function commandsMatch(cmd1: MidiCommand, cmd2: MidiCommand): boolean {
+    // Normalize pc_step: firmware treats undefined as 1 for pc_inc/pc_dec
+    const normalizeStep = (cmd: MidiCommand) => {
+      if ((cmd.type === 'pc_inc' || cmd.type === 'pc_dec') && cmd.pc_step === undefined) {
+        return 1;
+      }
+      return cmd.pc_step;
+    };
+    
     return (
       cmd1.type === cmd2.type &&
       cmd1.channel === cmd2.channel &&
@@ -82,7 +107,7 @@
       cmd1.note === cmd2.note &&
       cmd1.velocity === cmd2.velocity &&
       cmd1.program === cmd2.program &&
-      cmd1.pc_step === cmd2.pc_step
+      normalizeStep(cmd1) === normalizeStep(cmd2)
     );
   }
 
@@ -101,7 +126,7 @@
     if (!actions) return null;
 
     for (const action of actions) {
-      const resolvedCommands = resolveProfileAction(selectedProfileId, action.id);
+      const resolvedCommands = getCachedResolvedCommands(selectedProfileId, action.id);
       if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
         return action.id;
       }
@@ -118,7 +143,7 @@
         if (!actions) continue;
 
         for (const action of actions) {
-          const resolvedCommands = resolveProfileAction(profile.id, action.id);
+          const resolvedCommands = getCachedResolvedCommands(profile.id, action.id);
           if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
             // Found a match!
             selectedProfileId = profile.id;
@@ -146,8 +171,11 @@
   function handleActionChange(actionId: string) {
     selectedActionId = actionId;
     
-    // Update profile metadata (always on button level, not state level)
-    onUpdate('action_id', actionId);
+    // Update profile metadata - only on button level in single-state mode
+    // In multi-state mode, action_id is state-specific (not persisted to config)
+    if (stateIndex === undefined) {
+      onUpdate('action_id', actionId);
+    }
 
     // If button is in simplified toggle mode, switch to normal mode for explicit events
     if ((button.mode === 'toggle' || !button.mode) && !button.press?.length && !button.release?.length) {
@@ -156,7 +184,7 @@
 
     // Resolve and preview the MIDI commands
     if (selectedProfileId && actionId) {
-      let commands = resolveProfileAction(selectedProfileId, actionId);
+      let commands = getCachedResolvedCommands(selectedProfileId, actionId);
       if (commands) {
         // Apply channel override if set
         if (channelOverride !== undefined) {
@@ -167,11 +195,9 @@
         if (stateIndex !== undefined && onUpdateState) {
           // Updating a specific state (keytimes > 1)
           onUpdateState(stateIndex, targetEvent, commands);
-          console.log(`[ProfileSelector] Updated state ${stateIndex} ${targetEvent}:`, commands);
         } else {
           // Updating button-level commands (keytimes = 1)
           onUpdate(targetEvent, commands);
-          console.log(`[ProfileSelector] Updated button ${targetEvent}:`, commands);
         }
       }
     }
