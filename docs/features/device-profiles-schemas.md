@@ -15,7 +15,7 @@ actions:
     midi:
       type: cc | note | pc
       channel: int
-      controller: int
+      cc: int
       value: int
 
 ---
@@ -34,7 +34,7 @@ actions:
     midi:
       type: cc
       channel: 1
-      controller: 43
+      cc: 43
       value: 0
 
   - id: scene_b
@@ -42,5 +42,5 @@ actions:
     midi:
       type: cc
       channel: 1
-      controller: 43
+      cc: 43
       value: 1

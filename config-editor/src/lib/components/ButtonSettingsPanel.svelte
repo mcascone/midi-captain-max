@@ -251,7 +251,7 @@
           </select>
         </div>
         {#if (btn.mode ?? 'toggle') === 'normal'}
-          <div class="field narrow">
+          <div class="field">
             <label>Keytimes:</label>
             <input type="number" min="1" max="99"
               value={btn.keytimes ?? 1}

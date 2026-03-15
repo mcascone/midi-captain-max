@@ -202,7 +202,6 @@
   }
 
   function loadDemoConfig() {
-    console.log('=== loadDemoConfig START ===');
     try {
       // Load demo STD10 config
       const demoConfig = {
@@ -275,7 +274,6 @@
 
       showToast('Demo config loaded - no device required', 'info');
     } catch (error) {
-      console.error('Error in loadDemoConfig:', error);
       statusMessage.set(`Error loading demo: ${error}`);
     }
   }

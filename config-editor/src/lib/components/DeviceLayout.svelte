@@ -12,7 +12,6 @@
   let viewBox = $derived(deviceType === 'mini6' ? '0 0 560 400' : '0 0 800 400');
   let maxWidth = $derived(deviceType === 'mini6' ? 560 : 800);
   let cols = $derived(deviceType === 'mini6' ? 3 : 5);
-  let rows = 2;
 
   // Button layout constants
   const BUTTON_SIZE = 120;
