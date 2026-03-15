@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade, slide } from 'svelte/transition';
   import { config, updateField, syncButtonStates, getButtonErrors } from '$lib/formStore';
   import { selectedButtonIndex, buttonClipboard, showToast } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
@@ -28,6 +29,22 @@
   let hasMultipleStates = $derived(keytimes > 1);
 
   let activeStateTab = $state('state-0');
+
+  // Color palette for state tabs - cycling through for visual distinction
+  const STATE_COLORS = [
+    '#6366f1', // indigo
+    '#8b5cf6', // violet
+    '#ec4899', // pink
+    '#f59e0b', // amber
+    '#10b981', // emerald
+    '#06b6d4', // cyan
+    '#f97316', // orange
+    '#a855f7', // purple
+  ];
+
+  // Get color for active state
+  let activeStateIndex = $derived(parseInt(activeStateTab.split('-')[1]));
+  let activeStateColor = $derived(STATE_COLORS[activeStateIndex % STATE_COLORS.length]);
 
   // Collect existing select groups from all buttons
   let existingSelectGroups = $derived.by(() => {
@@ -188,6 +205,44 @@
       </select>
     </div>
 
+    <!-- ── ID Section ─────────────────────────── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="nav-arrows">
+          <button class="nav-btn" onclick={prevButton} disabled={$selectedButtonIndex === 0}>‹</button>
+          <button class="nav-btn" onclick={nextButton} disabled={$selectedButtonIndex >= buttons.length - 1}>›</button>
+        </div>
+        <span class="section-icon">↔</span>
+        <span class="section-title">ID</span>
+      </div>
+      <div class="section-sublabel">Label{hasMultipleStates ? ' (Base)' : ''}. <em>{btn.label}</em></div>
+
+      <div class="field full">
+        <label>Label</label>
+        <input
+          type="text"
+          value={btn.label}
+          maxlength="6"
+          class:error={getError('label')}
+          onblur={(e) => update('label', strVal(e))}
+        />
+        {#if getError('label')}
+          <span class="field-error">{getError('label')}</span>
+        {/if}
+      </div>
+
+      <div class="field full">
+        <label>Long Press Label <span class="field-hint">(optional)</span></label>
+        <input
+          type="text"
+          value={btn.long_press_label ?? ''}
+          maxlength="6"
+          placeholder={btn.label}
+          onblur={(e) => update('long_press_label', strVal(e) || undefined)}
+        />
+      </div>
+    </div>
+
     <!-- ── Behavior Section ──────────────────── -->
     <div class="section">
       <div class="section-header">
@@ -279,44 +334,6 @@
       {/if}
     </div>
 
-    <!-- ── ID Section ─────────────────────────── -->
-    <div class="section">
-      <div class="section-header">
-        <div class="nav-arrows">
-          <button class="nav-btn" onclick={prevButton} disabled={$selectedButtonIndex === 0}>‹</button>
-          <button class="nav-btn" onclick={nextButton} disabled={$selectedButtonIndex >= buttons.length - 1}>›</button>
-        </div>
-        <span class="section-icon">↔</span>
-        <span class="section-title">ID</span>
-      </div>
-      <div class="section-sublabel">Label{hasMultipleStates ? ' (Base)' : ''}. <em>{btn.label}</em></div>
-
-      <div class="field full">
-        <label>Label</label>
-        <input
-          type="text"
-          value={btn.label}
-          maxlength="6"
-          class:error={getError('label')}
-          onblur={(e) => update('label', strVal(e))}
-        />
-        {#if getError('label')}
-          <span class="field-error">{getError('label')}</span>
-        {/if}
-      </div>
-
-      <div class="field full">
-        <label>Long Press Label <span class="field-hint">(optional)</span></label>
-        <input
-          type="text"
-          value={btn.long_press_label ?? ''}
-          maxlength="6"
-          placeholder={btn.label}
-          onblur={(e) => update('long_press_label', strVal(e) || undefined)}
-        />
-      </div>
-    </div>
-
     <!-- ── Actions Section ───────────────────── -->
     <div class="section">
       <div class="section-header">
@@ -325,9 +342,11 @@
         {#if hasMultipleStates}
           <div class="header-state-tabs">
             {#each Array(keytimes) as _, i}
+              {@const stateColor = STATE_COLORS[i % STATE_COLORS.length]}
               <button
                 class="state-tab-btn-header"
                 class:active={activeStateTab === `state-${i}`}
+                style:--state-color={stateColor}
                 onclick={() => activeStateTab = `state-${i}`}
               >
                 State {i + 1}
@@ -342,18 +361,23 @@
         {#each Array(keytimes) as _, i}
           {#if activeStateTab === `state-${i}`}
             {@const state = btn.states?.[i] ?? {}}
+            <div 
+              class="state-content" 
+              style:--state-color={activeStateColor}
+              in:slide={{ duration: 300, axis: 'x' }} 
+              out:slide={{ duration: 200, axis: 'x' }}
+            >
+              <!-- Profile Selector for this state - keyed to force fresh instance per state -->
+              {#key `state-${i}`}
+                <ProfileSelector 
+                  button={btn} 
+                  onUpdate={update}
+                  stateIndex={i}
+                  onUpdateState={updateState}
+                />
+              {/key}
 
-            <!-- Profile Selector for this state - keyed to force fresh instance per state -->
-            {#key `state-${i}`}
-              <ProfileSelector 
-                button={btn} 
-                onUpdate={update}
-                stateIndex={i}
-                onUpdateState={updateState}
-              />
-            {/key}
-
-            <div class="state-visual-config">
+              <div class="state-visual-config">
               <div class="field-row">
                 <div class="field">
                   <label>Color Override:</label>
@@ -402,6 +426,7 @@
               globalChannel={globalCh}
               onUpdate={(cmds) => updateState(i, 'long_release', cmds.length > 0 ? cmds : undefined)}
             />
+            </div>
           {/if}
         {/each}
 
@@ -661,13 +686,13 @@
   }
 
   .state-tab-btn-header:hover {
-    border-color: #3a3a55;
+    border-color: var(--state-color, #3a3a55);
     color: #d1d5db;
   }
 
   .state-tab-btn-header.active {
-    background: #6366f1;
-    border-color: #6366f1;
+    background: var(--state-color, #6366f1);
+    border-color: var(--state-color, #6366f1);
     color: #ffffff;
   }
 
@@ -813,6 +838,13 @@
 
   .state-tab-content {
     margin-top: 12px;
+  }
+
+  .state-content {
+    /* Container for state-specific content with transitions */
+    border-left: 3px solid var(--state-color, #6366f1);
+    padding-left: 16px;
+    margin-left: -16px;
   }
 
   .state-visual-config {
