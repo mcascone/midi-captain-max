@@ -9,17 +9,24 @@
 
   let { button, onUpdate }: Props = $props();
 
-  // Selected profile and action
-  let selectedProfileId = $state(button.profile_id || '');
-  let selectedActionId = $state(button.action_id || '');
+  // Selected profile and action (reactive to button changes)
+  let selectedProfileId = $state('');
+  let selectedActionId = $state('');
+
+  // Profile mode toggle
+  let profileMode = $state(false);
+
+  // Initialize from button props
+  $effect(() => {
+    selectedProfileId = button.profile_id || '';
+    selectedActionId = button.action_id || '';
+    profileMode = Boolean(button.profile_id && button.action_id);
+  });
 
   // Available actions for selected profile
   let availableActions = $derived(
     selectedProfileId ? getProfileActions(selectedProfileId) : []
   );
-
-  // Profile mode toggle
-  let profileMode = $state(Boolean(button.profile_id && button.action_id));
 
   function handleProfileModeToggle() {
     profileMode = !profileMode;
@@ -142,7 +149,8 @@
   .profile-selector {
     margin-bottom: 1rem;
     padding: 1rem;
-    background: #f5f5f5;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
     border-radius: 4px;
   }
 
@@ -155,6 +163,7 @@
     align-items: center;
     gap: 0.5rem;
     font-weight: 600;
+    color: #e0e0e0;
     cursor: pointer;
   }
 
@@ -172,28 +181,30 @@
 
   .form-group label {
     font-size: 0.875rem;
-    font-weight: 500;
-    color: #333;
+    font-weight: 600;
+    color: #e0e0e0;
   }
 
   .form-group select {
     padding: 0.5rem;
-    border: 1px solid #ccc;
+    border: 1px solid #3a3a55;
     border-radius: 4px;
     font-size: 0.875rem;
-    background: white;
+    font-weight: 500;
+    color: #e0e0e0;
+    background: #13131f;
   }
 
   .form-group select:focus {
     outline: none;
-    border-color: #007acc;
-    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
   }
 
   .midi-preview {
     padding: 0.75rem;
-    background: white;
-    border: 1px solid #ddd;
+    background: #13131f;
+    border: 1px solid #2a2a3e;
     border-radius: 4px;
     font-size: 0.875rem;
   }
@@ -201,7 +212,8 @@
   .midi-preview strong {
     display: block;
     margin-bottom: 0.5rem;
-    color: #007acc;
+    color: #818cf8;
+    font-weight: 700;
   }
 
   .midi-preview ul {
@@ -213,5 +225,7 @@
   .midi-preview li {
     margin: 0.25rem 0;
     font-family: 'Courier New', monospace;
+    color: #d0d0d0;
+    font-weight: 500;
   }
 </style>
