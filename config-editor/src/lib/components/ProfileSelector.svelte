@@ -39,22 +39,13 @@
     }
   }
 
-  function handleProfileChange(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    selectedProfileId = target.value;
-    selectedActionId = ''; // Reset action when profile changes
-    onUpdate('profile_id', target.value || undefined);
-    onUpdate('action_id', undefined);
-  }
-
-  function handleActionChange(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    selectedActionId = target.value;
-    onUpdate('action_id', target.value || undefined);
+  function handleActionChange(actionId: string) {
+    selectedActionId = actionId;
+    onUpdate('action_id', actionId);
 
     // Resolve and preview the MIDI commands
-    if (selectedProfileId && target.value) {
-      const commands = resolveProfileAction(selectedProfileId, target.value);
+    if (selectedProfileId && actionId) {
+      const commands = resolveProfileAction(selectedProfileId, actionId);
       if (commands) {
         // Update button's press array with resolved commands
         onUpdate('press', commands);
@@ -78,67 +69,77 @@
 
   {#if profileMode}
     <div class="profile-fields">
-      <!-- Profile Selection -->
-      <div class="form-group">
-        <label for="profile-select">Device Profile</label>
-        <select
-          id="profile-select"
-          value={selectedProfileId}
-          onchange={handleProfileChange}
-        >
-          <option value="">Select a device...</option>
-          {#each profiles as profile}
-            <option value={profile.id}>
-              {profile.manufacturer} {profile.name}
-              {#if profile.type !== 'fixed'}({profile.type}){/if}
-            </option>
-          {/each}
-        </select>
+      <!-- Profile Cards Grid -->
+      <div class="section-label">Select Device</div>
+      <div class="profile-cards">
+        {#each profiles as profile}
+          <button
+            type="button"
+            class="profile-card"
+            class:active={selectedProfileId === profile.id}
+            onclick={() => {
+              selectedProfileId = profile.id;
+              selectedActionId = '';
+              onUpdate('profile_id', profile.id);
+              onUpdate('action_id', undefined);
+            }}
+          >
+            <div class="profile-card-header">
+              <span class="profile-name">{profile.manufacturer}</span>
+              <span class="profile-type-badge" class:fixed={profile.type === 'fixed'}>
+                {profile.type}
+              </span>
+            </div>
+            <div class="profile-model">{profile.name}</div>
+          </button>
+        {/each}
       </div>
 
-      <!-- Action Selection -->
-      {#if selectedProfileId}
-        <div class="form-group">
-          <label for="action-select">Action</label>
-          <select
-            id="action-select"
-            value={selectedActionId}
-            onchange={handleActionChange}
-          >
-            <option value="">Select an action...</option>
-            {#each availableActions || [] as action}
-              <option value={action.id} title={action.description}>
-                {action.label}
-              </option>
-            {/each}
-          </select>
+      <!-- Actions Grid -->
+      {#if selectedProfileId && availableActions}
+        <div class="section-label">Select Action</div>
+        <div class="actions-grid">
+          {#each availableActions as action}
+            <button
+              type="button"
+              class="action-button"
+              class:active={selectedActionId === action.id}
+              title={action.description}
+              onclick={() => handleActionChange(action.id)}
+            >
+              {action.label}
+            </button>
+          {/each}
         </div>
       {/if}
 
       <!-- Resolved MIDI Preview -->
       {#if selectedProfileId && selectedActionId && button.press}
         <div class="midi-preview">
-          <strong>Resolved MIDI:</strong>
-          <ul>
+          <div class="preview-header">
+            <span class="preview-icon">⚡</span>
+            <strong>Resolved MIDI</strong>
+          </div>
+          <div class="midi-commands">
             {#each button.press as cmd}
-              <li>
+              <span class="midi-chip">
                 {#if cmd.type === 'cc'}
-                  CC{cmd.cc} = {cmd.value}
+                  CC{cmd.cc}={cmd.value}
                 {:else if cmd.type === 'note'}
                   Note {cmd.note} vel={cmd.velocity}
                 {:else if cmd.type === 'pc'}
                   PC {cmd.program}
                 {:else if cmd.type === 'pc_inc'}
-                  PC+ (step {cmd.pc_step || 1})
+                  PC+{cmd.pc_step || 1}
                 {:else if cmd.type === 'pc_dec'}
-                  PC- (step {cmd.pc_step || 1})
+                  PC-{cmd.pc_step || 1}
                 {/if}
                 {#if cmd.channel !== undefined}
-                  (Ch {cmd.channel + 1})
+                  <span class="midi-channel">Ch{cmd.channel + 1}</span>
                 {/if}
-              </li>
+              </span>
             {/each}
-          </ul>
+          </div>
         </div>
       {/if}
     </div>
@@ -151,7 +152,7 @@
     padding: 1rem;
     background: #1a1a2e;
     border: 1px solid #2a2a3e;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   .profile-mode-toggle {
@@ -173,59 +174,166 @@
     gap: 1rem;
   }
 
-  .form-group {
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: -0.5rem;
+  }
+
+  /* Profile Cards Grid */
+  .profile-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .profile-card {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .form-group label {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #e0e0e0;
-  }
-
-  .form-group select {
-    padding: 0.5rem;
-    border: 1px solid #3a3a55;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #e0e0e0;
+    gap: 0.5rem;
+    padding: 0.875rem;
     background: #13131f;
+    border: 2px solid #2a2a3e;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
   }
 
-  .form-group select:focus {
-    outline: none;
+  .profile-card:hover {
+    border-color: #3a3a4e;
+    background: #1a1a2e;
+  }
+
+  .profile-card.active {
     border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    background: rgba(99, 102, 241, 0.1);
   }
 
-  .midi-preview {
-    padding: 0.75rem;
+  .profile-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .profile-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .profile-type-badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: #2a2a3e;
+    color: #9ca3af;
+    text-transform: uppercase;
+  }
+
+  .profile-type-badge.fixed {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+
+  .profile-model {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e5e7eb;
+  }
+
+  /* Actions Grid */
+  .actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .action-button {
+    padding: 0.625rem 0.75rem;
     background: #13131f;
     border: 1px solid #2a2a3e;
     border-radius: 4px;
-    font-size: 0.875rem;
-  }
-
-  .midi-preview strong {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: #818cf8;
-    font-weight: 700;
-  }
-
-  .midi-preview ul {
-    margin: 0;
-    padding-left: 1.25rem;
-    list-style-type: disc;
-  }
-
-  .midi-preview li {
-    margin: 0.25rem 0;
-    font-family: 'Courier New', monospace;
-    color: #d0d0d0;
+    color: #d1d5db;
+    font-size: 12px;
     font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+  }
+
+  .action-button:hover {
+    border-color: #3a3a4e;
+    background: #1a1a2e;
+    color: #e5e7eb;
+  }
+
+  .action-button.active {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: #6366f1;
+    color: #818cf8;
+    font-weight: 600;
+  }
+
+  /* MIDI Preview */
+  .midi-preview {
+    padding: 0.875rem;
+    background: #13131f;
+    border: 1px solid #2a2a3e;
+    border-radius: 6px;
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+  }
+
+  .preview-icon {
+    font-size: 16px;
+  }
+
+  .preview-header strong {
+    font-size: 11px;
+    font-weight: 700;
+    color: #818cf8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .midi-commands {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .midi-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a5b4fc;
+  }
+
+  .midi-channel {
+    padding: 0.125rem 0.375rem;
+    background: rgba(99, 102, 241, 0.2);
+    border-radius: 3px;
+    font-size: 10px;
+    color: #c7d2fe;
   }
 </style>
