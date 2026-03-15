@@ -56,6 +56,11 @@ export interface ButtonConfig {
   long_press_label?: string;  // Optional label to display when long press triggers
   color: ButtonColor;
 
+  // ===== DEVICE PROFILE SUPPORT =====
+  // When set, the editor resolves the action to MIDI commands before saving
+  profile_id?: string;        // Device profile ID (e.g., 'quad-cortex', 'helix')
+  action_id?: string;         // Action within profile (e.g., 'scene_b', 'snapshot_3')
+
   // ===== NEW: Multi-command event arrays =====
   // These take precedence over legacy type-based fields
   press?: MidiCommand[];      // Commands dispatched on button press

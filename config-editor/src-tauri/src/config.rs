@@ -172,6 +172,15 @@ pub struct ButtonConfig {
     pub long_press_label: Option<String>,
     pub color: ButtonColor,
 
+    // ===== DEVICE PROFILE SUPPORT =====
+    /// Device profile ID (e.g., 'quad-cortex', 'helix')
+    /// When set with action_id, editor resolves to MIDI before saving
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    /// Action within profile (e.g., 'scene_b', 'snapshot_3')
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action_id: Option<String>,
+
     // ===== NEW: Multi-command event arrays =====
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
     pub press: Option<Vec<MidiCommand>>,
@@ -1559,5 +1568,34 @@ mod tests {
         assert!(err_str.contains("long_press_label"));
         assert!(err_str.contains("TOOLONG"));
         assert!(err_str.contains("exceeds 6 chars"));
+    }
+
+    #[test]
+    fn test_roundtrip_profile_ids() {
+        // Test that profile_id and action_id fields survive round-trip
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "SCENE",
+                    "color": "green",
+                    "profile_id": "quad-cortex",
+                    "action_id": "scene_b",
+                    "press": [{"type": "cc", "cc": 43, "value": 1, "channel": 0}]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons[0];
+        assert_eq!(btn.profile_id, Some("quad-cortex".to_string()));
+        assert_eq!(btn.action_id, Some("scene_b".to_string()));
+        assert!(btn.press.is_some());
+
+        // Round-trip test
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons[0].profile_id, Some("quad-cortex".to_string()));
+        assert_eq!(config2.buttons[0].action_id, Some("scene_b".to_string()));
+        assert!(config2.buttons[0].press.is_some());
     }
 }

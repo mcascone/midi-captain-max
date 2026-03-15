@@ -3,6 +3,7 @@
   import { selectedButtonIndex, buttonClipboard, showToast } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
   import ButtonCommandsEditor from './ButtonCommandsEditor.svelte';
+  import ProfileSelector from './ProfileSelector.svelte';
   import type { MidiCommand, ButtonConfig } from '$lib/types';
   import { BUTTON_COLORS } from '$lib/types';
 
@@ -321,6 +322,9 @@
         <span class="section-icon">⚡</span>
         <span class="section-title">Actions</span>
       </div>
+
+      <!-- Profile Selector -->
+      <ProfileSelector button={btn} onUpdate={update} />
 
       {#if (btn.mode ?? 'toggle') === 'toggle' && !btn.press && !btn.release}
         <!-- Simplified toggle: CC/channel/values only — firmware handles on/off dispatch -->
