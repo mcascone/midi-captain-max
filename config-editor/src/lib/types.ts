@@ -2,7 +2,8 @@
 
 export type ButtonColor =
   | 'red' | 'green' | 'blue' | 'yellow'
-  | 'cyan' | 'magenta' | 'orange' | 'purple' | 'white';
+  | 'cyan' | 'magenta' | 'orange' | 'purple' | 'white'
+  | 'pink' | 'lime' | 'amber' | 'teal' | 'violet' | 'gold';
 
 export type ButtonMode = 'toggle' | 'normal' | 'momentary' | 'select' | 'tap';
 export type OffMode = 'dim' | 'off';
@@ -186,4 +187,10 @@ export const BUTTON_COLORS: Record<ButtonColor, string> = {
   orange: '#ff8000',
   purple: '#8000ff',
   white: '#ffffff',
+  pink: '#ff69b4',
+  lime: '#00ff80',
+  amber: '#ffbf00',
+  teal: '#008080',
+  violet: '#6600cc',
+  gold: '#ffd700',
 };

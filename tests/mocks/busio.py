@@ -65,10 +65,11 @@ class I2C:
 class UART:
     """Mock UART."""
     
-    def __init__(self, tx=None, rx=None, *, baudrate=9600, bits=8, parity=None, stop=1, timeout=1):
+    def __init__(self, tx=None, rx=None, *, baudrate=9600, bits=8, parity=None, stop=1, timeout=1, receiver_buffer_size=64):
         self.tx = tx
         self.rx = rx
         self.baudrate = baudrate
+        self.receiver_buffer_size = receiver_buffer_size
         self._buffer = bytearray()
     
     def read(self, nbytes=None):

@@ -45,6 +45,10 @@ export function removeToast(id: number) {
   toasts.update(t => t.filter(toast => toast.id !== id));
 }
 
+// Button clipboard for copy/paste
+import type { ButtonConfig } from './types';
+export const buttonClipboard = writable<ButtonConfig | null>(null);
+
 // Derived: is a device selected and has config
 export const canEdit = derived(
   [selectedDevice, currentConfigRaw],

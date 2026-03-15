@@ -419,3 +419,24 @@ export function validate() {
 
   return result.isValid;
 }
+
+// Get error for a specific field path (e.g., "buttons[0].label")
+export function getFieldError(fieldPath: string): string | null {
+  const state = get(formState);
+  return state.validationErrors.get(fieldPath) ?? null;
+}
+
+// Get all errors for a button by index
+export function getButtonErrors(buttonIndex: number): Map<string, string> {
+  const state = get(formState);
+  const buttonErrors = new Map<string, string>();
+  const prefix = `buttons[${buttonIndex}]`;
+
+  state.validationErrors.forEach((error, key) => {
+    if (key.startsWith(prefix)) {
+      buttonErrors.set(key, error);
+    }
+  });
+
+  return buttonErrors;
+}

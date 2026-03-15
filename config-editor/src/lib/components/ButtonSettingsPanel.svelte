@@ -1,14 +1,24 @@
 <script lang="ts">
-  import { config, updateField, syncButtonStates } from '$lib/formStore';
-  import { selectedButtonIndex } from '$lib/stores';
+  import { config, updateField, syncButtonStates, getButtonErrors } from '$lib/formStore';
+  import { selectedButtonIndex, buttonClipboard, showToast } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
   import ButtonCommandsEditor from './ButtonCommandsEditor.svelte';
-  import type { MidiCommand } from '$lib/types';
+  import type { MidiCommand, ButtonConfig } from '$lib/types';
   import { BUTTON_COLORS } from '$lib/types';
 
   let btn    = $derived($config.buttons[$selectedButtonIndex] ?? null);
   let buttons = $derived($config.buttons);
   let globalCh = $derived($config.global_channel ?? 0);
+
+  // Get validation errors for current button
+  let buttonErrors = $derived.by(() => {
+    if (btn) {
+      return getButtonErrors($selectedButtonIndex);
+    }
+    return new Map();
+  });
+
+  let hasErrors = $derived(buttonErrors.size > 0);
 
   let effectiveChannel = $derived((btn?.channel !== undefined ? btn.channel : globalCh) + 1);
   let displayChannel   = $derived(btn?.channel !== undefined ? btn.channel + 1 : undefined);
@@ -17,6 +27,18 @@
   let hasMultipleStates = $derived(keytimes > 1);
 
   let activeStateTab = $state('state-0');
+
+  // Collect existing select groups from all buttons
+  let existingSelectGroups = $derived.by(() => {
+    const groups = new Set<string>();
+    buttons.forEach((b, i) => {
+      // Exclude current button and empty/undefined groups
+      if (i !== $selectedButtonIndex && b.select_group && b.select_group.trim() !== '') {
+        groups.add(b.select_group);
+      }
+    });
+    return Array.from(groups).sort();
+  });
 
   // Dim brightness reactive value
   let dimBrightness = $state(30);
@@ -104,13 +126,50 @@
   function nextButton() {
     if ($selectedButtonIndex < $config.buttons.length - 1) selectedButtonIndex.update(n => n + 1);
   }
+
+  function copyButton() {
+    if (!btn) return;
+    // Create a deep copy excluding internal state
+    const copied: ButtonConfig = JSON.parse(JSON.stringify(btn));
+    buttonClipboard.set(copied);
+    showToast(`Copied button "${btn.label}" config`, 'success', 2000);
+  }
+
+  function pasteButton() {
+    if (!btn || !$buttonClipboard) return;
+    // Preserve only the label from the target button - everything else gets replaced
+    const targetLabel = btn.label;
+    const pasted = { ...$buttonClipboard, label: targetLabel };
+
+    // Replace the entire button config to clear stale fields
+    updateField(`buttons[${$selectedButtonIndex}]`, pasted);
+
+    showToast(`Pasted config to button "${targetLabel}"`, 'success', 2000);
+  }
+
+  // Helper to get error for a specific field
+  function getError(fieldName: string): string | null {
+    const key = `buttons[${$selectedButtonIndex}].${fieldName}`;
+    return buttonErrors.get(key) ?? null;
+  }
 </script>
 
 <div class="settings-panel">
   <!-- Panel header -->
   <div class="panel-header">
     <span class="panel-title">Button Settings</span>
-    <button class="dots-btn">•••</button>
+    {#if hasErrors}
+      <span class="error-badge" title="{buttonErrors.size} validation error(s)">⚠ {buttonErrors.size}</span>
+    {/if}
+    <div class="header-actions">
+      <button class="action-btn" onclick={copyButton} title="Copy button config">
+        📋 Copy
+      </button>
+      <button class="action-btn" onclick={pasteButton} disabled={!$buttonClipboard} title="Paste button config">
+        📄 Paste
+      </button>
+      <button class="dots-btn">•••</button>
+    </div>
   </div>
 
   {#if btn}
@@ -145,8 +204,12 @@
           type="text"
           value={btn.label}
           maxlength="6"
+          class:error={getError('label')}
           onblur={(e) => update('label', strVal(e))}
         />
+        {#if getError('label')}
+          <span class="field-error">{getError('label')}</span>
+        {/if}
       </div>
 
       <div class="field full">
@@ -207,8 +270,20 @@
         {#if btn.mode !== 'momentary' && btn.mode !== 'tap' && (btn.keytimes ?? 1) === 1}
           <div class="field">
             <label>Select Group:</label>
-            <input type="text" value={btn.select_group ?? ''} placeholder="group name"
-              onblur={(e) => { const v = strVal(e); update('select_group', v === '' ? undefined : v); }} />
+            <input
+              type="text"
+              value={btn.select_group ?? ''}
+              placeholder="group name"
+              list="select-groups-list"
+              onblur={(e) => { const v = strVal(e); update('select_group', v === '' ? undefined : v); }}
+            />
+            {#if existingSelectGroups.length > 0}
+              <datalist id="select-groups-list">
+                {#each existingSelectGroups as group}
+                  <option value={group}></option>
+                {/each}
+              </datalist>
+            {/if}
           </div>
         {/if}
       </div>
@@ -247,7 +322,7 @@
         <span class="section-title">Actions</span>
       </div>
 
-      {#if (btn.mode ?? 'toggle') === 'toggle'}
+      {#if (btn.mode ?? 'toggle') === 'toggle' && !btn.press && !btn.release}
         <!-- Simplified toggle: CC/channel/values only — firmware handles on/off dispatch -->
         <div class="simple-toggle-section">
           <p class="simple-toggle-help">Firmware sends <strong>Value ON</strong> when toggling on, <strong>Value OFF</strong> when toggling off — no press/release arrays needed.</p>
@@ -377,7 +452,7 @@
           onUpdate={(cmds) => update('press', cmds.length > 0 ? cmds : undefined)}
         />
 
-        {#if (btn.mode ?? 'toggle') === 'momentary'}
+        {#if (btn.mode ?? 'toggle') === 'momentary' || (btn.mode ?? 'toggle') === 'toggle' || (btn.release && btn.release.length > 0)}
           <ButtonCommandsEditor
             eventLabel="Release"
             commands={btn.release ?? []}
@@ -428,6 +503,48 @@
     text-transform: uppercase;
     color: #9ca3af;
     letter-spacing: 0.15em;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .error-badge {
+    background: #dc2626;
+    color: white;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    margin-left: auto;
+    margin-right: 8px;
+  }
+
+  .action-btn {
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #9ca3af;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    background: #374151;
+    color: #ffffff;
+    border-color: #4b5563;
+  }
+
+  .action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .dots-btn {
@@ -559,6 +676,24 @@
   input:focus, select:focus {
     outline: none;
     border-color: #6366f1;
+  }
+
+  input.error, select.error {
+    border-color: #dc2626;
+    background: #2a1a1a;
+  }
+
+  .field-error {
+    font-size: 11px;
+    color: #ef4444;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .field-error::before {
+    content: '⚠';
   }
 
   input[type="number"] { width: 72px; }

@@ -381,7 +381,28 @@ Track features, bugs, and future work via [GitHub Issues](https://github.com/MC-
 - [x] Custom USB drive naming (`usb_drive_name` in config + GUI field)
 - [x] Dev vs Performance mode (`dev_mode` in config + GUI checkbox)
 
+### Phase 4: Visual Device Editor (PRD Feature 1)
+- [x] Device layout design specification (`docs/features/device-layout-design.md`)
+- [x] DeviceLayout SVG component (interactive button grid)
+- [x] Hardware-accurate button positioning (STD10: 2×5, Mini6: 2×3)
+- [x] LED color preview on each button
+- [x] Multi-command indicators and tooltips
+- [x] Click-to-select interaction
+- [x] Keyboard navigation support
+- [x] Replace DeviceGrid with DeviceLayout in LeftPanel
+
 ### Future
+- [ ] Device Profiles (PRD Feature 2)
+  - [ ] Profile schema design (YAML/JSON format)
+  - [ ] Profile definitions (Quad Cortex, Helix, Kemper, Ableton, MainStage)
+  - [ ] Profile resolver (action → MIDI)
+  - [ ] Editor UI: profile selector, action dropdown
+  - [ ] Config schema support for profile metadata
+- [ ] Conditional Actions (PRD Feature 3)
+  - [ ] Condition DSL design
+  - [ ] Firmware: condition evaluation engine
+  - [ ] State tracking system
+  - [ ] Editor: condition builder UI
 - [ ] CI workflow DRY: `Setup Node.js` + `Install frontend dependencies` duplicated between `build-config-editor-macos` and `build-config-editor-windows` — could be a composite action
 - [ ] Release workflow DRY: find/rename/warn pattern in `Prepare release assets` repeats 3× (DMG, MSI, NSIS) — could be a shell function
 - [ ] Windows Signing Cert
