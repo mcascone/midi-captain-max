@@ -156,6 +156,7 @@
       return;
     }
     $isLoading = true;
+    let saveSucceeded = false;
     try {
       const configObj = normalizeConfig(get(config));
       const configJson = JSON.stringify(configObj, null, 2);
@@ -164,6 +165,7 @@
       $hasUnsavedChanges = false;
       $statusMessage = 'Config saved successfully';
       showToast('Config saved successfully', 'success');
+      saveSucceeded = true;
       
     } catch (e: any) {
       $statusMessage = `Error saving config: ${e.message || e}`;
@@ -172,8 +174,10 @@
       $isLoading = false;
     }
     
-    // Prompt to eject device after saving (UI unlocked)
-    await promptEjectDevice();
+    // Prompt to eject device only if save succeeded (UI unlocked)
+    if (saveSucceeded) {
+      await promptEjectDevice();
+    }
   }
 
   async function promptEjectDevice() {
@@ -201,9 +205,9 @@
       $selectedDevice = null;
       $statusMessage = `${deviceName} ejected - waiting for reconnection...`;
       
-      // Auto-select next available device if any
+      // Auto-select next available device if any (use path for stable identity)
       if ($devices.length > 1) {
-        const nextDevice = $devices.find(d => d.name !== deviceName);
+        const nextDevice = $devices.find(d => d.path.toString() !== devicePath);
         if (nextDevice) {
           await new Promise(resolve => setTimeout(resolve, 500));
           await selectDevice(nextDevice);

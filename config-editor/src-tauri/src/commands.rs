@@ -102,7 +102,7 @@ impl From<serde_json::Error> for ConfigError {
 ///    `usb_drive_name` matches the actual volume name (case-insensitive).
 ///    This limits the surface: an arbitrary volume won't pass validation
 ///    just because someone placed a config.json on it.
-fn validate_device_path(path: &str) -> Result<(), ConfigError> {
+fn validate_device_path(path: &str) -> Result<PathBuf, ConfigError> {
     let path = Path::new(path);
 
     // Canonicalize to resolve any .. or symlinks
@@ -119,7 +119,7 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
 
     // Accept well-known volume names
     if DEVICE_VOLUMES.iter().any(|v| volume_name.eq_ignore_ascii_case(v)) {
-        return Ok(());
+        return Ok(canonical);
     }
 
     // Accept custom-named volumes only when the config's usb_drive_name
@@ -129,7 +129,7 @@ fn validate_device_path(path: &str) -> Result<(), ConfigError> {
         let config_path = volume_path.join("config.json");
         if let Some(declared_name) = crate::device::parse_midi_captain_config(&config_path) {
             if declared_name.eq_ignore_ascii_case(&volume_name) {
-                return Ok(());
+                return Ok(canonical);
             }
         }
     }
@@ -220,8 +220,8 @@ fn write_sync(path: &Path, data: &[u8]) -> Result<(), std::io::Error> {
 /// Read config from a file path
 #[command]
 pub fn read_config(path: String) -> Result<MidiCaptainConfig, ConfigError> {
-    validate_device_path(&path)?;
-    let contents = fs::read_to_string(&path)?;
+    let canonical = validate_device_path(&path)?;
+    let contents = fs::read_to_string(&canonical)?;
     let config: MidiCaptainConfig = serde_json::from_str(&contents)?;
     Ok(config)
 }
@@ -229,8 +229,8 @@ pub fn read_config(path: String) -> Result<MidiCaptainConfig, ConfigError> {
 /// Read raw JSON from a file (for text editor)
 #[command]
 pub fn read_config_raw(path: String) -> Result<String, ConfigError> {
-    validate_device_path(&path)?;
-    let contents = fs::read_to_string(&path)?;
+    let canonical = validate_device_path(&path)?;
+    let contents = fs::read_to_string(&canonical)?;
     // Pretty-print the JSON
     let value: serde_json::Value = serde_json::from_str(&contents)?;
     let pretty = serde_json::to_string_pretty(&value)?;
@@ -240,12 +240,10 @@ pub fn read_config_raw(path: String) -> Result<String, ConfigError> {
 /// Write config to a file path
 #[command]
 pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), ConfigError> {
-    validate_device_path(&path)?;
-    
-    let path_obj = Path::new(&path);
+    let canonical = validate_device_path(&path)?;
     
     // Verify volume is still mounted
-    verify_device_connected(path_obj)?;
+    verify_device_connected(&canonical)?;
     
     // Validate before writing
     if let Err(errors) = config.validate() {
@@ -256,7 +254,7 @@ pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), Confi
     }
 
     let json = serde_json::to_string_pretty(&config)?;
-    write_sync(path_obj, json.as_bytes())?;
+    write_sync(&canonical, json.as_bytes())?;
 
     Ok(())
 }
@@ -264,12 +262,10 @@ pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), Confi
 /// Write raw JSON to a file (from text editor)
 #[command]
 pub fn write_config_raw(path: String, json: String) -> Result<(), ConfigError> {
-    validate_device_path(&path)?;
-    
-    let path_obj = Path::new(&path);
+    let canonical = validate_device_path(&path)?;
     
     // Verify volume is still mounted
-    verify_device_connected(path_obj)?;
+    verify_device_connected(&canonical)?;
     
     // Validate JSON is parseable
     let config: MidiCaptainConfig = serde_json::from_str(&json)?;
@@ -284,7 +280,7 @@ pub fn write_config_raw(path: String, json: String) -> Result<(), ConfigError> {
 
     // Pretty-print and write
     let pretty = serde_json::to_string_pretty(&config)?;
-    write_sync(path_obj, pretty.as_bytes())?;
+    write_sync(&canonical, pretty.as_bytes())?;
 
     Ok(())
 }
@@ -307,14 +303,8 @@ pub fn validate_config(json: String) -> Result<(), ConfigError> {
 /// Safely eject/unmount a device volume
 #[command]
 pub fn eject_device(path: String) -> Result<String, ConfigError> {
-    // Validate path is on a recognized MIDI Captain device
-    validate_device_path(&path)?;
-    
-    let path = Path::new(&path);
-    let canonical = path.canonicalize().map_err(|e| ConfigError {
-        message: format!("Could not canonicalize path: {}", e),
-        details: None,
-    })?;
+    // Validate path and get canonical path (avoids double canonicalization)
+    let canonical = validate_device_path(&path)?;
     
     let volume_path = get_volume_path(&canonical).ok_or_else(|| ConfigError {
         message: "Could not determine volume path".to_string(),
