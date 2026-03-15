@@ -266,6 +266,16 @@ jobs:
         with:
           semver: ${{ needs.lint.outputs.semver }}
 
+      - name: Enable code signing in Tauri config
+        if: env.KEYCHAIN_PATH != ''
+        run: |
+          # Only enable signing when certificate was successfully imported
+          cd config-editor/src-tauri
+          jq '.bundle.macOS.signingIdentity = "Developer ID Application: Maximilian Cascone (9WNXKEF4SM)"' tauri.conf.json > tauri.conf.json.tmp
+          jq '.bundle.macOS.providerShortName = "9WNXKEF4SM"' tauri.conf.json.tmp > tauri.conf.json
+          rm tauri.conf.json.tmp
+          echo "✓ Code signing enabled in tauri.conf.json" >> $GITHUB_STEP_SUMMARY
+
       - name: Unlock keychain before build
         if: env.KEYCHAIN_PATH != ''
         run: |
@@ -279,11 +289,13 @@ jobs:
           ls -lah src-tauri/target/universal-apple-darwin/release/bundle/
 
       - name: Notarize DMG
+        if: env.KEYCHAIN_PATH != ''
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # Only notarize if app was signed (KEYCHAIN_PATH set means cert was imported)
           # Skip if notarization credentials not configured
           if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_PASSWORD" ]; then
             echo "⚠️ Notarization credentials not configured - skipping" >> $GITHUB_STEP_SUMMARY
