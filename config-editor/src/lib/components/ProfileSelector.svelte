@@ -5,9 +5,11 @@
   interface Props {
     button: ButtonConfig;
     onUpdate: (field: string, value: any) => void;
+    stateIndex?: number;  // For keytimes - which state we're editing
+    onUpdateState?: (stateIndex: number, field: string, value: any) => void;
   }
 
-  let { button, onUpdate }: Props = $props();
+  let { button, onUpdate, stateIndex, onUpdateState }: Props = $props();
 
   // Selected profile and action (reactive to button changes)
   let selectedProfileId = $state('');
@@ -34,17 +36,24 @@
     selectedProfileId ? getProfileActions(selectedProfileId) : []
   );
 
-  // Get the commands for the selected target event
+  // Get the commands for the selected target event (from state or button)
   let targetCommands = $derived(
-    button[targetEvent] as MidiCommand[] | undefined
+    stateIndex !== undefined && button.states?.[stateIndex]
+      ? button.states[stateIndex][targetEvent] as MidiCommand[] | undefined
+      : button[targetEvent] as MidiCommand[] | undefined
   );
 
-  // Check which events have commands assigned
-  let eventHasCommands = $derived({
-    press: Boolean(button.press && button.press.length > 0),
-    release: Boolean(button.release && button.release.length > 0),
-    long_press: Boolean(button.long_press && button.long_press.length > 0),
-    long_release: Boolean(button.long_release && button.long_release.length > 0),
+  // Check which events have commands assigned (from state or button)
+  let eventHasCommands = $derived.by(() => {
+    const source = stateIndex !== undefined && button.states?.[stateIndex]
+      ? button.states[stateIndex]
+      : button;
+    return {
+      press: Boolean(source.press && source.press.length > 0),
+      release: Boolean(source.release && source.release.length > 0),
+      long_press: Boolean(source.long_press && source.long_press.length > 0),
+      long_release: Boolean(source.long_release && source.long_release.length > 0),
+    };
   });
 
   // Compare two MIDI commands for equality
@@ -121,6 +130,8 @@
 
   function handleActionChange(actionId: string) {
     selectedActionId = actionId;
+    
+    // Update profile metadata (always on button level, not state level)
     onUpdate('action_id', actionId);
 
     // If button is in simplified toggle mode, switch to normal mode for explicit events
@@ -136,9 +147,17 @@
         if (channelOverride !== undefined) {
           commands = commands.map(cmd => ({ ...cmd, channel: channelOverride }));
         }
-        // Update button's selected event array with resolved commands
-        onUpdate(targetEvent, commands);
-        console.log(`[ProfileSelector] Resolved MIDI commands for ${targetEvent}:`, commands);
+        
+        // Update commands - use state-specific or button-level depending on context
+        if (stateIndex !== undefined && onUpdateState) {
+          // Updating a specific state (keytimes > 1)
+          onUpdateState(stateIndex, targetEvent, commands);
+          console.log(`[ProfileSelector] Updated state ${stateIndex} ${targetEvent}:`, commands);
+        } else {
+          // Updating button-level commands (keytimes = 1)
+          onUpdate(targetEvent, commands);
+          console.log(`[ProfileSelector] Updated button ${targetEvent}:`, commands);
+        }
       }
     }
   }
@@ -148,11 +167,19 @@
     selectedActionId = '';
     onUpdate('profile_id', undefined);
     onUpdate('action_id', undefined);
-    // Clear all event commands
-    onUpdate('press', undefined);
-    onUpdate('release', undefined);
-    onUpdate('long_press', undefined);
-    onUpdate('long_release', undefined);
+    
+    // Clear all event commands - use state-specific or button-level
+    if (stateIndex !== undefined && onUpdateState) {
+      onUpdateState(stateIndex, 'press', undefined);
+      onUpdateState(stateIndex, 'release', undefined);
+      onUpdateState(stateIndex, 'long_press', undefined);
+      onUpdateState(stateIndex, 'long_release', undefined);
+    } else {
+      onUpdate('press', undefined);
+      onUpdate('release', undefined);
+      onUpdate('long_press', undefined);
+      onUpdate('long_release', undefined);
+    }
   }
 </script>
 

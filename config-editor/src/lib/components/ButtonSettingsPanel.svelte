@@ -188,50 +188,20 @@
       </select>
     </div>
 
-    <!-- ── ID Section ─────────────────────────── -->
-    <div class="section">
-      <div class="section-header">
-        <div class="nav-arrows">
-          <button class="nav-btn" onclick={prevButton} disabled={$selectedButtonIndex === 0}>‹</button>
-          <button class="nav-btn" onclick={nextButton} disabled={$selectedButtonIndex >= buttons.length - 1}>›</button>
-        </div>
-        <span class="section-icon">↔</span>
-        <span class="section-title">ID</span>
+    <!-- State Tabs (if keytimes > 1) -->
+    {#if hasMultipleStates}
+      <div class="state-tabs-top">
+        {#each Array(keytimes) as _, i}
+          <button
+            class="state-tab-btn"
+            class:active={activeStateTab === `state-${i}`}
+            onclick={() => activeStateTab = `state-${i}`}
+          >
+            State {i + 1}
+          </button>
+        {/each}
       </div>
-      <div class="section-sublabel">Label. <em>{btn.label}</em></div>
-
-      <div class="field full">
-        <label>Label</label>
-        <input
-          type="text"
-          value={btn.label}
-          maxlength="6"
-          class:error={getError('label')}
-          onblur={(e) => update('label', strVal(e))}
-        />
-        {#if getError('label')}
-          <span class="field-error">{getError('label')}</span>
-        {/if}
-      </div>
-
-      <div class="field full">
-        <label>Long Press Label <span class="field-hint">(optional)</span></label>
-        <input
-          type="text"
-          value={btn.long_press_label ?? ''}
-          maxlength="6"
-          placeholder={btn.label}
-          onblur={(e) => update('long_press_label', strVal(e) || undefined)}
-        />
-      </div>
-
-      <div class="field-row">
-        <div class="field">
-          <label>Color:</label>
-          <ColorSelect value={btn.color} onchange={(c) => update('color', c)} />
-        </div>
-      </div>
-    </div>
+    {/if}
 
     <!-- ── Behavior Section ──────────────────── -->
     <div class="section">
@@ -317,17 +287,128 @@
       {/if}
     </div>
 
+    <!-- ── ID Section ─────────────────────────── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="nav-arrows">
+          <button class="nav-btn" onclick={prevButton} disabled={$selectedButtonIndex === 0}>‹</button>
+          <button class="nav-btn" onclick={nextButton} disabled={$selectedButtonIndex >= buttons.length - 1}>›</button>
+        </div>
+        <span class="section-icon">↔</span>
+        <span class="section-title">ID</span>
+      </div>
+      <div class="section-sublabel">Label{hasMultipleStates ? ' (Base)' : ''}. <em>{btn.label}</em></div>
+
+      <div class="field full">
+        <label>Label</label>
+        <input
+          type="text"
+          value={btn.label}
+          maxlength="6"
+          class:error={getError('label')}
+          onblur={(e) => update('label', strVal(e))}
+        />
+        {#if getError('label')}
+          <span class="field-error">{getError('label')}</span>
+        {/if}
+      </div>
+
+      <div class="field full">
+        <label>Long Press Label <span class="field-hint">(optional)</span></label>
+        <input
+          type="text"
+          value={btn.long_press_label ?? ''}
+          maxlength="6"
+          placeholder={btn.label}
+          onblur={(e) => update('long_press_label', strVal(e) || undefined)}
+        />
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Color:</label>
+          <ColorSelect value={btn.color} onchange={(c) => update('color', c)} />
+        </div>
+      </div>
+    </div>
+
     <!-- ── Actions Section ───────────────────── -->
     <div class="section">
       <div class="section-header">
         <span class="section-icon">⚡</span>
-        <span class="section-title">Actions</span>
+        <span class="section-title">Actions{hasMultipleStates ? ` - State ${parseInt(activeStateTab.split('-')[1]) + 1}` : ''}</span>
       </div>
 
-      <!-- Profile Selector -->
-      <ProfileSelector button={btn} onUpdate={update} />
+      {#if hasMultipleStates}
+        <!-- State-specific content for keytimes > 1 -->
+        {#each Array(keytimes) as _, i}
+          {#if activeStateTab === `state-${i}`}
+            {@const state = btn.states?.[i] ?? {}}
 
-      {#if (btn.mode ?? 'toggle') === 'toggle' && !btn.press && !btn.release}
+            <!-- Profile Selector for this state -->
+            <ProfileSelector 
+              button={btn} 
+              onUpdate={update}
+              stateIndex={i}
+              onUpdateState={updateState}
+            />
+
+            <div class="state-visual-config">
+              <div class="field-row">
+                <div class="field">
+                  <label>Color Override:</label>
+                  <ColorSelect
+                    value={state.color ?? btn.color}
+                    onchange={(c) => updateState(i, 'color', c)}
+                  />
+                </div>
+                <div class="field">
+                  <label>Label Override:</label>
+                  <input
+                    type="text"
+                    value={state.label ?? ''}
+                    maxlength="6"
+                    placeholder={btn.label}
+                    onblur={(e) => { const v = strVal(e); updateState(i, 'label', v === '' ? undefined : v); }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <ButtonCommandsEditor
+              eventLabel="Press"
+              commands={state.press ?? []}
+              globalChannel={globalCh}
+              onUpdate={(cmds) => updateState(i, 'press', cmds.length > 0 ? cmds : undefined)}
+            />
+
+            <ButtonCommandsEditor
+              eventLabel="Release"
+              commands={state.release ?? []}
+              globalChannel={globalCh}
+              onUpdate={(cmds) => updateState(i, 'release', cmds.length > 0 ? cmds : undefined)}
+            />
+
+            <ButtonCommandsEditor
+              eventLabel="Long Press"
+              commands={state.long_press ?? []}
+              globalChannel={globalCh}
+              onUpdate={(cmds) => updateState(i, 'long_press', cmds.length > 0 ? cmds : undefined)}
+            />
+
+            <ButtonCommandsEditor
+              eventLabel="Long Release"
+              commands={state.long_release ?? []}
+              globalChannel={globalCh}
+              onUpdate={(cmds) => updateState(i, 'long_release', cmds.length > 0 ? cmds : undefined)}
+            />
+          {/if}
+        {/each}
+
+      {:else if (btn.mode ?? 'toggle') === 'toggle' && !btn.press && !btn.release}
+        <!-- Simplified toggle mode - Profile Selector -->
+        <ProfileSelector button={btn} onUpdate={update} />
+
         <!-- Simplified toggle: CC/channel/values only — firmware handles on/off dispatch -->
         <div class="simple-toggle-section">
           <p class="simple-toggle-help">Firmware sends <strong>Value ON</strong> when toggling on, <strong>Value OFF</strong> when toggling off — no press/release arrays needed.</p>
@@ -374,81 +455,10 @@
           onUpdate={(cmds) => update('long_press', cmds.length > 0 ? cmds : undefined)}
         />
 
-      {:else if hasMultipleStates}
-        <!-- State Tabs (normal mode with keytimes > 1) -->
-        <div class="state-tabs">
-          <div class="state-tab-buttons">
-            {#each Array(keytimes) as _, i}
-              <button
-                class="state-tab-btn"
-                class:active={activeStateTab === `state-${i}`}
-                onclick={() => activeStateTab = `state-${i}`}
-              >
-                State {i + 1}
-              </button>
-            {/each}
-          </div>
-
-          <div class="state-tab-content">
-            {#each Array(keytimes) as _, i}
-              {#if activeStateTab === `state-${i}`}
-                {@const state = btn.states?.[i] ?? {}}
-
-                <div class="state-visual-config">
-                  <div class="field-row">
-                    <div class="field">
-                      <label>Color:</label>
-                      <ColorSelect
-                        value={state.color ?? btn.color}
-                        onchange={(c) => updateState(i, 'color', c)}
-                      />
-                    </div>
-                    <div class="field">
-                      <label>Label:</label>
-                      <input
-                        type="text"
-                        value={state.label ?? ''}
-                        maxlength="6"
-                        placeholder={btn.label}
-                        onblur={(e) => { const v = strVal(e); updateState(i, 'label', v === '' ? undefined : v); }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <ButtonCommandsEditor
-                  eventLabel="Press"
-                  commands={state.press ?? []}
-                  globalChannel={globalCh}
-                  onUpdate={(cmds) => updateState(i, 'press', cmds.length > 0 ? cmds : undefined)}
-                />
-
-                <ButtonCommandsEditor
-                  eventLabel="Release"
-                  commands={state.release ?? []}
-                  globalChannel={globalCh}
-                  onUpdate={(cmds) => updateState(i, 'release', cmds.length > 0 ? cmds : undefined)}
-                />
-
-                <ButtonCommandsEditor
-                  eventLabel="Long Press"
-                  commands={state.long_press ?? []}
-                  globalChannel={globalCh}
-                  onUpdate={(cmds) => updateState(i, 'long_press', cmds.length > 0 ? cmds : undefined)}
-                />
-
-                <ButtonCommandsEditor
-                  eventLabel="Long Release"
-                  commands={state.long_release ?? []}
-                  globalChannel={globalCh}
-                  onUpdate={(cmds) => updateState(i, 'long_release', cmds.length > 0 ? cmds : undefined)}
-                />
-              {/if}
-            {/each}
-          </div>
-        </div>
-
       {:else}
+        <!-- Normal / Momentary / Select / Tap modes - Profile Selector -->
+        <ProfileSelector button={btn} onUpdate={update} />
+
         <!-- Single state: normal / momentary / select / tap -->
         <ButtonCommandsEditor
           eventLabel="Press"
@@ -732,6 +742,17 @@
     color: #4b5563;
     font-size: 13px;
     padding: 40px;
+  }
+
+  /* State tabs at top of panel */
+  .state-tabs-top {
+    display: flex;
+    gap: 6px;
+    margin: 12px 0;
+    padding: 8px 16px;
+    background: #0f0f1e;
+    border-bottom: 2px solid #2a2a3e;
+    overflow-x: auto;
   }
 
   /* State tabs */
