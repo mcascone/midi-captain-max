@@ -201,7 +201,7 @@
     <!-- ── ID Section ─────────────────────────── -->
     <div class="section">
       <div class="section-header">
-        <span class="section-icon">↔</span>
+        <span class="section-icon">#️⃣</span>
         <span class="section-title">ID</span>
       </div>
       <div class="section-sublabel">Label{hasMultipleStates ? ' (Base)' : ''}. <em>{btn.label}</em></div>
@@ -235,7 +235,7 @@
     <!-- ── Behavior Section ──────────────────── -->
     <div class="section">
       <div class="section-header">
-        <span class="section-icon">⚖</span>
+        <span class="section-icon">🎛️</span>
         <span class="section-title">Behavior</span>
       </div>
 
