@@ -249,9 +249,11 @@ print(f"Loaded {len(buttons)} button configs")
 try:
     config = validate_config(config, button_count=BUTTON_COUNT)
     buttons = config.get("buttons", [])
-except Exception:
-    # Defensive: if validation fails, continue with raw config
-    pass
+except (ValueError, KeyError, TypeError) as e:
+    # Config validation failed, but continue with raw config
+    print(f"Config validation error: {e}. Using raw config.")
+except Exception as e:
+    print(f"Unexpected config validation error: {e}")
 print(f"Validated {len(buttons)} button configs")
 
 # =============================================================================
@@ -511,7 +513,11 @@ for i in range(BUTTON_COUNT):
         if not isinstance(br, int) or br <= 0:
             br = 500
         blink_rate_ms[i] = br
-    except Exception:
+    except (IndexError, KeyError, TypeError) as e:
+        print(f"Blink rate config error for button {i}: {e}")
+        blink_rate_ms[i] = config.get("tap_rate_ms", 500)
+    except Exception as e:
+        print(f"Unexpected blink rate error for button {i}: {e}")
         blink_rate_ms[i] = config.get("tap_rate_ms", 500)
 
 # Tap-tempo tracking: per-button recent tap timestamps (monotonic seconds)
@@ -951,8 +957,10 @@ def set_button_state(switch_idx, on):
                 # Turning off: ensure LED shows off state and stop blinking
                 blink_state[idx] = False
                 blink_next_toggle[idx] = 0.0
-    except Exception:
-        pass
+    except (IndexError, KeyError) as e:
+        print(f"Tap mode state update error for button {idx}: {e}")
+    except Exception as e:
+        print(f"Unexpected tap mode error: {e}")
 
     # Update display
     if idx < len(button_labels):
@@ -1042,9 +1050,9 @@ def update_blink_timers():
                     beat_interval = blink_rate_ms[i] / 1000.0
                     flash_duration = 0.1
                     blink_next_toggle[i] = now + max(0.05, beat_interval - flash_duration)
-        except Exception:
+        except (IndexError, ZeroDivisionError, TypeError) as e:
             # Defensive: don't let blinking crash the loop
-            pass
+            print(f"[WARN] Blink timing failed for button {i}: {e}")
 
 
 def update_label_timeout():
@@ -1133,7 +1141,8 @@ def _process_incoming_midi(msg):
     raw_ch = getattr(msg, 'channel', None)
     try:
         msg_channel = int(raw_ch) if raw_ch is not None else 0
-    except Exception:
+    except (ValueError, TypeError) as e:
+        print(f"[WARN] Invalid MIDI channel value '{raw_ch}': {e}")
         msg_channel = 0
 
     # ControlChange - duck-typed by presence of `control` attribute
@@ -1244,8 +1253,8 @@ def _deselect_group(group_name, keep_idx):
                             vel_off = state_cfg.get("velocity_off", 0)
                             send_midi_message(NoteOff(note, vel_off), channel=ch)
                             print(f"[MIDI TX] Ch{ch+1} NoteOff{note} (deselect sibling {j+1}, group {group_name})")
-            except Exception:
-                pass
+            except (KeyError, IndexError, AttributeError) as e:
+                print(f"[WARN] Failed to deselect sibling button {j+1} in group '{group_name}': {e}")
 
 
 def handle_switches():
@@ -1653,8 +1662,8 @@ for i, b in enumerate(buttons):
         if b.get("mode") == "tap" or b.get("led_mode") == "tap":
             button_states[i].state = True
             set_button_state(i + 1, True)
-    except Exception:
-        pass
+    except (KeyError, IndexError, AttributeError) as e:
+        print(f"[WARN] Failed to initialize tap mode LED for button {i+1}: {e}")
 
 # Startup animation
 pixels.fill((0, 255, 0))
