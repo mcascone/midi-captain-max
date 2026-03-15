@@ -231,9 +231,13 @@ jobs:
             exit 0
           fi
           
-          # Create temporary keychain
+          # Create temporary keychain with persistent password
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          
+          # Store keychain path and password for use in later steps
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
           
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -245,8 +249,8 @@ jobs:
             -P "$MACOS_APPLICATION_CERT_PWD" -T /usr/bin/codesign
           rm certificate.p12
           
-          # Set as default keychain
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          # Add keychain to search list
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed s/\"//g)
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           
@@ -261,6 +265,12 @@ jobs:
         uses: ./.github/actions/patch-config-editor-version
         with:
           semver: ${{ needs.lint.outputs.semver }}
+
+      - name: Unlock keychain before build
+        if: env.KEYCHAIN_PATH != ''
+        run: |
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          echo "✓ Keychain unlocked for code signing" >> $GITHUB_STEP_SUMMARY
 
       - name: Build Tauri app (universal binary)
         env:
@@ -298,6 +308,12 @@ jobs:
           echo "Stapling notarization ticket..."
           xcrun stapler staple "$DMG_PATH"
           echo "✓ DMG notarized and stapled" >> $GITHUB_STEP_SUMMARY
+
+      - name: Clean up keychain
+        if: always() && env.KEYCHAIN_PATH != ''
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" || true
+          echo "✓ Temporary keychain cleaned up" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v6
