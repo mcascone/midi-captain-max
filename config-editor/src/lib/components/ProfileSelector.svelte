@@ -38,6 +38,14 @@
     button[targetEvent] as MidiCommand[] | undefined
   );
 
+  // Check which events have commands assigned
+  let eventHasCommands = $derived({
+    press: Boolean(button.press && button.press.length > 0),
+    release: Boolean(button.release && button.release.length > 0),
+    long_press: Boolean(button.long_press && button.long_press.length > 0),
+    long_release: Boolean(button.long_release && button.long_release.length > 0),
+  });
+
   // Compare two MIDI commands for equality
   function commandsMatch(cmd1: MidiCommand, cmd2: MidiCommand): boolean {
     return (
@@ -175,33 +183,49 @@
               type="button"
               class="event-button"
               class:active={targetEvent === 'press'}
+              class:has-commands={eventHasCommands.press}
               onclick={() => targetEvent = 'press'}
             >
-              Press
+              <span class="event-label">Press</span>
+              {#if eventHasCommands.press}
+                <span class="event-badge">{button.press?.length || 0}</span>
+              {/if}
             </button>
             <button
               type="button"
               class="event-button"
               class:active={targetEvent === 'release'}
+              class:has-commands={eventHasCommands.release}
               onclick={() => targetEvent = 'release'}
             >
-              Release
+              <span class="event-label">Release</span>
+              {#if eventHasCommands.release}
+                <span class="event-badge">{button.release?.length || 0}</span>
+              {/if}
             </button>
             <button
               type="button"
               class="event-button"
               class:active={targetEvent === 'long_press'}
+              class:has-commands={eventHasCommands.long_press}
               onclick={() => targetEvent = 'long_press'}
             >
-              Long Press
+              <span class="event-label">Long Press</span>
+              {#if eventHasCommands.long_press}
+                <span class="event-badge">{button.long_press?.length || 0}</span>
+              {/if}
             </button>
             <button
               type="button"
               class="event-button"
               class:active={targetEvent === 'long_release'}
+              class:has-commands={eventHasCommands.long_release}
               onclick={() => targetEvent = 'long_release'}
             >
-              Long Release
+              <span class="event-label">Long Release</span>
+              {#if eventHasCommands.long_release}
+                <span class="event-badge">{button.long_release?.length || 0}</span>
+              {/if}
             </button>
           </div>
         </div>
@@ -378,6 +402,10 @@
   }
 
   .event-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     padding: 0.625rem 0.75rem;
     background: #13131f;
     border: 1px solid #2a2a3e;
@@ -396,11 +424,38 @@
     color: #e5e7eb;
   }
 
+  .event-button.has-commands {
+    border-color: #3a3a55;
+  }
+
   .event-button.active {
     background: rgba(249, 115, 22, 0.15);
     border-color: #f97316;
     color: #fb923c;
     font-weight: 600;
+  }
+
+  .event-label {
+    flex: 1;
+  }
+
+  .event-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: rgba(99, 102, 241, 0.25);
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #a5b4fc;
+  }
+
+  .event-button.active .event-badge {
+    background: rgba(249, 115, 22, 0.3);
+    color: #fdba74;
   }
 
   /* Actions Grid */
