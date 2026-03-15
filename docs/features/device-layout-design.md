@@ -32,9 +32,9 @@ Row 2:  [6] [7] [8] [9] [10]
 
 - **Viewbox:** 0 0 800 400
 - **Button size:** 120×120px (with rounded corners)
-- **Button spacing:** 40px horizontal, 40px vertical
+- **Button spacing:** 40px horizontal, 60px vertical
 - **Row 1 Y:** 60
-- **Row 2 Y:** 220
+- **Row 2 Y:** 240
 - **LED indicator:** Circle positioned above button center
 - **Label:** Text centered on button
 
@@ -47,11 +47,11 @@ Row 2:  [6] [7] [8] [9] [10]
 | 3      | 360 | 60  |
 | 4      | 520 | 60  |
 | 5      | 680 | 60  |
-| 6      | 40  | 220 |
-| 7      | 200 | 220 |
-| 8      | 360 | 220 |
-| 9      | 520 | 220 |
-| 10     | 680 | 220 |
+| 6      | 40  | 240 |
+| 7      | 200 | 240 |
+| 8      | 360 | 240 |
+| 9      | 520 | 240 |
+| 10     | 680 | 240 |
 
 ---
 
