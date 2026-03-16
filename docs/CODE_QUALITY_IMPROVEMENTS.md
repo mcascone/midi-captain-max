@@ -380,11 +380,13 @@ Added:
 
 ---
 
-### 2. Add Test Scripts to `package.json` ✅ COMPLETED
+### 2. Frontend Test Scripts ⬜ NOT STARTED
 
-**Status:** ✅ Completed in commit 383d164
+**Status:** ⬜ Not Started (deferred to Phase 3)
 
-Added scripts:
+Vitest and ESLint test/lint scripts were initially added in commit 383d164, but removed in commit 45e8ca8 (Copilot review fix) because the dependencies were not installed. These will be properly added with full dependency installation in Phase 3 (Frontend Testing implementation).
+
+Planned scripts for Phase 3:
 ```json
 "scripts": {
   "test": "vitest",

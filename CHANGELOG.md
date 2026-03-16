@@ -18,7 +18,6 @@ All notable changes to this project will be documented in this file.
   - LED brightness levels
   - PC flash and blink durations
 - **Enhanced .gitignore**: Added CircuitPython-specific exclusions (`.Trashes`, `.Spotlight-V100`, `.fseventsd`, `._*`)
-- **Test Scripts**: Added `test:watch` and `test:verbose` convenience scripts to `package.json`
 
 ### Changed
 - **Comprehensive Exception Handling**: Added try/except blocks to 13 critical functions

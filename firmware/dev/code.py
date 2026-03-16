@@ -108,8 +108,8 @@ def _read_device_from_config():
             device = json.load(f).get("device")
             if device in ("mini6", "std10"):
                 return device
-    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
-        # Config file missing, invalid JSON, or no device field
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        # Config file missing or invalid JSON
         print(f"Device detection from config failed: {e}")
     except Exception as e:
         print(f"Unexpected error reading device from config: {e}")
@@ -961,7 +961,7 @@ def update_label_timeout():
         button_states,
         button_name_label,
         status_label,
-        set_label_text,
+        display_handlers.set_label_text,
         _label_prev_len
     )
 

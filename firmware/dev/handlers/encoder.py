@@ -121,16 +121,20 @@ def handle_encoder(
         encoder_value = max(0, min(127, encoder_value + delta))
 
         if enc_steps and enc_steps > 1:
-            # Stepped mode: calculate which slot we're in
+            # Stepped mode: divide 0-127 into N discrete slots
+            # Send CC value 0 to N-1 when crossing slot boundaries
+            # Example: enc_steps=5 creates 5 slots, sends values 0-4
             # Slot boundaries: 0-25=slot0, 26-50=slot1, etc. for 5 slots
-            slot_size = 128 // enc_steps
-            new_slot = min(encoder_value // slot_size, enc_steps - 1)
+            # Clamp enc_steps to safe range (2..128) to prevent division by zero
+            enc_steps_safe = max(2, min(enc_steps, 128))
+            slot_size = 128 // enc_steps_safe
+            new_slot = min(encoder_value // slot_size, enc_steps_safe - 1)
 
             if new_slot != encoder_slot:
                 encoder_slot = new_slot
                 # Output CC is the slot number (0 to steps-1)
                 send_midi_func(ControlChange(cc_encoder, encoder_slot), channel=enc_channel)
-                print(f"[ENCODER] Ch{enc_channel+1} CC{cc_encoder}={encoder_slot} (slot)")
+                print(f"[ENCODER] Ch{enc_channel+1} CC{cc_encoder}={encoder_slot} (slot {new_slot+1}/{enc_steps_safe})")
                 set_button_name_label_func(enc_label)
                 set_status_label_func(f"ENC slot {encoder_slot}")
                 arm_timeout_func()
