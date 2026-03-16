@@ -27,11 +27,11 @@ This document tracks identified code quality improvements and refactoring opport
 | File | Lines | Status |
 |------|-------|--------|
 | `firmware/dev/code.py` | ~~1,678~~ → **1,527** | ✅ Phase 1 complete (-182 lines, -11%) |
-| `config-editor/src-tauri/src/config.rs` | ~~1,601~~ → **Module** | ✅ Phase 2 complete (split into 4 files) |
+| `config-editor/src-tauri/src/config/` | ~~1,601~~ → **Module** | ✅ Phase 2 complete (split into 4 files) |
 | `config-editor/src/routes/+page.svelte` | ~~653~~ → **539** | ✅ Phase 3 complete (-114 lines, -17%) |
 | `config-editor/src/lib/components/ButtonSettingsPanel.svelte` | 960 | ⬜ Deferred (complex UI, low priority) |
 
-**Phase 1 Complete - All Handlers Extracted** (Commits 4e cddd7, 4123ae6)
+**Phase 1 Complete - All Handlers Extracted** (Commits 4ecddd7, 4123ae6)
 
 **Handler Modules Created** (670 lines total):
 - ✅ `handlers/midi.py` - MIDI I/O functions (87 lines)

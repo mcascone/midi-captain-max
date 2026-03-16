@@ -15,24 +15,24 @@ const DEVICE_VOLUMES: &[&str] = &["CIRCUITPY", "MIDICAPTAIN"];
 /// Get volume name for a path (cross-platform)
 #[cfg(target_os = "windows")]
 fn get_path_volume_name(path: &Path) -> Option<String> {
-    use std::os::windows::ffi::OsStrExt;
     use std::ffi::OsString;
+    use std::os::windows::ffi::OsStrExt;
     use std::os::windows::ffi::OsStringExt;
-    
+
     // Get the root path (e.g., "C:\" from "C:\Users\...")
     let mut components = path.components();
     let root = components.next()?;
     let root_path = PathBuf::from(root.as_os_str());
     let root_str = format!("{}\\", root_path.display());
-    
+
     let mut volume_name: Vec<u16> = vec![0; 261];
-    
+
     unsafe {
         let root_wide: Vec<u16> = OsString::from(&root_str)
             .encode_wide()
             .chain(Some(0))
             .collect();
-        
+
         let result = winapi::um::fileapi::GetVolumeInformationW(
             root_wide.as_ptr(),
             volume_name.as_mut_ptr(),
@@ -43,14 +43,17 @@ fn get_path_volume_name(path: &Path) -> Option<String> {
             std::ptr::null_mut(),
             0,
         );
-        
+
         if result != 0 {
-            let len = volume_name.iter().position(|&c| c == 0).unwrap_or(volume_name.len());
+            let len = volume_name
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(volume_name.len());
             let name = OsString::from_wide(&volume_name[..len]);
             return name.into_string().ok();
         }
     }
-    
+
     None
 }
 
@@ -60,7 +63,10 @@ fn get_path_volume_name(path: &Path) -> Option<String> {
     for ancestor in path.ancestors() {
         if let Some(parent) = ancestor.parent() {
             let parent_str = parent.to_string_lossy();
-            if parent_str == "/Volumes" || parent_str.starts_with("/media/") || parent_str.starts_with("/run/media/") {
+            if parent_str == "/Volumes"
+                || parent_str.starts_with("/media/")
+                || parent_str.starts_with("/run/media/")
+            {
                 return ancestor.file_name()?.to_str().map(|s| s.to_string());
             }
         }
@@ -118,7 +124,10 @@ fn validate_device_path(path: &str) -> Result<PathBuf, ConfigError> {
     })?;
 
     // Accept well-known volume names
-    if DEVICE_VOLUMES.iter().any(|v| volume_name.eq_ignore_ascii_case(v)) {
+    if DEVICE_VOLUMES
+        .iter()
+        .any(|v| volume_name.eq_ignore_ascii_case(v))
+    {
         return Ok(canonical);
     }
 
@@ -161,10 +170,7 @@ fn validate_device_path(path: &str) -> Result<PathBuf, ConfigError> {
 /// Compares device ID of volume vs root - if same, volume is not a separate filesystem
 #[cfg(unix)]
 fn is_volume_mounted(volume_path: &Path) -> bool {
-    if let (Ok(vol_meta), Ok(root_meta)) = (
-        volume_path.metadata(),
-        Path::new("/").metadata()
-    ) {
+    if let (Ok(vol_meta), Ok(root_meta)) = (volume_path.metadata(), Path::new("/").metadata()) {
         vol_meta.dev() != root_meta.dev()
     } else {
         false
@@ -194,8 +200,8 @@ fn get_volume_path(path: &Path) -> Option<PathBuf> {
         .find(|p| {
             if let Some(parent) = p.parent() {
                 let parent_str = parent.to_string_lossy();
-                parent_str == "/Volumes" 
-                    || parent_str.starts_with("/media/") 
+                parent_str == "/Volumes"
+                    || parent_str.starts_with("/media/")
                     || parent_str.starts_with("/run/media/")
             } else {
                 false
@@ -225,7 +231,11 @@ fn verify_device_connected(path: &Path) -> Result<(), ConfigError> {
 /// stale data. Keeping the write handle open for `sync_all` before drop
 /// ensures the data reaches the device's flash.
 fn write_sync(path: &Path, data: &[u8]) -> Result<(), std::io::Error> {
-    let mut file = OpenOptions::new().write(true).create(true).truncate(true).open(path)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)?;
     file.write_all(data)?;
     file.sync_all()?;
     Ok(())
@@ -255,10 +265,10 @@ pub fn read_config_raw(path: String) -> Result<String, ConfigError> {
 #[command]
 pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), ConfigError> {
     let canonical = validate_device_path(&path)?;
-    
+
     // Verify volume is still mounted
     verify_device_connected(&canonical)?;
-    
+
     // Validate before writing
     if let Err(errors) = config.validate() {
         return Err(ConfigError {
@@ -277,10 +287,10 @@ pub fn write_config(path: String, config: MidiCaptainConfig) -> Result<(), Confi
 #[command]
 pub fn write_config_raw(path: String, json: String) -> Result<(), ConfigError> {
     let canonical = validate_device_path(&path)?;
-    
+
     // Verify volume is still mounted
     verify_device_connected(&canonical)?;
-    
+
     // Validate JSON is parseable
     let config: MidiCaptainConfig = serde_json::from_str(&json)?;
 
@@ -319,17 +329,16 @@ pub fn validate_config(json: String) -> Result<(), ConfigError> {
 pub fn eject_device(path: String) -> Result<String, ConfigError> {
     // Validate path and get canonical path (avoids double canonicalization)
     let canonical = validate_device_path(&path)?;
-    
+
     let volume_path = get_volume_path(&canonical).ok_or_else(|| ConfigError {
         message: "Could not determine volume path".to_string(),
         details: None,
     })?;
-    
-    let volume_name = get_path_volume_name(&canonical)
-        .unwrap_or_else(|| "device".to_string());
-    
+
+    let volume_name = get_path_volume_name(&canonical).unwrap_or_else(|| "device".to_string());
+
     let volume_path_str = volume_path.to_string_lossy().to_string();
-    
+
     #[cfg(target_os = "macos")]
     {
         let output = std::process::Command::new("diskutil")
@@ -339,7 +348,7 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
                 message: format!("Failed to eject device: {}", e),
                 details: None,
             })?;
-        
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(ConfigError {
@@ -347,23 +356,23 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
                 details: None,
             });
         }
-        
+
         Ok(format!("Device '{}' ejected successfully", volume_name))
     }
-    
+
     #[cfg(target_os = "linux")]
     {
         // Try gio first (modern GNOME/GTK)
         let gio_result = std::process::Command::new("gio")
             .args(&["mount", "-u", &volume_path_str])
             .output();
-        
+
         if let Ok(output) = gio_result {
             if output.status.success() {
                 return Ok(format!("Device '{}' ejected successfully", volume_name));
             }
         }
-        
+
         // Fallback to umount
         let output = std::process::Command::new("umount")
             .arg(&volume_path_str)
@@ -372,7 +381,7 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
                 message: format!("Failed to unmount device: {}", e),
                 details: None,
             })?;
-        
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(ConfigError {
@@ -380,10 +389,10 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
                 details: None,
             });
         }
-        
+
         Ok(format!("Device '{}' unmounted successfully", volume_name))
     }
-    
+
     #[cfg(target_os = "windows")]
     {
         // Windows doesn't have a simple eject command for USB drives

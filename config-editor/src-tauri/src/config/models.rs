@@ -2,20 +2,36 @@
 //!
 //! Configuration model definitions for buttons, encoders, expressions, and main config.
 
-use serde::{Deserialize, Serialize};
 use super::types::*;
+use serde::{Deserialize, Serialize};
 
 /// Per-state overrides for keytimes cycling
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StateOverride {
     // Multi-command event arrays (per-state actions)
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_one_or_many"
+    )]
     pub press: Option<Vec<MidiCommand>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_one_or_many"
+    )]
     pub release: Option<Vec<MidiCommand>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
-   pub long_press: Option<Vec<MidiCommand>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_one_or_many"
+    )]
+    pub long_press: Option<Vec<MidiCommand>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_one_or_many"
+    )]
     pub long_release: Option<Vec<MidiCommand>>,
 
     // Legacy single-type field overrides
@@ -129,17 +145,37 @@ pub struct ButtonConfig {
     pub action_id: Option<String>,
 
     // ===== NEW: Multi-command event arrays =====
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_one_or_many"
+    )]
     pub press: Option<Vec<MidiCommand>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_one_or_many"
+    )]
     pub release: Option<Vec<MidiCommand>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_one_or_many"
+    )]
     pub long_press: Option<Vec<MidiCommand>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_one_or_many")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_one_or_many"
+    )]
     pub long_release: Option<Vec<MidiCommand>>,
 
     // ===== LEGACY: Single-type fields (for backwards compatibility) =====
-    #[serde(rename = "type", default, skip_serializing_if = "is_default_message_type")]
+    #[serde(
+        rename = "type",
+        default,
+        skip_serializing_if = "is_default_message_type"
+    )]
     pub message_type: MessageType,
     #[serde(default)]
     pub mode: ButtonMode,
@@ -176,9 +212,9 @@ pub struct ButtonConfig {
     // ===== SIMPLIFIED TOGGLE FIELDS =====
     // Used when mode='toggle' to auto-derive CC on/off without defining press/release arrays
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub value_on: Option<u8>,   // CC value sent when turning ON (default 127)
+    pub value_on: Option<u8>, // CC value sent when turning ON (default 127)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub value_off: Option<u8>,  // CC value sent when turning OFF (default 0)
+    pub value_off: Option<u8>, // CC value sent when turning OFF (default 0)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_on: Option<bool>, // If true, button boots in ON state and sends value_on
 

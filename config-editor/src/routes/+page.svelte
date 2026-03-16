@@ -9,7 +9,7 @@
     toasts, showToast, removeToast
   } from '$lib/stores';
   import {
-    scanDevices, startDeviceWatcher,
+    scanDevices, startDeviceWatcher, readConfigRaw,
     onDeviceConnected, onDeviceDisconnected
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';

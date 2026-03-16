@@ -19,13 +19,13 @@
 //! config.validate()?;
 //! ```
 
-mod types;
 mod models;
+mod types;
 mod validation;
 
 // Re-export all public types for backward compatibility
-pub use types::*;
 pub use models::*;
+pub use types::*;
 
 // Tests extracted from original config.rs
 // All 48 tests passing ✅
@@ -270,7 +270,9 @@ mod tests {
         assert!(matches!(btn.mode, ButtonMode::Toggle));
 
         let reserialized = serde_json::to_string(&config).unwrap();
-        assert!(reserialized.contains("\"value_on\":127") || reserialized.contains("\"value_on\": 127"));
+        assert!(
+            reserialized.contains("\"value_on\":127") || reserialized.contains("\"value_on\": 127")
+        );
         assert!(reserialized.contains("\"cc\":46") || reserialized.contains("\"cc\": 46"));
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         let btn2 = &config2.buttons[0];
@@ -457,15 +459,33 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(config.buttons[0].press.as_ref().unwrap()[0].command_type, MessageType::PcInc);
-        assert_eq!(config.buttons[0].press.as_ref().unwrap()[0].pc_step, Some(5));
-        assert_eq!(config.buttons[1].press.as_ref().unwrap()[0].command_type, MessageType::PcDec);
-        assert_eq!(config.buttons[1].press.as_ref().unwrap()[0].pc_step, Some(2));
+        assert_eq!(
+            config.buttons[0].press.as_ref().unwrap()[0].command_type,
+            MessageType::PcInc
+        );
+        assert_eq!(
+            config.buttons[0].press.as_ref().unwrap()[0].pc_step,
+            Some(5)
+        );
+        assert_eq!(
+            config.buttons[1].press.as_ref().unwrap()[0].command_type,
+            MessageType::PcDec
+        );
+        assert_eq!(
+            config.buttons[1].press.as_ref().unwrap()[0].pc_step,
+            Some(2)
+        );
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(config2.buttons[0].press.as_ref().unwrap()[0].pc_step, Some(5));
-        assert_eq!(config2.buttons[1].press.as_ref().unwrap()[0].pc_step, Some(2));
+        assert_eq!(
+            config2.buttons[0].press.as_ref().unwrap()[0].pc_step,
+            Some(5)
+        );
+        assert_eq!(
+            config2.buttons[1].press.as_ref().unwrap()[0].pc_step,
+            Some(2)
+        );
     }
 
     #[test]
@@ -678,7 +698,10 @@ mod tests {
         // Round-trip test
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(config2.buttons[0].long_press_label, Some("PAUSE".to_string()));
+        assert_eq!(
+            config2.buttons[0].long_press_label,
+            Some("PAUSE".to_string())
+        );
     }
 
     #[test]
@@ -792,7 +815,14 @@ mod tests {
         // Round-trip should preserve as arrays
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(config2.buttons[0].states.as_ref().unwrap()[0].press.as_ref().unwrap().len(), 1);
+        assert_eq!(
+            config2.buttons[0].states.as_ref().unwrap()[0]
+                .press
+                .as_ref()
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]
@@ -952,7 +982,10 @@ mod tests {
         // Round-trip test
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(config2.buttons[0].profile_id, Some("quad-cortex".to_string()));
+        assert_eq!(
+            config2.buttons[0].profile_id,
+            Some("quad-cortex".to_string())
+        );
         assert_eq!(config2.buttons[0].action_id, Some("scene_b".to_string()));
         assert!(config2.buttons[0].press.is_some());
     }

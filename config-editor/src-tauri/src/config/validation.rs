@@ -13,7 +13,10 @@ impl MidiCaptainConfig {
         // Validate global channel (0-15 internally, display as 1-16)
         if let Some(ch) = self.global_channel {
             if ch > 15 {
-                errors.push(format!("Global channel value {} is invalid (must be 1-16, stored as 0-15)", ch + 1));
+                errors.push(format!(
+                    "Global channel value {} is invalid (must be 1-16, stored as 0-15)",
+                    ch + 1
+                ));
             }
         }
 
@@ -57,7 +60,11 @@ impl MidiCaptainConfig {
             }
             if let Some(ch) = button.channel {
                 if ch > 15 {
-                    errors.push(format!("Button {} channel {} is invalid (must be 1-16)", i + 1, ch + 1));
+                    errors.push(format!(
+                        "Button {} channel {} is invalid (must be 1-16)",
+                        i + 1,
+                        ch + 1
+                    ));
                 }
             }
             if let Some(val) = button.cc_on {
@@ -72,12 +79,20 @@ impl MidiCaptainConfig {
             }
             if let Some(ms) = button.flash_ms {
                 if ms < 50 || ms > 5000 {
-                    errors.push(format!("Button {} flash_ms {} out of range (50-5000)", i + 1, ms));
+                    errors.push(format!(
+                        "Button {} flash_ms {} out of range (50-5000)",
+                        i + 1,
+                        ms
+                    ));
                 }
             }
             if let Some(brightness) = button.dim_brightness {
                 if brightness > 100 {
-                    errors.push(format!("Button {} dim_brightness {} exceeds 100 (must be 0-100)", i + 1, brightness));
+                    errors.push(format!(
+                        "Button {} dim_brightness {} exceeds 100 (must be 0-100)",
+                        i + 1,
+                        brightness
+                    ));
                 }
             }
 
@@ -86,42 +101,90 @@ impl MidiCaptainConfig {
                 let mut cmd_errors = Vec::new();
                 if let Some(ch) = cmd.channel {
                     if ch > 15 {
-                        cmd_errors.push(format!("Button {} {}.{} channel {} invalid (must be 0-15)", i+1, event_name, cmd_idx, ch));
+                        cmd_errors.push(format!(
+                            "Button {} {}.{} channel {} invalid (must be 0-15)",
+                            i + 1,
+                            event_name,
+                            cmd_idx,
+                            ch
+                        ));
                     }
                 }
                 if let Some(cc) = cmd.cc {
                     if cc > 127 {
-                        cmd_errors.push(format!("Button {} {}.{} cc {} exceeds 127", i+1, event_name, cmd_idx, cc));
+                        cmd_errors.push(format!(
+                            "Button {} {}.{} cc {} exceeds 127",
+                            i + 1,
+                            event_name,
+                            cmd_idx,
+                            cc
+                        ));
                     }
                 }
                 if let Some(val) = cmd.value {
                     if val > 127 {
-                        cmd_errors.push(format!("Button {} {}.{} value {} exceeds 127", i+1, event_name, cmd_idx, val));
+                        cmd_errors.push(format!(
+                            "Button {} {}.{} value {} exceeds 127",
+                            i + 1,
+                            event_name,
+                            cmd_idx,
+                            val
+                        ));
                     }
                 }
                 if let Some(note) = cmd.note {
                     if note > 127 {
-                        cmd_errors.push(format!("Button {} {}.{} note {} exceeds 127", i+1, event_name, cmd_idx, note));
+                        cmd_errors.push(format!(
+                            "Button {} {}.{} note {} exceeds 127",
+                            i + 1,
+                            event_name,
+                            cmd_idx,
+                            note
+                        ));
                     }
                 }
                 if let Some(vel) = cmd.velocity {
                     if vel > 127 {
-                        cmd_errors.push(format!("Button {} {}.{} velocity {} exceeds 127", i+1, event_name, cmd_idx, vel));
+                        cmd_errors.push(format!(
+                            "Button {} {}.{} velocity {} exceeds 127",
+                            i + 1,
+                            event_name,
+                            cmd_idx,
+                            vel
+                        ));
                     }
                 }
                 if let Some(prog) = cmd.program {
                     if prog > 127 {
-                        cmd_errors.push(format!("Button {} {}.{} program {} exceeds 127", i+1, event_name, cmd_idx, prog));
+                        cmd_errors.push(format!(
+                            "Button {} {}.{} program {} exceeds 127",
+                            i + 1,
+                            event_name,
+                            cmd_idx,
+                            prog
+                        ));
                     }
                 }
                 if let Some(step) = cmd.pc_step {
                     if step < 1 || step > 127 {
-                        cmd_errors.push(format!("Button {} {}.{} pc_step {} out of range (1-127)", i+1, event_name, cmd_idx, step));
+                        cmd_errors.push(format!(
+                            "Button {} {}.{} pc_step {} out of range (1-127)",
+                            i + 1,
+                            event_name,
+                            cmd_idx,
+                            step
+                        ));
                     }
                 }
                 if let Some(thresh) = cmd.threshold_ms {
                     if thresh < 50 || thresh > 10000 {
-                        cmd_errors.push(format!("Button {} {}.{} threshold_ms {} out of range (50-10000)", i+1, event_name, cmd_idx, thresh));
+                        cmd_errors.push(format!(
+                            "Button {} {}.{} threshold_ms {} out of range (50-10000)",
+                            i + 1,
+                            event_name,
+                            cmd_idx,
+                            thresh
+                        ));
                     }
                 }
                 cmd_errors
@@ -155,22 +218,38 @@ impl MidiCaptainConfig {
 
                     if let Some(ref cmds) = state.press {
                         for (cmd_idx, cmd) in cmds.iter().enumerate() {
-                            errors.extend(validate_command(cmd, &format!("states[{}].press", state_num), cmd_idx));
+                            errors.extend(validate_command(
+                                cmd,
+                                &format!("states[{}].press", state_num),
+                                cmd_idx,
+                            ));
                         }
                     }
                     if let Some(ref cmds) = state.release {
                         for (cmd_idx, cmd) in cmds.iter().enumerate() {
-                            errors.extend(validate_command(cmd, &format!("states[{}].release", state_num), cmd_idx));
+                            errors.extend(validate_command(
+                                cmd,
+                                &format!("states[{}].release", state_num),
+                                cmd_idx,
+                            ));
                         }
                     }
                     if let Some(ref cmds) = state.long_press {
                         for (cmd_idx, cmd) in cmds.iter().enumerate() {
-                            errors.extend(validate_command(cmd, &format!("states[{}].long_press", state_num), cmd_idx));
+                            errors.extend(validate_command(
+                                cmd,
+                                &format!("states[{}].long_press", state_num),
+                                cmd_idx,
+                            ));
                         }
                     }
                     if let Some(ref cmds) = state.long_release {
                         for (cmd_idx, cmd) in cmds.iter().enumerate() {
-                            errors.extend(validate_command(cmd, &format!("states[{}].long_release", state_num), cmd_idx));
+                            errors.extend(validate_command(
+                                cmd,
+                                &format!("states[{}].long_release", state_num),
+                                cmd_idx,
+                            ));
                         }
                     }
                 }
@@ -179,16 +258,23 @@ impl MidiCaptainConfig {
             // select_group rules: not allowed with momentary, tap, or keytimes > 1
             if let Some(_) = button.select_group {
                 if button.mode == ButtonMode::Momentary {
-                    errors.push(format!("Button {} select_group not supported for momentary mode", i + 1));
+                    errors.push(format!(
+                        "Button {} select_group not supported for momentary mode",
+                        i + 1
+                    ));
                 }
                 if button.mode == ButtonMode::Tap {
-                    errors.push(format!("Button {} select_group not supported for tap mode", i + 1));
+                    errors.push(format!(
+                        "Button {} select_group not supported for tap mode",
+                        i + 1
+                    ));
                 }
-                if let Some
-
-(kt) = button.keytimes {
+                if let Some(kt) = button.keytimes {
                     if kt > 1 {
-                        errors.push(format!("Button {} select_group not supported with keytimes > 1", i + 1));
+                        errors.push(format!(
+                            "Button {} select_group not supported with keytimes > 1",
+                            i + 1
+                        ));
                     }
                 }
             }
@@ -211,14 +297,23 @@ impl MidiCaptainConfig {
                 errors.push(format!("Encoder label '{}' exceeds 8 chars", enc.label));
             }
             if enc.max < enc.min {
-                errors.push(format!("Encoder max ({}) must be >= min ({})", enc.max, enc.min));
+                errors.push(format!(
+                    "Encoder max ({}) must be >= min ({})",
+                    enc.max, enc.min
+                ));
             }
             if enc.initial < enc.min || enc.initial > enc.max {
-                errors.push(format!("Encoder initial ({}) must be between min ({}) and max ({})", enc.initial, enc.min, enc.max));
+                errors.push(format!(
+                    "Encoder initial ({}) must be between min ({}) and max ({})",
+                    enc.initial, enc.min, enc.max
+                ));
             }
             if let Some(ch) = enc.channel {
                 if ch > 15 {
-                    errors.push(format!("Encoder channel {} is invalid (must be 1-16)", ch + 1));
+                    errors.push(format!(
+                        "Encoder channel {} is invalid (must be 1-16)",
+                        ch + 1
+                    ));
                 }
             }
             if let Some(ref push) = enc.push {
@@ -226,11 +321,17 @@ impl MidiCaptainConfig {
                     errors.push(format!("Encoder push CC {} exceeds 127", push.cc));
                 }
                 if push.label.len() > 8 {
-                    errors.push(format!("Encoder push label '{}' exceeds 8 chars", push.label));
+                    errors.push(format!(
+                        "Encoder push label '{}' exceeds 8 chars",
+                        push.label
+                    ));
                 }
                 if let Some(ch) = push.channel {
                     if ch > 15 {
-                        errors.push(format!("Encoder push channel {} is invalid (must be 1-16)", ch + 1));
+                        errors.push(format!(
+                            "Encoder push channel {} is invalid (must be 1-16)",
+                            ch + 1
+                        ));
                     }
                 }
                 if let Some(val) = push.cc_on {
@@ -259,7 +360,10 @@ impl MidiCaptainConfig {
                 errors.push(format!("EXP1 label '{}' exceeds 8 chars", exp.exp1.label));
             }
             if exp.exp1.max < exp.exp1.min {
-                errors.push(format!("EXP1 max ({}) must be >= min ({})", exp.exp1.max, exp.exp1.min));
+                errors.push(format!(
+                    "EXP1 max ({}) must be >= min ({})",
+                    exp.exp1.max, exp.exp1.min
+                ));
             }
             if let Some(ch) = exp.exp1.channel {
                 if ch > 15 {
@@ -273,7 +377,10 @@ impl MidiCaptainConfig {
                 errors.push(format!("EXP2 label '{}' exceeds 8 chars", exp.exp2.label));
             }
             if exp.exp2.max < exp.exp2.min {
-                errors.push(format!("EXP2 max ({}) must be >= min ({})", exp.exp2.max, exp.exp2.min));
+                errors.push(format!(
+                    "EXP2 max ({}) must be >= min ({})",
+                    exp.exp2.max, exp.exp2.min
+                ));
             }
             if let Some(ch) = exp.exp2.channel {
                 if ch > 15 {

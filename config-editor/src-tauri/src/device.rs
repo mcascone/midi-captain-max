@@ -1,10 +1,10 @@
 //! Device detection via volume mounting
 
 #[cfg(not(target_os = "windows"))]
-use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher, Event, EventKind};
+use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::PathBuf;
-use std::sync::mpsc::{self, Sender, Receiver};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{command, AppHandle, Emitter};
@@ -24,9 +24,16 @@ pub fn is_midi_captain_config(config_path: &std::path::Path) -> bool {
     if !config_path.exists() {
         return false;
     }
-    let Ok(contents) = std::fs::read_to_string(config_path) else { return false };
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) else { return false };
-    matches!(value.get("device").and_then(|v| v.as_str()), Some("std10") | Some("mini6"))
+    let Ok(contents) = std::fs::read_to_string(config_path) else {
+        return false;
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) else {
+        return false;
+    };
+    matches!(
+        value.get("device").and_then(|v| v.as_str()),
+        Some("std10") | Some("mini6")
+    )
 }
 
 /// Parse a config.json and return the explicitly declared `usb_drive_name` if set,
@@ -85,12 +92,12 @@ fn get_volumes_path() -> PathBuf {
 #[cfg(target_os = "windows")]
 fn scan_windows_drives() -> Vec<DetectedDevice> {
     let mut devices = Vec::new();
-    
+
     // Check drive letters A-Z
     for letter in b'A'..=b'Z' {
         let drive = format!("{}:\\", letter as char);
         let path = PathBuf::from(&drive);
-        
+
         if path.exists() {
             // Get volume label
             if let Some(device) = check_volume(&path) {
@@ -98,7 +105,7 @@ fn scan_windows_drives() -> Vec<DetectedDevice> {
             }
         }
     }
-    
+
     devices
 }
 
@@ -114,19 +121,19 @@ pub struct DetectedDevice {
 /// Get the volume name for a given path
 #[cfg(target_os = "windows")]
 fn get_volume_name(path: &PathBuf) -> Option<String> {
-    use std::os::windows::ffi::OsStrExt;
     use std::ffi::OsString;
+    use std::os::windows::ffi::OsStrExt;
     use std::os::windows::ffi::OsStringExt;
-    
+
     let path_str = path.to_str()?;
     let mut volume_name: Vec<u16> = vec![0; 261]; // MAX_PATH + 1
-    
+
     unsafe {
         let root: Vec<u16> = OsString::from(path_str)
             .encode_wide()
             .chain(Some(0))
             .collect();
-        
+
         let result = winapi::um::fileapi::GetVolumeInformationW(
             root.as_ptr(),
             volume_name.as_mut_ptr(),
@@ -137,15 +144,18 @@ fn get_volume_name(path: &PathBuf) -> Option<String> {
             std::ptr::null_mut(),
             0,
         );
-        
+
         if result != 0 {
             // Find null terminator
-            let len = volume_name.iter().position(|&c| c == 0).unwrap_or(volume_name.len());
+            let len = volume_name
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(volume_name.len());
             let name = OsString::from_wide(&volume_name[..len]);
             return name.into_string().ok();
         }
     }
-    
+
     None
 }
 
@@ -188,12 +198,12 @@ pub fn scan_devices() -> Vec<DetectedDevice> {
     {
         scan_windows_drives()
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
         let volumes_path = get_volumes_path();
         let mut devices = Vec::new();
-        
+
         if let Ok(entries) = std::fs::read_dir(&volumes_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -202,7 +212,7 @@ pub fn scan_devices() -> Vec<DetectedDevice> {
                 }
             }
         }
-        
+
         devices
     }
 }
@@ -222,12 +232,12 @@ pub fn start_device_watcher(app: AppHandle) -> Result<(), String> {
     if WATCHER_STARTED.swap(true, Ordering::SeqCst) {
         return Ok(()); // Already running
     }
-    
+
     #[cfg(target_os = "windows")]
     {
         start_windows_watcher(app)
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
         start_unix_watcher(app)
@@ -238,32 +248,32 @@ pub fn start_device_watcher(app: AppHandle) -> Result<(), String> {
 #[cfg(target_os = "windows")]
 fn start_windows_watcher(app: AppHandle) -> Result<(), String> {
     let (shutdown_tx, shutdown_rx): (Sender<()>, Receiver<()>) = mpsc::channel();
-    
+
     // Store shutdown sender for later use
     if let Ok(mut guard) = SHUTDOWN_TX.lock() {
         *guard = Some(shutdown_tx);
     }
-    
+
     // Spawn polling thread
     std::thread::spawn(move || {
         let mut known_devices: HashSet<String> = HashSet::new();
-        
+
         // Initial scan
         for device in scan_windows_drives() {
             known_devices.insert(device.name.clone());
         }
-        
+
         loop {
             // Check for shutdown signal
             if shutdown_rx.try_recv().is_ok() {
                 break;
             }
-            
+
             // Scan for devices
             let current_devices = scan_windows_drives();
-            let current_names: HashSet<String> = 
+            let current_names: HashSet<String> =
                 current_devices.iter().map(|d| d.name.clone()).collect();
-            
+
             // Check for newly connected devices
             for device in current_devices {
                 if !known_devices.contains(&device.name) {
@@ -272,26 +282,24 @@ fn start_windows_watcher(app: AppHandle) -> Result<(), String> {
                     known_devices.insert(name);
                 }
             }
-            
+
             // Check for disconnected devices
-            let disconnected: Vec<String> = known_devices
-                .difference(&current_names)
-                .cloned()
-                .collect();
-            
+            let disconnected: Vec<String> =
+                known_devices.difference(&current_names).cloned().collect();
+
             for name in disconnected {
                 let _ = app.emit("device-disconnected", name.clone());
                 known_devices.remove(&name);
             }
-            
+
             // Poll every 2 seconds
             std::thread::sleep(Duration::from_secs(2));
         }
-        
+
         // Reset flag so watcher can be restarted if needed
         WATCHER_STARTED.store(false, Ordering::SeqCst);
     });
-    
+
     Ok(())
 }
 
@@ -300,12 +308,12 @@ fn start_windows_watcher(app: AppHandle) -> Result<(), String> {
 fn start_unix_watcher(app: AppHandle) -> Result<(), String> {
     let (tx, rx) = mpsc::channel();
     let (shutdown_tx, shutdown_rx): (Sender<()>, Receiver<()>) = mpsc::channel();
-    
+
     // Store shutdown sender for later use
     if let Ok(mut guard) = SHUTDOWN_TX.lock() {
         *guard = Some(shutdown_tx);
     }
-    
+
     let mut watcher = RecommendedWatcher::new(
         move |res: Result<Event, notify::Error>| {
             if let Ok(event) = res {
@@ -314,30 +322,30 @@ fn start_unix_watcher(app: AppHandle) -> Result<(), String> {
         },
         // Configure for lower latency on macOS FSEvents
         Config::default().with_poll_interval(Duration::from_millis(500)),
-    ).map_err(|e| e.to_string())?;
-    
+    )
+    .map_err(|e| e.to_string())?;
+
     let volumes_path = get_volumes_path();
-    watcher.watch(
-        &volumes_path,
-        RecursiveMode::NonRecursive,
-    ).map_err(|e| e.to_string())?;
-    
+    watcher
+        .watch(&volumes_path, RecursiveMode::NonRecursive)
+        .map_err(|e| e.to_string())?;
+
     // Spawn thread to handle events
     std::thread::spawn(move || {
         // Keep watcher alive
         let _watcher = watcher;
-        
+
         // Track which paths we have emitted "device-connected" for,
         // so we can emit the matching "device-disconnected" even when
         // the volume has a custom name not in DEVICE_VOLUMES.
         let mut known_midi_captain_paths = std::collections::HashSet::new();
-        
+
         loop {
             // Check for shutdown signal (non-blocking)
             if shutdown_rx.try_recv().is_ok() {
                 break;
             }
-            
+
             // Check for filesystem events (with timeout to allow shutdown checks)
             match rx.recv_timeout(std::time::Duration::from_millis(100)) {
                 Ok(event) => {
@@ -375,11 +383,11 @@ fn start_unix_watcher(app: AppHandle) -> Result<(), String> {
                 }
             }
         }
-        
+
         // Reset flag so watcher can be restarted if needed
         WATCHER_STARTED.store(false, Ordering::SeqCst);
     });
-    
+
     Ok(())
 }
 
@@ -397,7 +405,7 @@ pub fn stop_device_watcher() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     #[cfg(not(target_os = "windows"))]
     fn test_check_volume_circuitpy() {
@@ -410,7 +418,7 @@ mod tests {
         assert_eq!(device.name, "CIRCUITPY");
         assert!(!device.has_config); // No actual config file exists in test
     }
-    
+
     #[test]
     #[cfg(not(target_os = "windows"))]
     fn test_check_volume_midicaptain() {
@@ -422,7 +430,7 @@ mod tests {
         assert_eq!(device.name, "MIDICAPTAIN");
         assert!(!device.has_config);
     }
-    
+
     #[test]
     #[cfg(not(target_os = "windows"))]
     fn test_check_volume_case_insensitive() {
@@ -433,7 +441,7 @@ mod tests {
         let device = result.unwrap();
         assert_eq!(device.name, "circuitpy"); // Preserves original case
     }
-    
+
     #[test]
     #[cfg(not(target_os = "windows"))]
     fn test_check_volume_invalid() {
@@ -441,7 +449,7 @@ mod tests {
         let result = check_volume(&path);
         assert!(result.is_none());
     }
-    
+
     #[test]
     fn test_device_volumes_list() {
         // Verify the expected device names are in the list
@@ -504,17 +512,28 @@ mod tests {
         // We create a tempdir with a known suffix so the basename is predictable.
         let dir = tempfile::tempdir().unwrap();
         // Determine the actual volume name (tempdir basename)
-        let vol_name = dir.path().file_name().unwrap().to_string_lossy().to_string();
+        let vol_name = dir
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         let config_path = dir.path().join("config.json");
         // Set usb_drive_name to match the volume basename
         std::fs::write(
             &config_path,
-            format!(r#"{{"device": "std10", "usb_drive_name": "{}", "buttons": []}}"#, vol_name),
+            format!(
+                r#"{{"device": "std10", "usb_drive_name": "{}", "buttons": []}}"#,
+                vol_name
+            ),
         )
         .unwrap();
 
         let result = check_volume(&dir.path().to_path_buf());
-        assert!(result.is_some(), "Custom-named volume should be detected when config name matches");
+        assert!(
+            result.is_some(),
+            "Custom-named volume should be detected when config name matches"
+        );
         let device = result.unwrap();
         assert!(device.has_config);
     }
@@ -534,7 +553,10 @@ mod tests {
         .unwrap();
 
         let result = check_volume(&dir.path().to_path_buf());
-        assert!(result.is_some(), "Volume with valid MIDI Captain config should be accepted regardless of name");
+        assert!(
+            result.is_some(),
+            "Volume with valid MIDI Captain config should be accepted regardless of name"
+        );
     }
 
     #[test]
@@ -544,14 +566,21 @@ mod tests {
         let dir = tempfile::TempDir::with_prefix("RANDOMDRIVE").unwrap();
         // No config.json written
         let result = check_volume(&dir.path().to_path_buf());
-        assert!(result.is_none(), "Unknown volume with no config should not be detected");
+        assert!(
+            result.is_none(),
+            "Unknown volume with no config should not be detected"
+        );
     }
 
     #[test]
     fn test_parse_midi_captain_config_returns_drive_name() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.json");
-        std::fs::write(&path, r#"{"device": "std10", "usb_drive_name": "MYRIG", "buttons": []}"#).unwrap();
+        std::fs::write(
+            &path,
+            r#"{"device": "std10", "usb_drive_name": "MYRIG", "buttons": []}"#,
+        )
+        .unwrap();
         assert_eq!(parse_midi_captain_config(&path).as_deref(), Some("MYRIG"));
     }
 
