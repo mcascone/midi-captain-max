@@ -5,7 +5,7 @@
   import { getVersion } from '@tauri-apps/api/app';
   import {
     devices, selectedDevice, currentConfigRaw,
-    hasUnsavedChanges, validationErrors, statusMessage, isLoading,
+    hasUnsavedChanges, validationErrors, statusMessage, isLoading, isReloadingDevice,
     toasts, showToast, removeToast
   } from '$lib/stores';
   import {
@@ -85,7 +85,10 @@
           $currentConfigRaw = '';
           $hasUnsavedChanges = false;
         }
-        $statusMessage = `Device disconnected: ${name}`;
+        // Suppress disconnect message during expected reload cycle
+        if (!$isReloadingDevice) {
+          $statusMessage = `Device disconnected: ${name}`;
+        }
       });
 
       if ($devices.length === 1) await selectDevice($devices[0]);

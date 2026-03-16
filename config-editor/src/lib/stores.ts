@@ -20,6 +20,7 @@ export const validationErrors = writable<string[]>([]);
 // UI state
 export const isLoading = writable<boolean>(false);
 export const statusMessage = writable<string>('');
+export const isReloadingDevice = writable<boolean>(false);
 
 // Currently selected button index (for the right-panel settings editor)
 export const selectedButtonIndex = writable<number>(0);

@@ -19,7 +19,8 @@ USB DRIVE — two modes, controlled by config.json:
     Convenient when iterating on firmware locally.
 
 To reload after config/code changes:
-- Send Ctrl+D over serial console
+- The config editor triggers reload automatically over USB serial after saving
+- Or send Ctrl+D over serial console
 - Or power-cycle the device
 """
 

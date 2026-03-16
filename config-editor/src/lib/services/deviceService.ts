@@ -9,10 +9,10 @@ import { get } from 'svelte/store';
 import { message } from '@tauri-apps/plugin-dialog';
 import {
   selectedDevice, currentConfigRaw, hasUnsavedChanges,
-  validationErrors, statusMessage, isLoading, devices, showToast
+  validationErrors, statusMessage, isLoading, devices, showToast, isReloadingDevice
 } from '$lib/stores';
 import {
-  readConfigRaw, writeConfigRaw, ejectDevice
+  readConfigRaw, writeConfigRaw, ejectDevice, triggerDeviceReload
 } from '$lib/api';
 import { loadConfig, validate, normalizeConfig, config } from '$lib/formStore';
 import type { DetectedDevice } from '$lib/types';
@@ -67,9 +67,25 @@ export async function saveToDevice(): Promise<boolean> {
     await writeConfigRaw(device.config_path, configJson);
     currentConfigRaw.set(configJson);
     hasUnsavedChanges.set(false);
-    statusMessage.set('Config saved successfully');
-    showToast('Config saved successfully', 'success');
     saveSucceeded = true;
+
+    // Brief delay to ensure FAT32 flush reaches device before triggering reload
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Attempt serial reload — non-fatal; falls back to manual restart message
+    try {
+      await triggerDeviceReload(device.path);
+      isReloadingDevice.set(true);
+      statusMessage.set('Config saved — device reloading\u2026');
+      showToast('Config saved — device reloading\u2026', 'success');
+      
+      // Clear reload flag after 5s (reload takes ~2-3s, buffer for reconnect)
+      setTimeout(() => isReloadingDevice.set(false), 5000);
+    } catch (e: any) {
+      console.warn('Serial reload failed:', e.message || e);
+      statusMessage.set('Config saved — restart device to apply changes');
+      showToast('Config saved — restart device to apply changes', 'success');
+    }
   } catch (e: any) {
     const errorMsg = `Error saving config: ${e.message || e}`;
     statusMessage.set(errorMsg);
