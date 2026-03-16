@@ -7,13 +7,13 @@ import sys
 import time
 from pathlib import Path
 
-FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "dev"
+FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "circuitpython"
 sys.path.insert(0, str(FIRMWARE_DIR))
 
 from core.config import validate_config
 import importlib.util
 
-# Load firmware/dev/code.py as module `fw` to avoid stdlib `code` module collision
+# Load firmware/circuitpython/code.py as module `fw` to avoid stdlib `code` module collision
 FIRMWARE_CODE = FIRMWARE_DIR / "code.py"
 src = FIRMWARE_CODE.read_text()
 # Strip the infinite main loop at the end for test import so module-level

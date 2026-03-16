@@ -15,8 +15,8 @@ import pytest
 import sys
 from pathlib import Path
 
-# Add firmware/dev to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "firmware" / "dev"))
+# Add firmware/circuitpython to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "firmware" / "circuitpython"))
 
 from core.config import normalize_button_config, validate_config
 

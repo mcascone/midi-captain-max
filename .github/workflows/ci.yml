@@ -54,11 +54,11 @@ jobs:
 
       - name: Lint with Ruff
         run: |
-          ruff check firmware/dev/ --ignore=E501,F401,E402 --exclude=firmware/dev/experiments
+          ruff check firmware/circuitpython/ --ignore=E501,F401,E402 --exclude=firmware/circuitpython/experiments
 
       - name: Check Python syntax
         run: |
-          find firmware/dev -name "*.py" -not -path "*/experiments/*" -exec python -m py_compile {} \;
+          find firmware/circuitpython -name "*.py" -not -path "*/experiments/*" -exec python -m py_compile {} \;
 
       - name: CircuitPython 7.x compatibility guard
         run: |
@@ -135,7 +135,7 @@ jobs:
 
       - name: Compile .py to .mpy
         run: |
-          cd firmware/dev
+          cd firmware/circuitpython
           # Compile core/ and devices/ modules to .mpy bytecode.
           # This reduces file sizes ~30-50% and eliminates parse/compile
           # time on the device, improving both flash speed and boot time.
@@ -154,11 +154,11 @@ jobs:
       - name: Write VERSION file
         run: |
           VERSION="${{ needs.lint.outputs.version }}"
-          echo "$VERSION" > firmware/dev/VERSION
+          echo "$VERSION" > firmware/circuitpython/VERSION
 
       - name: Generate firmware manifest
         run: |
-          cd firmware/dev
+          cd firmware/circuitpython
           # Generate checksums for incremental updates. The installer compares
           # this manifest against the device's existing one to skip unchanged files.
           find . -type f \
@@ -174,7 +174,7 @@ jobs:
         run: |
           VERSION="${{ needs.lint.outputs.version }}"
           mkdir -p dist
-          cd firmware/dev
+          cd firmware/circuitpython
           zip -r "../../dist/midicaptain-firmware-${VERSION}.zip" \
             INSTALL.md \
             code.py \

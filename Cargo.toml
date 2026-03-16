@@ -1,0 +1,17 @@
+[workspace]
+members = [
+    "firmware/rust",
+    "config-editor/src-tauri",
+]
+resolver = "2"
+
+# Shared dependencies and settings for workspace members
+[workspace.package]
+edition = "2021"
+license = "Proprietary"
+authors = ["Maximilian Cascone <max@mcmusicworkshop.com>"]
+
+[workspace.dependencies]
+# Shared config types between firmware and editor backend
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

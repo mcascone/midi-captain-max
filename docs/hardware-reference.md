@@ -240,10 +240,10 @@ Install via `circup install -r requirements-circuitpython.txt`:
 
 ## Device Abstraction
 
-Hardware constants are defined in `firmware/dev/devices/`:
+Hardware constants are defined in `firmware/circuitpython/devices/`:
 
 ```python
-# firmware/dev/devices/std10.py
+# firmware/circuitpython/devices/std10.py
 from devices.std10 import (
     LED_PIN, LED_COUNT,
     SWITCH_PINS,
@@ -253,4 +253,4 @@ from devices.std10 import (
 )
 ```
 
-See [std10.py](../firmware/dev/devices/std10.py) for complete definitions.
+See [std10.py](../firmware/circuitpython/devices/std10.py) for complete definitions.

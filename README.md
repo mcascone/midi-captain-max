@@ -470,9 +470,10 @@ When the Quad Cortex sends `CC 43, value 1, channel 0`, only the SCENE2 button l
 
 | Path | Purpose |
 |------|---------|
-| `firmware/dev/` | Active firmware (copy to device) |
+| `firmware/circuitpython/` | CircuitPython firmware (production-ready) |
+| `firmware/rust/` | Rust+Embassy firmware (experimental) |
 | `config-editor/` | Desktop config editor app (Tauri + Svelte) |
-| `firmware/original_helmut/` | Helmut Keller's original code (reference) |
+| `firmware/circuitpython/original_helmut/` | Helmut Keller's original code (reference) |
 | `docs/` | Hardware specs, design docs |
 | `tools/` | Helper scripts |
 

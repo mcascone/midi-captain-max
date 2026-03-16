@@ -15,7 +15,7 @@ This minimal experiment proves bidirectional MIDI communication.
 2. Copy these files to CIRCUITPY:
 
 ```
-# From firmware/dev/ copy:
+# From firmware/circuitpython/ copy:
 experiments/bidirectional_demo.py  →  CIRCUITPY/code.py
 devices/                           →  CIRCUITPY/devices/
 ```
@@ -23,8 +23,8 @@ devices/                           →  CIRCUITPY/devices/
 Or use this command from the repo root:
 ```bash
 # Assuming CIRCUITPY is mounted
-cp firmware/dev/experiments/bidirectional_demo.py /Volumes/CIRCUITPY/code.py
-cp -r firmware/dev/devices /Volumes/CIRCUITPY/
+cp firmware/circuitpython/experiments/bidirectional_demo.py /Volumes/CIRCUITPY/code.py
+cp -r firmware/circuitpython/devices /Volumes/CIRCUITPY/
 ```
 
 3. Eject CIRCUITPY safely

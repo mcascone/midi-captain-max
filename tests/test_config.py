@@ -9,8 +9,8 @@ import json
 import sys
 from pathlib import Path
 
-# Add firmware/dev to path
-FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "dev"
+# Add firmware/circuitpython to path
+FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "circuitpython"
 sys.path.insert(0, str(FIRMWARE_DIR))
 
 from core.config import (
