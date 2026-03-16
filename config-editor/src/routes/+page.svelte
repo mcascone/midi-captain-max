@@ -9,7 +9,7 @@
     toasts, showToast, removeToast
   } from '$lib/stores';
   import {
-    scanDevices, startDeviceWatcher, readConfigRaw,
+    scanDevices, startDeviceWatcher,
     onDeviceConnected, onDeviceDisconnected
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
@@ -69,21 +69,7 @@
             ($selectedDevice && $selectedDevice.path === device.path);
           if (shouldAutoSelect) {
             await new Promise(resolve => setTimeout(resolve, 500));
-            $selectedDevice = device;
-            $isLoading = true;
-            try {
-              const configRaw = await readConfigRaw(device.config_path);
-              loadConfig(JSON.parse(configRaw));
-              $currentConfigRaw = configRaw;
-              $hasUnsavedChanges = false;
-              $validationErrors = [];
-              $statusMessage = 'Config reloaded from device';
-            } catch (e: any) {
-              $currentConfigRaw = '';
-              $statusMessage = `Error loading config: ${e.message || e}`;
-            } finally {
-              $isLoading = false;
-            }
+            await deviceService.selectDevice(device);
           }
         }
       });

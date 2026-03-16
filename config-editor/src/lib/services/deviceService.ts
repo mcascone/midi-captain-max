@@ -168,6 +168,7 @@ export async function resetDevice() {
     'The new config will be loaded on startup.',
     { title: 'Restart Device', kind: 'info' }
   );
+  statusMessage.set('Restart device to apply config changes');
 }
 
 /**
