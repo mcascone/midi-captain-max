@@ -9,7 +9,7 @@ import { get } from 'svelte/store';
 import { message } from '@tauri-apps/plugin-dialog';
 import {
   selectedDevice, currentConfigRaw, hasUnsavedChanges,
-  validationErrors, statusMessage, isLoading, devices, showToast
+  validationErrors, statusMessage, isLoading, devices, showToast, isReloadingDevice
 } from '$lib/stores';
 import {
   readConfigRaw, writeConfigRaw, ejectDevice, triggerDeviceReload
@@ -75,8 +75,12 @@ export async function saveToDevice(): Promise<boolean> {
     // Attempt serial reload — non-fatal; falls back to manual restart message
     try {
       await triggerDeviceReload(device.path);
+      isReloadingDevice.set(true);
       statusMessage.set('Config saved — device reloading\u2026');
       showToast('Config saved — device reloading\u2026', 'success');
+      
+      // Clear reload flag after 5s (reload takes ~2-3s, buffer for reconnect)
+      setTimeout(() => isReloadingDevice.set(false), 5000);
     } catch (e: any) {
       console.warn('Serial reload failed:', e.message || e);
       statusMessage.set('Config saved — restart device to apply changes');
