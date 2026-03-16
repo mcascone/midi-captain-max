@@ -58,7 +58,7 @@ jobs:
 
       - name: Check Python syntax
         run: |
-          find firmware/dev -name "*.py" -not -path "*/experiments/*" -exec python -m py_compile {} \;
+          find firmware/circuitpython -name "*.py" -not -path "*/experiments/*" -exec python -m py_compile {} \;
 
       - name: CircuitPython 7.x compatibility guard
         run: |
