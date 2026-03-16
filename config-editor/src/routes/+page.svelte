@@ -9,14 +9,15 @@
     toasts, showToast, removeToast
   } from '$lib/stores';
   import {
-    scanDevices, startDeviceWatcher, readConfigRaw, writeConfigRaw,
-    onDeviceConnected, onDeviceDisconnected, ejectDevice
+    scanDevices, startDeviceWatcher,
+    onDeviceConnected, onDeviceDisconnected
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
   import LeftPanel from '$lib/components/LeftPanel.svelte';
   import ButtonSettingsPanel from '$lib/components/ButtonSettingsPanel.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import { loadConfig, validate, normalizeConfig, config, isDirty, canUndo, canRedo, undo, redo, updateField } from '$lib/formStore';
+  import * as deviceService from '$lib/services/deviceService';
 
   let appVersion = $state('');
   let showJsonModal = $state(false);
@@ -68,21 +69,7 @@
             ($selectedDevice && $selectedDevice.path === device.path);
           if (shouldAutoSelect) {
             await new Promise(resolve => setTimeout(resolve, 500));
-            $selectedDevice = device;
-            $isLoading = true;
-            try {
-              const configRaw = await readConfigRaw(device.config_path);
-              loadConfig(JSON.parse(configRaw));
-              $currentConfigRaw = configRaw;
-              $hasUnsavedChanges = false;
-              $validationErrors = [];
-              $statusMessage = 'Config reloaded from device';
-            } catch (e: any) {
-              $currentConfigRaw = '';
-              $statusMessage = `Error loading config: ${e.message || e}`;
-            } finally {
-              $isLoading = false;
-            }
+            await deviceService.selectDevice(device);
           }
         }
       });
@@ -126,134 +113,19 @@
     unlistenDisconnect?.();
   });
 
-  async function selectDevice(device: DetectedDevice) {
-    if ($hasUnsavedChanges && !confirm('You have unsaved changes. Discard them?')) return;
-    $selectedDevice = device;
-    $isLoading = true;
-    try {
-      if (device.has_config) {
-        const configRaw = await readConfigRaw(device.config_path);
-        loadConfig(JSON.parse(configRaw));
-        $currentConfigRaw = configRaw;
-        $hasUnsavedChanges = false;
-        $validationErrors = [];
-        $statusMessage = 'Config loaded successfully';
-      } else {
-        $currentConfigRaw = '';
-        $statusMessage = 'No config.json found on device';
-      }
-    } catch (e: any) {
-      $statusMessage = `Error reading config: ${e.message || e}`;
-    } finally {
-      $isLoading = false;
-    }
-  }
+  // Device selection delegated to deviceService
+  const selectDevice = deviceService.selectDevice;
 
-  async function saveToDevice() {
-    if (!$selectedDevice) return;
-    if (!validate()) {
-      showToast('Please fix validation errors before saving', 'error');
-      return;
-    }
-    $isLoading = true;
-    let saveSucceeded = false;
-    try {
-      const configObj = normalizeConfig(get(config));
-      const configJson = JSON.stringify(configObj, null, 2);
-      await writeConfigRaw($selectedDevice.config_path, configJson);
-      $currentConfigRaw = configJson;
-      $hasUnsavedChanges = false;
-      $statusMessage = 'Config saved successfully';
-      showToast('Config saved successfully', 'success');
-      saveSucceeded = true;
-      
-    } catch (e: any) {
-      $statusMessage = `Error saving config: ${e.message || e}`;
-      showToast($statusMessage, 'error', 5000);
-    } finally {
-      $isLoading = false;
-    }
-    
-    // Prompt to eject device only if save succeeded (UI unlocked)
-    if (saveSucceeded) {
-      await promptEjectDevice();
-    }
-  }
+  // Save and eject delegated to deviceService
+  const saveToDevice = deviceService.saveAndEject;
 
-  async function promptEjectDevice() {
-    if (!$selectedDevice) return;
-    
-    const shouldEject = confirm(
-      'Config saved! Would you like to safely eject the device?\n\n' +
-      'After ejecting:\n' +
-      '1. Press the power button on the BACK of the device to turn it off\n' +
-      '2. Wait 2 seconds\n' +
-      '3. Press the power button again to turn it back on\n\n' +
-      'The new config will be loaded on startup.'
-    );
-    
-    if (!shouldEject) return;
-    
-    try {
-      const devicePath = $selectedDevice.path.toString();
-      const deviceName = $selectedDevice.name;
-      
-      const result = await ejectDevice(devicePath);
-      showToast(result, 'success');
-      
-      // Clear current device selection
-      $selectedDevice = null;
-      $statusMessage = `${deviceName} ejected - waiting for reconnection...`;
-      
-      // Auto-select next available device if any (use path for stable identity)
-      if ($devices.length > 1) {
-        const nextDevice = $devices.find(d => d.path.toString() !== devicePath);
-        if (nextDevice) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          await selectDevice(nextDevice);
-        }
-      }
-      
-    } catch (e: any) {
-      // On Windows or if eject fails, show manual instructions
-      await message(
-        e.message || 'Could not eject device automatically.\n\nPlease eject manually using your system\'s device manager.',
-        { title: 'Eject Device', kind: 'info' }
-      );
-    }
-  }
+  // Eject logic delegated to deviceService
 
-  async function reloadFromDevice() {
-    if (!$selectedDevice) return;
-    $isLoading = true;
-    try {
-      if ($selectedDevice.has_config) {
-        const configRaw = await readConfigRaw($selectedDevice.config_path);
-        loadConfig(JSON.parse(configRaw));
-        $currentConfigRaw = configRaw;
-        $hasUnsavedChanges = false;
-        $validationErrors = [];
-        $statusMessage = 'Config reloaded from device';
-      }
-    } catch (e: any) {
-      $statusMessage = `Error reloading config: ${e.message || e}`;
-    } finally {
-      $isLoading = false;
-    }
-  }
+  // Reload delegated to deviceService
+  const reloadFromDevice = deviceService.reloadFromDevice;
 
-  async function resetDevice() {
-    if (!$selectedDevice) return;
-    await message(
-      'To apply config changes, restart your MIDI Captain:\n\n' +
-      '1. Press the power button on the BACK of the device to turn it off\n' +
-      '2. Wait 2 seconds\n' +
-      '3. Press the power button again to turn it back on\n\n' +
-      '💡 Tip: After saving, you\'ll be prompted to eject the device for a cleaner workflow.',
-      { title: 'Reset Device', kind: 'info' }
-    );
-    $statusMessage = 'Waiting for device to reconnect...';
-  }
+  // Reset instructions delegated to deviceService
+  const resetDevice = deviceService.resetDevice;
 
   function loadDemoConfig() {
     try {

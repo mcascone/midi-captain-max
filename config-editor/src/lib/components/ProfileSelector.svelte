@@ -64,17 +64,24 @@
     }
   });
 
+  // Clear selected action when switching between events
+  $effect(() => {
+    targetEvent; // Subscribe to targetEvent changes
+    selectedActionId = '';
+  });
+
   // Available actions for selected profile
   let availableActions = $derived(
     selectedProfileId ? getProfileActions(selectedProfileId) : []
   );
 
   // Get the commands for the selected target event (from state or button)
-  let targetCommands = $derived(
-    stateIndex !== undefined && button.states?.[stateIndex]
-      ? button.states[stateIndex][targetEvent] as MidiCommand[] | undefined
-      : button[targetEvent] as MidiCommand[] | undefined
-  );
+  let targetCommands = $derived.by(() => {
+    const source = stateIndex !== undefined && button.states?.[stateIndex]
+      ? button.states[stateIndex]
+      : button;
+    return source[targetEvent] as MidiCommand[] | undefined;
+  });
 
   // Check which events have commands assigned (from state or button)
   let eventHasCommands = $derived.by(() => {

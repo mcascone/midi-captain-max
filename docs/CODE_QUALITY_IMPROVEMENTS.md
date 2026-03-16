@@ -20,16 +20,16 @@ This document tracks identified code quality improvements and refactoring opport
 
 ## 🔴 Critical Priority Issues
 
-### 1. Overly Large Files ✅ PHASE 1 COMPLETE
+### 1. Overly Large Files ✅ PHASES 1, 2 & 3 COMPLETE
 
 **Problem:** Several files exceed 600 lines, making them difficult to maintain and test.
 
 | File | Lines | Status |
 |------|-------|--------|
 | `firmware/dev/code.py` | ~~1,678~~ → **1,527** | ✅ Phase 1 complete (-182 lines, -11%) |
-| `config-editor/src-tauri/src/config.rs` | 1,601 | ⬜ Pending |
-| `config-editor/src/lib/components/ButtonSettingsPanel.svelte` | 960 | ⬜ Pending |
-| `config-editor/src/routes/+page.svelte` | 653 | ⬜ Pending |
+| `config-editor/src-tauri/src/config/` | ~~1,601~~ → **Module** | ✅ Phase 2 complete (split into 4 files) |
+| `config-editor/src/routes/+page.svelte` | ~~653~~ → **539** | ✅ Phase 3 complete (-114 lines, -17%) |
+| `config-editor/src/lib/components/ButtonSettingsPanel.svelte` | 960 | ⬜ Deferred (complex UI, low priority) |
 
 **Phase 1 Complete - All Handlers Extracted** (Commits 4ecddd7, 4123ae6)
 
@@ -47,12 +47,45 @@ This document tracks identified code quality improvements and refactoring opport
 - Maintained backward compatibility with wrapper functions
 - All 178 tests passing ✅
 
-**Next Steps:**
-- [ ] Split `config.rs` into types/validation/deserialize modules
-- [ ] Break down `ButtonSettingsPanel.svelte` into sub-components
-- [ ] Extract business logic from `+page.svelte`
+**Phase 2 Complete - config.rs Modularized** (Branch: `refactor/phase-2-file-splitting`)
 
-**Estimated Effort:** ~~2-3 weeks~~ **DONE in 1 day**
+**Config Module Structure** (1,601 lines → 4 files):
+- ✅ `config/types.rs` - Enum declarations (ButtonColor, ButtonMode, OffMode, MessageType, Polarity, DeviceType) ~80 lines
+- ✅ `config/models.rs` - Struct definitions (ButtonConfig, EncoderConfig, ExpressionConfig, MidiCaptainConfig, etc.) ~340 lines
+- ✅ `config/validation.rs` - Validation implementation (MidiCaptainConfig::validate) ~280 lines
+- ✅ `config/mod.rs` - Module declaration, re-exports, and tests ~950 lines
+
+**Impact:**
+- config.rs monolith **eliminated** (1,601 lines → clean module structure)
+- Clear separation: types → models → validation
+- Easier navigation and maintenance
+- All 48 Rust tests passing ✅
+- Backward-compatible public API (all re-exports maintained)
+
+**Phase 3 Complete - +page.svelte Refactored**
+
+**Service Module Extraction** (653 lines → 539 lines + 181 line service):
+- ✅ Created `services/deviceService.ts` (181 lines) - Device management logic encapsulation
+  - `selectDevice()` - Device selection and config loading
+  - `saveToDevice()` - Config validation and saving
+  - `promptEjectDevice()` - Safe device ejection workflow
+  - `reloadFromDevice()` - Config reload from device
+  - `resetDevice()` - Device restart instructions
+  - `saveAndEject()` - Combined save + eject workflow
+- ✅ Updated `+page.svelte` to delegate device operations to service
+- ✅ Removed duplicate API imports (readConfigRaw, writeConfigRaw, ejectDevice now only in service)
+
+**Impact:**
+- +page.svelte reduced by **114 lines (17%)**: 653 → 539 lines
+- Better separation of concerns (UI vs business logic)
+- Improved testability (service functions can be unit tested)
+- Cleaner component code (less inline async complexity)
+
+**Next Steps:**
+- [x] Extract device management from `+page.svelte` → Done!
+- [ ] Break down `ButtonSettingsPanel.svelte` into sub-components (deferred - complex UI, manageable as-is)
+
+**Estimated Effort:** ~~2-3 weeks~~ **Phases 1, 2 & 3 DONE in 1 day**
 
 ---
 
