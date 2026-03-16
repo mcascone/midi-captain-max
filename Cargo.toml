@@ -3,6 +3,7 @@ members = [
     "firmware/rust",
     "config-editor/src-tauri",
 ]
+default-members = ["config-editor/src-tauri"]
 resolver = "2"
 
 # Shared dependencies and settings for workspace members
