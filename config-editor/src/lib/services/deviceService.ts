@@ -77,7 +77,8 @@ export async function saveToDevice(): Promise<boolean> {
       await triggerDeviceReload(device.path);
       statusMessage.set('Config saved — device reloading\u2026');
       showToast('Config saved — device reloading\u2026', 'success');
-    } catch {
+    } catch (e: any) {
+      console.warn('Serial reload failed:', e.message || e);
       statusMessage.set('Config saved — restart device to apply changes');
       showToast('Config saved — restart device to apply changes', 'success');
     }

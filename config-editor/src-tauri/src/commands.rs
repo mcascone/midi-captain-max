@@ -455,9 +455,16 @@ fn find_circuitpython_ports() -> Vec<String> {
 
 /// Send a reload signal (0x12 / Ctrl+R) to a CircuitPython device over USB serial.
 /// The firmware listens for this byte and calls supervisor.reload().
+/// Send a reload signal (0x12 / Ctrl+R) to a CircuitPython device over USB serial.
+/// The firmware listens for this byte and calls supervisor.reload().
+///
+/// Note: Currently enumerates all CircuitPython-like ports and sends to the first
+/// that opens successfully. In multi-device setups this may reload the wrong board.
+/// Future improvement: correlate device_path with USB serial port metadata (serial
+/// number, bus location) to target the specific device that was just saved.
 #[command]
 pub fn trigger_device_reload(device_path: String) -> Result<String, ConfigError> {
-    let _ = device_path; // path available for future port-scoping logic
+    let _ = device_path; // TODO: use to scope port selection
     let candidates = find_circuitpython_ports();
 
     if candidates.is_empty() {

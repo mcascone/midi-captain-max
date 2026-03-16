@@ -1528,6 +1528,11 @@ def handle_serial_commands():
     successful save, which requires the USB drive to be visible (dev mode or
     switch 1 held at boot). The CDC serial interface is always active regardless
     of drive visibility, so this handler runs in all modes at zero overhead.
+
+    Limitation: This consumes sys.stdin (USB CDC console), so 0x12 bytes from
+    REPL input are also interpreted as reload signals. In practice this is rare
+    (Ctrl+R is not a common console keystroke). Future improvement: use a
+    dedicated usb_cdc.data channel instead of sys.stdin to avoid console overlap.
     """
     if supervisor.runtime.serial_bytes_available:
         byte = sys.stdin.read(1)
