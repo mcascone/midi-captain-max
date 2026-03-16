@@ -456,7 +456,8 @@ fn find_circuitpython_ports() -> Vec<String> {
 /// Send a reload signal (0x12 / Ctrl+R) to a CircuitPython device over USB serial.
 /// The firmware listens for this byte and calls supervisor.reload().
 #[command]
-pub fn trigger_device_reload(_device_path: String) -> Result<String, ConfigError> {
+pub fn trigger_device_reload(device_path: String) -> Result<String, ConfigError> {
+    let _ = device_path; // path available for future port-scoping logic
     let candidates = find_circuitpython_ports();
 
     if candidates.is_empty() {
