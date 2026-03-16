@@ -406,3 +406,86 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
         })
     }
 }
+
+// ---------------------------------------------------------------------------
+// Device auto-reload via serial
+// ---------------------------------------------------------------------------
+
+/// USB Vendor IDs used by CircuitPython devices
+const CIRCUITPYTHON_VIDS: &[u16] = &[
+    0x239A, // Adafruit
+    0x2E8A, // Raspberry Pi
+];
+
+/// Enumerate serial port candidates for CircuitPython devices.
+/// First tries USB ports matching known VIDs; falls back to platform name patterns.
+fn find_circuitpython_ports() -> Vec<String> {
+    let Ok(ports) = serialport::available_ports() else {
+        return Vec::new();
+    };
+
+    let mut candidates: Vec<String> = ports
+        .iter()
+        .filter_map(|p| {
+            if let serialport::SerialPortType::UsbPort(info) = &p.port_type {
+                if CIRCUITPYTHON_VIDS.contains(&info.vid) {
+                    return Some(p.port_name.clone());
+                }
+            }
+            None
+        })
+        .collect();
+
+    // Fallback: match by platform-specific port name patterns
+    if candidates.is_empty() {
+        candidates = ports
+            .iter()
+            .filter(|p| {
+                let name = &p.port_name;
+                name.contains("usbmodem")   // macOS
+                    || name.contains("ttyACM") // Linux
+                    || name.starts_with("COM")  // Windows
+            })
+            .map(|p| p.port_name.clone())
+            .collect();
+    }
+
+    candidates
+}
+
+/// Send a reload signal (0x12 / Ctrl+R) to a CircuitPython device over USB serial.
+/// The firmware listens for this byte and calls supervisor.reload().
+#[command]
+pub fn trigger_device_reload(_device_path: String) -> Result<String, ConfigError> {
+    let candidates = find_circuitpython_ports();
+
+    if candidates.is_empty() {
+        return Err(ConfigError {
+            message: "No CircuitPython serial port found. Please restart the device manually."
+                .to_string(),
+            details: None,
+        });
+    }
+
+    let mut last_error = String::new();
+    for port_name in &candidates {
+        match serialport::new(port_name, 115_200)
+            .timeout(std::time::Duration::from_millis(500))
+            .open()
+        {
+            Ok(mut port) => match port.write_all(&[0x12]) {
+                Ok(_) => return Ok(format!("Reload signal sent on {}", port_name)),
+                Err(e) => last_error = e.to_string(),
+            },
+            Err(e) => last_error = e.to_string(),
+        }
+    }
+
+    Err(ConfigError {
+        message: format!(
+            "Failed to send reload signal: {}. Please restart the device manually.",
+            last_error
+        ),
+        details: None,
+    })
+}

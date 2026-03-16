@@ -38,6 +38,10 @@ export async function ejectDevice(path: string): Promise<string> {
   return invoke('eject_device', { path });
 }
 
+export async function triggerDeviceReload(devicePath: string): Promise<string> {
+  return invoke('trigger_device_reload', { devicePath });
+}
+
 // Event listeners
 export function onDeviceConnected(callback: (device: DetectedDevice) => void) {
   return listen<DetectedDevice>('device-connected', (event) => {

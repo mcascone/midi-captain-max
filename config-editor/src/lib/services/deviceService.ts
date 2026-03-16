@@ -12,7 +12,7 @@ import {
   validationErrors, statusMessage, isLoading, devices, showToast
 } from '$lib/stores';
 import {
-  readConfigRaw, writeConfigRaw, ejectDevice
+  readConfigRaw, writeConfigRaw, ejectDevice, triggerDeviceReload
 } from '$lib/api';
 import { loadConfig, validate, normalizeConfig, config } from '$lib/formStore';
 import type { DetectedDevice } from '$lib/types';
@@ -67,9 +67,17 @@ export async function saveToDevice(): Promise<boolean> {
     await writeConfigRaw(device.config_path, configJson);
     currentConfigRaw.set(configJson);
     hasUnsavedChanges.set(false);
-    statusMessage.set('Config saved successfully');
-    showToast('Config saved successfully', 'success');
     saveSucceeded = true;
+
+    // Attempt serial reload — non-fatal; falls back to manual restart message
+    try {
+      await triggerDeviceReload(device.path);
+      statusMessage.set('Config saved — device reloading\u2026');
+      showToast('Config saved — device reloading\u2026', 'success');
+    } catch {
+      statusMessage.set('Config saved — restart device to apply changes');
+      showToast('Config saved — restart device to apply changes', 'success');
+    }
   } catch (e: any) {
     const errorMsg = `Error saving config: ${e.message || e}`;
     statusMessage.set(errorMsg);

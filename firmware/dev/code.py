@@ -28,6 +28,8 @@ import usb_midi
 import busio
 import rotaryio
 import json
+import sys
+import supervisor
 from analogio import AnalogIn
 from adafruit_display_text import label
 from adafruit_bitmap_font import bitmap_font
@@ -1513,10 +1515,28 @@ print("\nRunning...")
 show_selected_button_label()
 
 # =============================================================================
+# Serial Command Handler
+# =============================================================================
+
+def handle_serial_commands():
+    """Listen for control bytes from the config editor over USB serial.
+
+    Supported signals:
+      0x12 (Ctrl+R): trigger supervisor.reload() to apply new config
+    """
+    if supervisor.runtime.serial_bytes_available:
+        byte = sys.stdin.read(1)
+        if byte == '\x12':
+            print("[SERIAL] Reload signal received — reloading firmware...")
+            supervisor.reload()
+
+
+# =============================================================================
 # Main Loop
 # =============================================================================
 
 while True:
+    handle_serial_commands()
     handle_midi()
     handle_switches()
     update_pc_flash_timers()
