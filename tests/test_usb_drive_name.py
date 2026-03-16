@@ -5,8 +5,8 @@ Tests for USB drive name validation.
 import sys
 import os
 
-# Add firmware/dev to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../firmware/dev"))
+# Add firmware/circuitpython to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../firmware/circuitpython"))
 
 from core.config import validate_usb_drive_name, get_usb_drive_name, get_dev_mode
 

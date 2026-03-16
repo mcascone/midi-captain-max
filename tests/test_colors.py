@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 # Add firmware/dev to path so we can import core modules
-FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "dev"
+FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "circuitpython"
 sys.path.insert(0, str(FIRMWARE_DIR))
 
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display

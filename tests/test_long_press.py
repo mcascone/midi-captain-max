@@ -5,7 +5,7 @@ Tests for long-press config validation.
 import sys
 from pathlib import Path
 
-FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "dev"
+FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "circuitpython"
 sys.path.insert(0, str(FIRMWARE_DIR))
 
 from core.config import validate_button, validate_config
