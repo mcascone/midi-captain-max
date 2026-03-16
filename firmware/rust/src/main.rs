@@ -20,9 +20,10 @@ use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 
 // RP2040 boot stage 2 (required for booting from flash)
+// Symbol name must match EXTERN(BOOT2_FIRMWARE) in memory.x
 #[link_section = ".boot2"]
 #[used]
-pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
+pub static BOOT2_FIRMWARE: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
 
 /// Main entry point - runs on core 0
 #[embassy_executor::main]
