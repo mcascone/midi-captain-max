@@ -444,7 +444,7 @@ fn find_circuitpython_ports() -> Vec<String> {
                 let name = &p.port_name;
                 name.contains("usbmodem")   // macOS
                     || name.contains("ttyACM") // Linux
-                    || name.starts_with("COM")  // Windows
+                    || name.starts_with("COM") // Windows
             })
             .map(|p| p.port_name.clone())
             .collect();

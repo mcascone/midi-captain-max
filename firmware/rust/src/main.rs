@@ -19,6 +19,12 @@ use embassy_rp::gpio;
 use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 
+// RP2040 boot stage 2 (required for booting from flash)
+// Symbol name must match EXTERN(BOOT2_FIRMWARE) in memory.x
+#[link_section = ".boot2"]
+#[used]
+pub static BOOT2_FIRMWARE: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
+
 /// Main entry point - runs on core 0
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -33,10 +39,11 @@ async fn main(_spawner: Spawner) {
     // TODO: Initialize GPIO (switches, encoder, expression pedals)
     // TODO: Initialize SPI display (ST7789)
     // TODO: Initialize NeoPixels (WS2812)
-    
-    // Placeholder blink loop
-    let mut led = gpio::Output::new(p.PIN_25, gpio::Level::Low);
-    
+
+    // Placeholder blink loop using GPIO16 (unused on both STD10 and Mini6)
+    // Note: GPIO25 is used by footswitch on STD10, so we use GP16 instead
+    let mut led = gpio::Output::new(p.PIN_16, gpio::Level::Low);
+
     info!("Entering main loop");
     loop {
         led.set_high();

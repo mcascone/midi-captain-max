@@ -17,6 +17,9 @@ import {
 import { loadConfig, validate, normalizeConfig, config } from '$lib/formStore';
 import type { DetectedDevice } from '$lib/types';
 
+// Track reload timeout to allow cancellation on subsequent saves
+let reloadTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
 /**
  * Select a device and load its configuration
  */
@@ -76,11 +79,18 @@ export async function saveToDevice(): Promise<boolean> {
     try {
       await triggerDeviceReload(device.path);
       isReloadingDevice.set(true);
-      statusMessage.set('Config saved — device reloading\u2026');
-      showToast('Config saved — device reloading\u2026', 'success');
+      statusMessage.set('Config saved — device reloading…');
+      showToast('Config saved — device reloading…', 'success');
       
       // Clear reload flag after 5s (reload takes ~2-3s, buffer for reconnect)
-      setTimeout(() => isReloadingDevice.set(false), 5000);
+      // Cancel any existing timeout from previous saves
+      if (reloadTimeoutId !== null) {
+        clearTimeout(reloadTimeoutId);
+      }
+      reloadTimeoutId = setTimeout(() => {
+        isReloadingDevice.set(false);
+        reloadTimeoutId = null;
+      }, 5000);
     } catch (e: any) {
       console.warn('Serial reload failed:', e.message || e);
       statusMessage.set('Config saved — restart device to apply changes');
