@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2026-03-15
 
 ### Added
+- **Handler Module Extraction** (Phase 1 Modularization): Extracted 5 handler modules from `code.py`
+  - `handlers/midi.py` (87 lines): Bidirectional MIDI processing
+  - `handlers/display.py` (108 lines): Display management and label timeouts
+  - `handlers/timers.py` (107 lines): PC flash and blink timer updates
+  - `handlers/button.py` (128 lines): Button state management and LED control
+  - `handlers/encoder.py` (240 lines): Rotary encoder and expression pedal handling
+  - Total reduction: 182 lines from main `code.py` (-11%)
+- **Constants Module** (`constants.py`, 138 lines): Centralized all magic numbers and configuration values
+  - MIDI timing constants (delays, timeouts)
+  - Display dimensions and positioning
+  - LED brightness levels
+  - PC flash and blink durations
+- **Enhanced .gitignore**: Added CircuitPython-specific exclusions (`.Trashes`, `.Spotlight-V100`, `.fseventsd`, `._*`)
+
+### Changed
+- **Comprehensive Exception Handling**: Added try/except blocks to 13 critical functions
+  - MIDI handlers: `handle_midi`, `handle_midi_message`, `handle_control_change`, `handle_note`, `handle_program_change`
+  - Display handlers: `set_label_text`, `update_label_timeout`, `show_selected_button_label`
+  - Timer handlers: `update_pc_flash_timers`, `update_blink_timers`
+  - Input handlers: `handle_switches`, `handle_encoder`, `handle_expression`
+  - All exceptions print error context and continue execution (no device resets during live performance)
+
+### Fixed
+- **flash_pc_button TypeError** (Copilot review): Added `PC_FLASH_DURATION_MS` default parameter
+  - Prevents crash when called without `flash_ms` argument after PC command execution
+- **update_label_timeout infinite loop** (Copilot review): Handler now returns tuple `(timeout, label_prev_len)`
+  - Caller properly resets `label_timeout_return_to_select` to `0.0` when expired
+  - Previously timeout was never cleared, causing expired branch to run forever
+- **set_button_state bounds check** (Copilot review): Changed from `len(buttons)` to `len(button_states)`
+  - Prevents silent LED failures when config array is shorter than physical hardware button count
+  - Fallback config already existed but check was too strict
+- **Variable redefinition linting error** (F811): Changed `DEFAULT_LONG_PRESS_MS` redefinition to `LONG_PRESS_THRESHOLD_MS`
+- **package.json scripts** (Copilot review): Removed test/lint scripts referencing missing dependencies (vitest, eslint)
+  - Will be added back in Phase 3 with proper devDependencies
+- **Documentation inconsistency** (Copilot review): Updated CODE_QUALITY_IMPROVEMENTS.md to reflect CONTRIBUTING.md already exists
+
+### Tests & CI
+- All 178 tests passing after modularization and fixes
+- CI workflow validates Python syntax and runs pytest on every push
+- Modular architecture enables better test isolation and coverage
+
+### Deployment
+- Branch: `refactor/code-quality-improvements`
+- PR: https://github.com/guisperandio/midi-captain-max/pull/19
+- Commits: 12 total (modularization, exception handling, constants, Copilot review fixes)
+- Ready for merge after CI validation
+
+---
+
+## [Device Profiles Release] - 2026-03-15
+
+### Added
 - **Device Profiles** (PRD Feature 2): Built-in MIDI mappings for popular devices
   - 6 profiles included: Quad Cortex, Helix, HX Stomp, Kemper, Ableton Live, MainStage
   - Full support for `pc_inc`/`pc_dec` command types with configurable step size

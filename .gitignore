@@ -1,17 +1,37 @@
 # macOS
 .DS_Store
+Thumbs.db
 
 # VS Code
 .vscode/
 
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 
 # CircuitPython / device artifacts
 boot_out.txt
 settings.toml
 firmware/dev/VERSION
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs
+*.log
 
 # Local release bundles / copied device images
 dist/
