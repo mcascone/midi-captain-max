@@ -27,9 +27,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Auto-detect context: development repo vs. distributed package
-if [ -d "$PROJECT_ROOT/firmware/dev" ]; then
+if [ -d "$PROJECT_ROOT/firmware/circuitpython" ]; then
     # Running from development repository
-    DEV_DIR="$PROJECT_ROOT/firmware/dev"
+    DEV_DIR="$PROJECT_ROOT/firmware/circuitpython"
     CONTEXT="dev"
 elif [ -f "$SCRIPT_DIR/code.py" ] || [ -d "$SCRIPT_DIR/firmware" ]; then
     # Running from distributed package (firmware files in same dir or firmware/ subdir)
@@ -41,7 +41,7 @@ elif [ -f "$SCRIPT_DIR/code.py" ] || [ -d "$SCRIPT_DIR/firmware" ]; then
     CONTEXT="dist"
 else
     echo -e "${RED}❌ Cannot locate firmware files${NC}"
-    echo "Expected firmware/dev/ (dev repo) or code.py (distributed package)"
+    echo "Expected firmware/circuitpython/ (dev repo) or code.py (distributed package)"
     exit 1
 fi
 
