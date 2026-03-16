@@ -69,6 +69,9 @@ export async function saveToDevice(): Promise<boolean> {
     hasUnsavedChanges.set(false);
     saveSucceeded = true;
 
+    // Brief delay to ensure FAT32 flush reaches device before triggering reload
+    await new Promise(resolve => setTimeout(resolve, 300));
+
     // Attempt serial reload — non-fatal; falls back to manual restart message
     try {
       await triggerDeviceReload(device.path);

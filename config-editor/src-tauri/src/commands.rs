@@ -470,7 +470,7 @@ pub fn trigger_device_reload(_device_path: String) -> Result<String, ConfigError
     let mut last_error = String::new();
     for port_name in &candidates {
         match serialport::new(port_name, 115_200)
-            .timeout(std::time::Duration::from_millis(500))
+            .timeout(std::time::Duration::from_millis(1000))
             .open()
         {
             Ok(mut port) => match port.write_all(&[0x12]) {

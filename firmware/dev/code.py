@@ -1523,6 +1523,11 @@ def handle_serial_commands():
 
     Supported signals:
       0x12 (Ctrl+R): trigger supervisor.reload() to apply new config
+
+    Note: In practice this signal is only sent by the config editor after a
+    successful save, which requires the USB drive to be visible (dev mode or
+    switch 1 held at boot). The CDC serial interface is always active regardless
+    of drive visibility, so this handler runs in all modes at zero overhead.
     """
     if supervisor.runtime.serial_bytes_available:
         byte = sys.stdin.read(1)
