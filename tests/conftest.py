@@ -15,7 +15,7 @@ MOCKS_DIR = TESTS_DIR / "mocks"
 def install_mocks():
     """Install mock modules into sys.modules before importing firmware code."""
     from tests.mocks import board, digitalio, neopixel, displayio, busio
-    from tests.mocks import usb_midi, rotaryio, analogio, terminalio
+    from tests.mocks import usb_midi, rotaryio, analogio, terminalio, supervisor
     
     sys.modules["board"] = board
     sys.modules["digitalio"] = digitalio
@@ -26,6 +26,7 @@ def install_mocks():
     sys.modules["rotaryio"] = rotaryio
     sys.modules["analogio"] = analogio
     sys.modules["terminalio"] = terminalio
+    sys.modules["supervisor"] = supervisor
     
     # Mock additional CircuitPython modules that may be needed
     # These are stub modules for imports that we don't need to fully mock
