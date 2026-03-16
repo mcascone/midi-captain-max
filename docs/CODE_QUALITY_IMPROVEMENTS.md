@@ -20,18 +20,18 @@ This document tracks identified code quality improvements and refactoring opport
 
 ## 🔴 Critical Priority Issues
 
-### 1. Overly Large Files ✅ PHASE 1 COMPLETE
+### 1. Overly Large Files ✅ PHASE 1 & 2 COMPLETE
 
 **Problem:** Several files exceed 600 lines, making them difficult to maintain and test.
 
 | File | Lines | Status |
 |------|-------|--------|
 | `firmware/dev/code.py` | ~~1,678~~ → **1,527** | ✅ Phase 1 complete (-182 lines, -11%) |
-| `config-editor/src-tauri/src/config.rs` | 1,601 | ⬜ Pending |
+| `config-editor/src-tauri/src/config.rs` | ~~1,601~~ → **Module** | ✅ Phase 2 complete (split into 4 files) |
 | `config-editor/src/lib/components/ButtonSettingsPanel.svelte` | 960 | ⬜ Pending |
 | `config-editor/src/routes/+page.svelte` | 653 | ⬜ Pending |
 
-**Phase 1 Complete - All Handlers Extracted** (Commits 4ecddd7, 4123ae6)
+**Phase 1 Complete - All Handlers Extracted** (Commits 4e cddd7, 4123ae6)
 
 **Handler Modules Created** (670 lines total):
 - ✅ `handlers/midi.py` - MIDI I/O functions (87 lines)
@@ -47,12 +47,26 @@ This document tracks identified code quality improvements and refactoring opport
 - Maintained backward compatibility with wrapper functions
 - All 178 tests passing ✅
 
+**Phase 2 Complete - config.rs Modularized** (Branch: `refactor/phase-2-file-splitting`)
+
+**Config Module Structure** (1,601 lines → 4 files):
+- ✅ `config/types.rs` - Enum declarations (ButtonColor, ButtonMode, OffMode, MessageType, Polarity, DeviceType) ~80 lines
+- ✅ `config/models.rs` - Struct definitions (ButtonConfig, EncoderConfig, ExpressionConfig, MidiCaptainConfig, etc.) ~340 lines
+- ✅ `config/validation.rs` - Validation implementation (MidiCaptainConfig::validate) ~280 lines
+- ✅ `config/mod.rs` - Module declaration, re-exports, and tests ~950 lines
+
+**Impact:**
+- config.rs monolith **eliminated** (1,601 lines → clean module structure)
+- Clear separation: types → models → validation
+- Easier navigation and maintenance
+- All 48 Rust tests passing ✅
+- Backward-compatible public API (all re-exports maintained)
+
 **Next Steps:**
-- [ ] Split `config.rs` into types/validation/deserialize modules
 - [ ] Break down `ButtonSettingsPanel.svelte` into sub-components
 - [ ] Extract business logic from `+page.svelte`
 
-**Estimated Effort:** ~~2-3 weeks~~ **DONE in 1 day**
+**Estimated Effort:** ~~2-3 weeks~~ **Phase 1 & 2 DONE in 2 days**
 
 ---
 
