@@ -286,7 +286,7 @@ jobs:
         run: |
           cd config-editor
           npm run tauri build -- --target universal-apple-darwin
-          ls -lah src-tauri/target/universal-apple-darwin/release/bundle/
+          ls -lah ../target/universal-apple-darwin/release/bundle/
 
       - name: Notarize DMG
         if: env.KEYCHAIN_PATH != ''
@@ -302,7 +302,7 @@ jobs:
             exit 0
           fi
           
-          DMG_PATH=$(find config-editor/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -1)
+          DMG_PATH=$(find target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -1)
           if [ -z "$DMG_PATH" ]; then
             echo "::error::DMG not found after build"
             exit 1
@@ -329,14 +329,14 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: config-editor-dmg
-          path: config-editor/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          path: target/universal-apple-darwin/release/bundle/dmg/*.dmg
           retention-days: 90
 
       - name: Upload app bundle artifact
         uses: actions/upload-artifact@v6
         with:
           name: config-editor-app
-          path: config-editor/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+          path: target/universal-apple-darwin/release/bundle/macos/*.app
           retention-days: 90
 
   build-config-editor-windows:
@@ -371,20 +371,20 @@ jobs:
         run: |
           cd config-editor
           npm run tauri build
-          Get-ChildItem -Path src-tauri\target\release\bundle\ -Recurse
+          Get-ChildItem -Path ..\target\release\bundle\ -Recurse
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v6
         with:
           name: config-editor-msi
-          path: config-editor/src-tauri/target/release/bundle/msi/*.msi
+          path: target/release/bundle/msi/*.msi
           retention-days: 90
 
       - name: Upload NSIS artifact
         uses: actions/upload-artifact@v6
         with:
           name: config-editor-nsis
-          path: config-editor/src-tauri/target/release/bundle/nsis/*.exe
+          path: target/release/bundle/nsis/*.exe
           retention-days: 90
 
       - name: Build summary
