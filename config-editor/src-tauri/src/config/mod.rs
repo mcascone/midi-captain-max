@@ -25,7 +25,9 @@ mod validation;
 
 // Re-export all public types for backward compatibility
 pub use models::*;
-pub use types::*;
+// Re-export types for internal tests (needed by test assertions)
+#[allow(unused_imports)]
+pub(crate) use types::*;
 
 // Tests extracted from original config.rs
 // All 48 tests passing ✅
