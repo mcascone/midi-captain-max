@@ -67,19 +67,19 @@ jobs:
           ERRORS=0
 
           # Dict unpacking in literals: {**d, "k": v}
-          if grep -rn '{\s*\*\*' firmware/dev/ --include="*.py" | grep -v experiments/; then
+          if grep -rn '{\s*\*\*' firmware/circuitpython/ --include="*.py" | grep -v experiments/; then
             echo "::error::Dict unpacking ({**dict}) is not supported in CircuitPython 7.x"
             ERRORS=$((ERRORS + 1))
           fi
 
           # Walrus operator: :=
-          if grep -rn ':=' firmware/dev/ --include="*.py" | grep -v experiments/; then
+          if grep -rn ':=' firmware/circuitpython/ --include="*.py" | grep -v experiments/; then
             echo "::error::Walrus operator (:=) is not supported in CircuitPython 7.x"
             ERRORS=$((ERRORS + 1))
           fi
 
           # match/case (Python 3.10+)
-          if grep -rn '^[[:space:]]*match ' firmware/dev/ --include="*.py" | grep -v experiments/; then
+          if grep -rn '^[[:space:]]*match ' firmware/circuitpython/ --include="*.py" | grep -v experiments/; then
             echo "::error::match/case is not supported in CircuitPython 7.x"
             ERRORS=$((ERRORS + 1))
           fi

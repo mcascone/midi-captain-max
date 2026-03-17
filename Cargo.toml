@@ -1,9 +1,11 @@
 [workspace]
 members = [
-    "firmware/rust",
     "config-editor/src-tauri",
 ]
-default-members = ["config-editor/src-tauri"]
+# firmware/rust is excluded from workspace to avoid build failures in CI
+# (requires thumbv6m-none-eabi target and embedded ARM toolchain)
+# Build firmware separately: cd firmware/rust && cargo build --release --target thumbv6m-none-eabi
+exclude = ["firmware/rust"]
 resolver = "2"
 
 # Shared dependencies and settings for workspace members

@@ -1,9 +1,9 @@
 [package]
 name = "midi-captain-firmware"
 version = "0.1.0"
-edition.workspace = true
-license.workspace = true
-authors.workspace = true
+edition = "2021"
+license = "Proprietary"
+authors = ["Maximilian Cascone <max@mcmusicworkshop.com>"]
 
 [[bin]]
 name = "midi-captain-firmware"
