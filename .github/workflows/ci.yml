@@ -146,10 +146,13 @@ jobs:
           for f in devices/std10.py devices/mini6.py; do
             mpy-cross -O2 "$f" && rm "$f"
           done
+          for f in handlers/__init__.py handlers/midi.py handlers/display.py handlers/timers.py handlers/button.py handlers/encoder.py; do
+            mpy-cross -O2 "$f" && rm "$f"
+          done
           # Remove empty __init__.py (no value as .mpy)
-          rm -f devices/__init__.py
+          rm -f devices/__init__.py handlers/__init__.py
           echo "Compiled .py → .mpy:"
-          ls -la core/ devices/
+          ls -la core/ devices/ handlers/
 
       - name: Write VERSION file
         run: |
@@ -183,6 +186,7 @@ jobs:
             config-mini6.json \
             core/ \
             devices/ \
+            handlers/ \
             fonts/ \
             lib/ \
             firmware.md5 \

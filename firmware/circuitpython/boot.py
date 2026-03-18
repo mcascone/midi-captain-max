@@ -80,16 +80,12 @@ if enable_usb_drive:
     print(f"🔓 USB DRIVE ENABLED as '{usb_drive_name}' ({mode_label})")
     if not dev_mode:
         print("   Release switch and reboot to hide drive")
-    try:
-        # readonly=True: CircuitPython is read-only, USB host has write access
-        # (needed for config editor to save files to the device)
-        storage.remount("/", readonly=True, label=usb_drive_name)
-    except TypeError:
-        # CircuitPython 7.x doesn't support label=; skip remount so the USB
-        # host retains default write access
-        pass
-    except Exception as e:
-        print(f"⚠️  Drive label warning: {e}")
+    # NOTE: We don't call remount() here. Default USB behavior allows:
+    # - USB host to write files (for deployment)
+    # - code.py to still run (firmware continues working)
+    # Calling remount(..., readonly=True) would prevent code.py from running.
+    # Calling remount(..., readonly=False) would prevent USB host from writing.
+    # Not calling remount() at all gives us both!
 
 # Clean up - switch will be available again in code.py
 switch_1.deinit()
