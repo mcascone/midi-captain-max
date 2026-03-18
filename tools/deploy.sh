@@ -331,7 +331,27 @@ rsync -av --checksum --inplace --itemize-changes \
 
 sync
 
-# 3. Deploy config ONLY if it doesn't exist (preserve user customizations)
+# 3. Migrate existing config to latest format (if needed)
+if [ -f "$MOUNT_POINT/config.json" ] && [ "$DO_FRESH" != true ]; then
+    echo "🔄 Checking for config migrations..."
+    if command -v python3 >/dev/null 2>&1; then
+        # Run migration script
+        if python3 "$SCRIPT_DIR/migrate_config.py" "$MOUNT_POINT" "$CONFIG_FILE" 2>&1; then
+            echo "✓ Config migration complete"
+        else
+            echo -e "${YELLOW}⚠ Config migration skipped (migration script not available)${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠ Python3 not found, skipping config migration${NC}"
+    fi
+else
+    # No existing config or fresh mode - skip migration
+    if [ "$DO_FRESH" = true ]; then
+        echo "📝 Fresh mode: skipping migration, will install clean config"
+    fi
+fi
+
+# 4. Deploy config ONLY if it doesn't exist (preserve user customizations)
 if [ ! -f "$MOUNT_POINT/config.json" ] || [ "$DO_FRESH" = true ]; then
     if [ "$DO_FRESH" = true ] && [ -f "$MOUNT_POINT/config.json" ]; then
         echo "📝 Overwriting config.json with fresh default (--fresh mode)..."
@@ -349,11 +369,11 @@ else
     echo "📝 Preserving existing config.json (use --fresh to overwrite)"
 fi
 
-# 4. Deploy device-specific fallback config (reference only)
+# 5. Deploy device-specific fallback config (reference only)
 rsync -av --checksum --inplace --itemize-changes \
     "$DEV_DIR/config-mini6.json" "$MOUNT_POINT/config-mini6.json"
 
-# 5. code.py LAST (all dependencies are now in place)
+# 6. code.py LAST (all dependencies are now in place)
 rsync -av --checksum --inplace --itemize-changes \
     --exclude='.DS_Store' \
     --exclude='*.pyc' \
