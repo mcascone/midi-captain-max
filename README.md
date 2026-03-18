@@ -68,6 +68,34 @@ If you have multiple MIDI Captain devices, you can give each one a unique name! 
 
 The name persists across power cycles and USB disconnects. Change it anytime by editing config.json and restarting the device.
 
+### Boot Splash Screen
+
+Customize your device with a boot splash image that displays during startup!
+
+1. Create a **240×240 pixel BMP image** (your logo, band name, etc.)
+2. Name it `splash.bmp`
+3. Copy it to the root of the device drive
+4. Power cycle to see it on boot
+
+**Optional config** (add to `config.json`):
+```json
+{
+  "splash_screen": {
+    "enabled": true,
+    "duration_ms": 1500,
+    "idle_timeout_seconds": 60
+  }
+}
+```
+
+The splash can also act as a **screensaver** — set `idle_timeout_seconds` to show it after inactivity (0 = disabled).
+
+See [firmware/circuitpython/SPLASH_README.md](firmware/circuitpython/SPLASH_README.md) for detailed instructions and design tips. Use the included `tools/generate_splash.py` script to create a simple text-based splash:
+
+```bash
+python3 tools/generate_splash.py "MY BAND" "Live Setup"
+```
+
 ### Config Editor App (Recommended)
 
 The **MIDI Captain MAX Config Editor** is a desktop app that makes configuration easy!
@@ -298,7 +326,7 @@ This example demonstrates:
 | `pc_step` | Step value for increment/decrement | `pc_inc`, `pc_dec` |
 | `threshold_ms` | Long-press threshold in milliseconds | `long_press` (first command only) |
 
-**Per-Command Channels:**  
+**Per-Command Channels:**
 Each command can specify its own `channel` (0-15). This enables one button to control multiple devices:
 
 ```json
@@ -315,11 +343,11 @@ If `channel` is omitted, the command uses the button's `channel` field, or falls
 
 **Mode behaviors:**
 - **`toggle`**: Alternates ON/OFF, sends `press` when ON, `release` when OFF
-- **`momentary`**: ON while held, sends `press` on press, `release` on release  
+- **`momentary`**: ON while held, sends `press` on press, `release` on release
 - **`select`**: Always turns ON (never toggles OFF), use with `select_group`
 - **`tap`**: Visual tap tempo, blinks on each press
 
-**Select groups:**  
+**Select groups:**
 Buttons with the same `select_group` act like radio buttons — selecting one deselects others in the group. Works with both `toggle` and `select` modes.
 
 ### Advanced: Keytimes (Multi-Press Cycling)
@@ -441,7 +469,7 @@ The device responds to incoming MIDI to update button states. Send CC messages m
 - `CC 20, value 127` → Button 1 turns ON (LED lights up)
 - `CC 20, value 0` → Button 1 turns OFF (LED off/dim)
 
-**Value-based scene matching:**  
+**Value-based scene matching:**
 The firmware matches incoming CC number, channel, **and value** against button configurations. This enables scene switching on devices like the Quad Cortex:
 
 ```json
@@ -450,7 +478,7 @@ The firmware matches incoming CC number, channel, **and value** against button c
   "press": [{"type": "cc", "cc": 43, "value": 0, "channel": 0}]
 },
 {
-  "label": "SCENE2", 
+  "label": "SCENE2",
   "press": [{"type": "cc", "cc": 43, "value": 1, "channel": 0}]
 },
 {

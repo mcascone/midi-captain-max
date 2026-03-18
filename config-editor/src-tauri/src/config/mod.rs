@@ -205,6 +205,53 @@ mod tests {
     }
 
     #[test]
+    fn test_roundtrip_splash_screen() {
+        let json = r#"{
+            "buttons": [],
+            "splash_screen": {
+                "enabled": false,
+                "duration_ms": 2000
+            }
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let splash = config.splash_screen.as_ref().unwrap();
+        assert_eq!(splash.enabled, Some(false));
+        assert_eq!(splash.duration_ms, Some(2000));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let splash2 = config2.splash_screen.as_ref().unwrap();
+        assert_eq!(splash2.enabled, Some(false));
+        assert_eq!(splash2.duration_ms, Some(2000));
+    }
+
+    #[test]
+    fn test_roundtrip_splash_idle_timeout() {
+        let json = r#"{
+            "buttons": [],
+            "splash_screen": {
+                "enabled": true,
+                "duration_ms": 1500,
+                "idle_timeout_seconds": 60
+            }
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let splash = config.splash_screen.as_ref().unwrap();
+        assert_eq!(splash.enabled, Some(true));
+        assert_eq!(splash.duration_ms, Some(1500));
+        assert_eq!(splash.idle_timeout_seconds, Some(60));
+
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let splash2 = config2.splash_screen.as_ref().unwrap();
+        assert_eq!(splash2.enabled, Some(true));
+        assert_eq!(splash2.duration_ms, Some(1500));
+        assert_eq!(splash2.idle_timeout_seconds, Some(60));
+    }
+
+    #[test]
     fn test_roundtrip_usb_drive_name() {
         let json = r#"{
             "buttons": [],

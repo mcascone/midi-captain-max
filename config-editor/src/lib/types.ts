@@ -154,6 +154,12 @@ export interface DisplayConfig {
   button_name_text_size?: 'small' | 'medium' | 'large';
 }
 
+export interface SplashScreenConfig {
+  enabled?: boolean;     // Whether to show splash (default: true)
+  duration_ms?: number;  // Display duration in milliseconds (default: 1500)
+  idle_timeout_seconds?: number; // Show splash after N seconds idle (0 or undefined = disabled)
+}
+
 export type MidiTransport = 'usb' | 'trs' | 'both';
 
 export interface MidiCaptainConfig {
@@ -168,6 +174,7 @@ export interface MidiCaptainConfig {
   encoder?: EncoderConfig;
   expression?: ExpressionPedals;
   display?: DisplayConfig;
+  splash_screen?: SplashScreenConfig;
 }
 
 export interface DetectedDevice {

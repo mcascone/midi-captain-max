@@ -2,6 +2,7 @@
   import { Tabs } from '@skeletonlabs/skeleton-svelte';
   import DeviceLayout from './DeviceLayout.svelte';
   import DisplaySection from './DisplaySection.svelte';
+  import SplashScreenSection from './SplashScreenSection.svelte';
   import DeviceSection from './DeviceSection.svelte';
   import EncoderSection from './EncoderSection.svelte';
   import ExpressionSection from './ExpressionSection.svelte';
@@ -21,6 +22,7 @@
     <Tabs defaultValue="display">
       <Tabs.List class="tabs-list">
         <Tabs.Trigger value="display" class="tab-trigger">Display</Tabs.Trigger>
+        <Tabs.Trigger value="boot" class="tab-trigger">Boot</Tabs.Trigger>
         <Tabs.Trigger value="device" class="tab-trigger">Device</Tabs.Trigger>
         <Tabs.Trigger value="encoder" class="tab-trigger">Encoder</Tabs.Trigger>
         <Tabs.Trigger value="expression" class="tab-trigger">Expression</Tabs.Trigger>
@@ -31,6 +33,9 @@
       </Tabs.List>
       <Tabs.Content value="display" class="tab-content">
         <DisplaySection />
+      </Tabs.Content>
+      <Tabs.Content value="boot" class="tab-content">
+        <SplashScreenSection />
       </Tabs.Content>
       <Tabs.Content value="device" class="tab-content">
         <DeviceSection />

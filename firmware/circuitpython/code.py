@@ -347,6 +347,44 @@ display = ST7789(
     rotation=DISPLAY_ROTATION,
 )
 
+# Boot splash screen (optional)
+# If /splash.bmp exists, display it for configured duration
+splash_config = config.get("splash_screen", {})
+splash_file = None
+splash_group = None
+
+if splash_config.get("enabled", True):  # Enabled by default
+    try:
+        # Keep file handle open during boot display
+        splash_file = open("/splash.bmp", "rb")
+        splash_group = displayio.Group()
+        bitmap = displayio.OnDiskBitmap(splash_file)
+        tile_grid = displayio.TileGrid(bitmap, pixel_shader=bitmap.pixel_shader)
+        splash_group.append(tile_grid)
+        display.show(splash_group)
+        # Display splash for configured duration (default 1.5s, max 10s)
+        duration_ms = splash_config.get("duration_ms", 1500)
+        # Validate and clamp duration to prevent boot stalls
+        try:
+            duration_ms = max(0, min(int(duration_ms), 10000))
+        except (TypeError, ValueError):
+            duration_ms = 1500
+        splash_duration = duration_ms / 1000.0
+        time.sleep(splash_duration)
+    except OSError:
+        # splash.bmp not found - silently continue
+        if splash_file:
+            splash_file.close()
+        splash_file = None
+        splash_group = None
+    except Exception as e:
+        # Other errors (e.g. corrupt bitmap) - print and continue
+        print(f"Splash screen error: {e}")
+        if splash_file:
+            splash_file.close()
+        splash_file = None
+        splash_group = None
+
 # =============================================================================
 # Switch Class - imported from core.button
 # =============================================================================
@@ -646,6 +684,38 @@ status_label = label.Label(
 main_group.append(status_label)
 
 display.show(main_group)
+
+# =============================================================================
+# Idle Timeout (Screensaver)
+# =============================================================================
+
+# Track last activity time for idle timeout splash
+last_activity_time = time.monotonic()
+is_showing_splash = False
+idle_timeout_enabled = splash_config.get("enabled", True)
+idle_timeout_seconds = splash_config.get("idle_timeout_seconds", 0)  # 0 = disabled
+
+def reset_activity_timer():
+    """Reset the idle activity timer (called on any button press)."""
+    global last_activity_time, is_showing_splash
+    last_activity_time = time.monotonic()
+    # Wake from splash if showing
+    if is_showing_splash:
+        is_showing_splash = False
+        display.show(main_group)
+
+def update_idle_timeout():
+    """Check if idle timeout expired and show splash if needed."""
+    global is_showing_splash
+    # Skip if disabled, no timeout configured, no splash available, or already showing
+    if not idle_timeout_enabled or idle_timeout_seconds <= 0 or is_showing_splash or splash_group is None:
+        return
+
+    now = time.monotonic()
+    if (now - last_activity_time) >= idle_timeout_seconds:
+        # Idle timeout expired - show splash
+        display.show(splash_group)
+        is_showing_splash = True
 
 # =============================================================================
 # LED & Display Helpers
@@ -1166,6 +1236,8 @@ def handle_switches():
 
         # --- Handle edge events ---
         if changed:
+            # Reset idle timeout on any button activity
+            reset_activity_timer()
             if pressed:
                 # PRESSED: Initialize press timing
                 if not press_start_times[idx]:
@@ -1400,6 +1472,7 @@ def handle_encoder_button():
     Delegates to handlers.encoder module for actual implementation.
     """
     global encoder_push_state
+    old_state = encoder_push_state
     encoder_push_state = encoder_handlers.handle_encoder_button(
         switches,
         ENC_PUSH_ENABLED,
@@ -1415,6 +1488,9 @@ def handle_encoder_button():
         lambda text: set_label_text(status_label, text),
         lambda: arm_label_return_timeout()
     )
+    # Reset idle timeout if encoder push state changed
+    if encoder_push_state != old_state:
+        reset_activity_timer()
 
 
 def handle_encoder():
@@ -1423,6 +1499,7 @@ def handle_encoder():
     Delegates to handlers.encoder module for actual implementation.
     """
     global encoder_last_pos, encoder_value, encoder_slot
+    old_pos = encoder_last_pos
     encoder_last_pos, encoder_value, encoder_slot = encoder_handlers.handle_encoder(
         encoder,
         ENC_ENABLED,
@@ -1438,6 +1515,9 @@ def handle_encoder():
         lambda text: set_label_text(status_label, text),
         lambda: arm_label_return_timeout()
     )
+    # Reset idle timeout if encoder position changed
+    if encoder_last_pos != old_pos:
+        reset_activity_timer()
 
 
 def handle_expression():
@@ -1448,6 +1528,8 @@ def handle_expression():
     global exp1_min, exp1_max, exp1_last
     global exp2_min, exp2_max, exp2_last
 
+    old_exp1_last = exp1_last
+    old_exp2_last = exp2_last
     exp1_min, exp1_max, exp1_last, exp2_min, exp2_max, exp2_last = encoder_handlers.handle_expression(
         exp1,
         exp2,
@@ -1466,6 +1548,9 @@ def handle_expression():
         exp2_last,
         send_midi_message
     )
+    # Reset idle timeout if expression pedal values changed
+    if exp1_last != old_exp1_last or exp2_last != old_exp2_last:
+        reset_activity_timer()
 
 
 # =============================================================================
@@ -1582,6 +1667,7 @@ while True:
     update_pc_flash_timers()
     update_blink_timers()
     update_label_timeout()
+    update_idle_timeout()  # Check for idle screensaver
     if HAS_ENCODER:
         handle_encoder_button()
         handle_encoder()
