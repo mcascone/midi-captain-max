@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2026-03-18
 
 ### Added
+- **Idle Timeout Screensaver** (`splash_screen.idle_timeout_seconds`): Display splash image after inactivity
+  - New config field: `idle_timeout_seconds` (default: 0 = disabled)
+  - Tracks user activity across all inputs (buttons, encoder, expression pedals)
+  - Shows splash.bmp automatically after configured idle period
+  - Wakes immediately on any input, resuming exact state
+  - Persistent file handle for displayio.OnDiskBitmap compatibility
+  - Config editor UI: "Idle timeout (seconds)" field in Boot tab (range 0-600)
+  - Use cases: Display protection, branding during breaks, power saving
+  - Documentation: Updated SPLASH_README.md and README.md with feature details
+
 - **Long Press Visual Feedback** (`long_press_color` and `long_press_label`): Enhanced long-press UX with LED color override
   - `long_press_color` field: LED changes to configured color during long press (e.g., `"pink"`, `"orange"`)
   - `long_press_label` field: Optional custom label displayed during long press (max 6 chars)
@@ -20,11 +30,12 @@ All notable changes to this project will be documented in this file.
 
 ### Tests & CI
 - All 188 pytest tests passing
-- All 48 Rust cargo tests passing
+- All 50 Rust cargo tests passing (includes new roundtrip test for idle_timeout_seconds)
 - Tested on hardware with pink LED override during 600ms long press
 
 ### Deployment
-- Branch: `fix/firmware-broken`
+- Branch: `fix/firmware-broken` (long press feature)
+- Branch: `feature/loading-screen` (idle timeout screensaver)
 - PR: https://github.com/guisperandio/midi-captain-max/pull/25
 - Ready for merge after validation
 
