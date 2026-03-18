@@ -84,7 +84,6 @@ export async function saveToDevice(): Promise<boolean> {
 
     // Auto-reload only works in dev mode (USB drive remounts after reload)
     // In performance mode, USB stays hidden after reload and editor loses connection
-    console.log('[saveToDevice] dev_mode:', devMode, '(from config)');
 
     if (devMode) {
       // Attempt serial reload — non-fatal; falls back to manual restart message

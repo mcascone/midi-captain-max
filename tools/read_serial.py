@@ -18,7 +18,6 @@ def find_serial_port():
 def read_serial(port):
     """Read from serial port without pyserial dependency."""
     import os
-    import fcntl
     import termios
     
     # Open serial port

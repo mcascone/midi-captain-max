@@ -82,10 +82,10 @@ if enable_usb_drive:
         print("   Release switch and reboot to hide drive")
     # NOTE: We don't call remount() here. Default USB behavior allows:
     # - USB host to write files (for deployment)
-    # - code.py to still run (firmware continues working)
-    # Calling remount(..., readonly=True) would prevent code.py from running.
-    # Calling remount(..., readonly=False) would prevent USB host from writing.
-    # Not calling remount() at all gives us both!
+    # - CircuitPython filesystem remains read-write (for runtime file operations)
+    # Calling remount(..., readonly=True) locks filesystem for CircuitPython (breaks runtime writes).
+    # Calling remount(..., readonly=False) locks filesystem for USB host (breaks deployment).
+    # Not calling remount() at all preserves shared read-write access for both.
 
 # Clean up - switch will be available again in code.py
 switch_1.deinit()

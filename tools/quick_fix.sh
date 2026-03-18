@@ -1,6 +1,10 @@
 #!/bin/bash
 # Quick fix script - copies the fixed boot.py to device
 
+# Resolve script directory for path-independent execution
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 echo "📌 MIDI Captain Quick Fix"
 echo ""
 echo "This will copy the fixed boot.py to your device"
@@ -21,7 +25,7 @@ fi
 echo "✓ Device found!"
 echo "📝 Copying fixed boot.py..."
 
-cp firmware/circuitpython/boot.py /Volumes/MIDICAPTAIN/boot.py
+cp "$REPO_ROOT/firmware/circuitpython/boot.py" /Volumes/MIDICAPTAIN/boot.py
 
 echo "✓ Fixed boot.py copied!"
 echo "💾 Syncing..."

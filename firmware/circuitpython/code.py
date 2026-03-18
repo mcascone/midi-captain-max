@@ -1346,17 +1346,19 @@ def handle_switches():
                 # Apply long_press_color if configured
                 if "long_press_color" in btn_config:
                     # Temporarily override LED color for long press visual feedback
+                    # NOTE: Writing directly to pixels[] instead of using set_button_state()
+                    # to preserve exact color during threshold crossing without triggering
+                    # display updates or tap-mode blink bookkeeping. State restoration
+                    # happens on button release via set_button_state().
                     long_press_color_name = btn_config["long_press_color"]
                     long_press_rgb = get_color(long_press_color_name)
                     led_idx = switch_to_led(btn_num)
-                    print(f"[LONG_PRESS] Button {btn_num}: Applying color override '{long_press_color_name}' RGB={long_press_rgb}, LED={led_idx}")
                     if led_idx is not None:
                         base = led_idx * 3
                         for j in range(3):
                             if base + j < LED_COUNT:
                                 pixels[base + j] = long_press_rgb
                         pixels.show()
-                        print(f"[LONG_PRESS] Button {btn_num}: LED updated successfully")
 
                 # For toggle/normal/select modes: update button state and LED before sending MIDI
                 if mode in ("toggle", "normal", "select") and not short_action_executed[idx]:

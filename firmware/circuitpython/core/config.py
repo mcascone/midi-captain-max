@@ -50,7 +50,7 @@ def _default_config(button_count):
 _MIDI_BYTE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program")
 
 def _clamp_state_field(field, value):
-    """Clamp numeric state override fields to valid MIDI ranges. Non-numeric fields pass through."""
+    """Clamp numeric state override fields to valid MIDI ranges. Validate label/color fields."""
     if field in _MIDI_BYTE_FIELDS:
         if not isinstance(value, int):
             return 0
@@ -59,7 +59,18 @@ def _clamp_state_field(field, value):
         if not isinstance(value, int):
             return 1
         return max(1, min(127, value))
-    return value  # color, label — pass through as-is
+    # Validate long_press_label: must be string, max 6 chars
+    if field == "long_press_label":
+        if isinstance(value, str) and value:
+            return value[:6]
+        return None
+    # Validate long_press_color: must be string (color name)
+    if field == "long_press_color":
+        if isinstance(value, str) and value:
+            return value
+        return None
+    # Other fields (color, label) pass through
+    return value
 
 
 def _validate_channel(channel, default_channel=0):
