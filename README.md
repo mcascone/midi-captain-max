@@ -281,6 +281,8 @@ This example demonstrates:
 | `release` | Array of commands sent on release | `[]` |
 | `long_press` | Array of commands sent on long press (with `threshold_ms`) | `[]` |
 | `long_release` | Array of commands sent on release after long press | `[]` |
+| `long_press_label` | Custom label shown during long press (max 6 chars) | none |
+| `long_press_color` | LED color override during long press (any named color) | none |
 
 ### Command Object Fields
 
