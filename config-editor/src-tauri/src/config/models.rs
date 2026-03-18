@@ -323,6 +323,17 @@ pub struct DisplayConfig {
     pub button_name_text_size: Option<String>,
 }
 
+/// Splash screen configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SplashScreenConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idle_timeout_seconds: Option<u32>,
+}
+
 /// Complete MIDI Captain configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MidiCaptainConfig {
@@ -351,6 +362,8 @@ pub struct MidiCaptainConfig {
     pub expression: Option<ExpressionPedals>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display: Option<DisplayConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub splash_screen: Option<SplashScreenConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub long_press_threshold_ms: Option<u32>,
 }
