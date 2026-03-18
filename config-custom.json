@@ -1,0 +1,252 @@
+{
+  "device": "std10",
+  "usb_drive_name": "MIDICAPTAIN",
+  "dev_mode": false,
+  "midi_transport": "both",
+  "buttons": [
+    {
+      "label": "EDGE1",
+      "color": "green",
+      "press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 43,
+          "value": 0
+        }
+      ],
+      "mode": "select",
+      "dim_brightness": 10,
+      "select_group": "Group1"
+    },
+    {
+      "label": "DRIVE1",
+      "color": "blue",
+      "press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 43,
+          "value": 2
+        }
+      ],
+      "mode": "select",
+      "dim_brightness": 10,
+      "select_group": "Group1"
+    },
+    {
+      "label": "LEAD",
+      "long_press_label": "LEAD2",
+      "color": "yellow",
+      "press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 43,
+          "value": 4
+        }
+      ],
+      "long_press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 43,
+          "value": 5
+        }
+      ],
+      "mode": "select",
+      "dim_brightness": 10,
+      "select_group": "Group1"
+    },
+    {
+      "label": "GIG",
+      "color": "orange",
+      "mode": "toggle",
+      "dim_brightness": 10,
+      "channel": 0,
+      "press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 46,
+          "value": 127
+        }
+      ],
+      "release": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 46,
+          "value": 0
+        }
+      ]
+    },
+    {
+      "label": "TUNER",
+      "color": "white",
+      "mode": "toggle",
+      "dim_brightness": 10,
+      "channel": 0,
+      "press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 45,
+          "value": 127
+        }
+      ],
+      "release": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 45,
+          "value": 0
+        }
+      ]
+    },
+    {
+      "label": "EDGE2",
+      "color": "green",
+      "press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 43,
+          "value": 1
+        }
+      ],
+      "mode": "select",
+      "dim_brightness": 10,
+      "select_group": "Group1"
+    },
+    {
+      "label": "DRIVE2",
+      "color": "blue",
+      "press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 43,
+          "value": 3
+        }
+      ],
+      "mode": "select",
+      "dim_brightness": 10,
+      "select_group": "Group1"
+    },
+    {
+      "label": "AMB",
+      "long_press_label": "AMB2",
+      "color": "red",
+      "press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 43,
+          "value": 6
+        }
+      ],
+      "long_press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 43,
+          "value": 7
+        }
+      ],
+      "mode": "select",
+      "dim_brightness": 10,
+      "select_group": "Group1"
+    },
+    {
+      "label": "MODE",
+      "color": "purple",
+      "mode": "normal",
+      "keytimes": 2,
+      "states": [
+        {
+          "press": [
+            {
+              "type": "cc",
+              "channel": 0,
+              "cc": 47,
+              "value": 0
+            }
+          ]
+        },
+        {
+          "press": [
+            {
+              "type": "cc",
+              "channel": 0,
+              "cc": 47,
+              "value": 2
+            }
+          ],
+          "color": "blue"
+        }
+      ]
+    },
+    {
+      "label": "TAP",
+      "color": "cyan",
+      "press": [
+        {
+          "type": "cc",
+          "channel": 0,
+          "cc": 44,
+          "value": 1
+        },
+        {
+          "type": "cc",
+          "channel": 1,
+          "cc": 1,
+          "value": 1
+        }
+      ],
+      "mode": "tap",
+      "off_mode": "off"
+    }
+  ],
+  "encoder": {
+    "enabled": true,
+    "cc": 11,
+    "label": "ENC",
+    "min": 0,
+    "max": 127,
+    "initial": 64,
+    "steps": null,
+    "push": {
+      "enabled": true,
+      "cc": 14,
+      "label": "PUSH",
+      "mode": "momentary"
+    }
+  },
+  "expression": {
+    "exp1": {
+      "enabled": false,
+      "cc": 12,
+      "label": "EXP1",
+      "min": 0,
+      "max": 127,
+      "polarity": "normal",
+      "threshold": 2
+    },
+    "exp2": {
+      "enabled": false,
+      "cc": 13,
+      "label": "EXP2",
+      "min": 0,
+      "max": 127,
+      "polarity": "normal",
+      "threshold": 2
+    }
+  },
+  "display": {
+    "button_text_size": "medium",
+    "status_text_size": "medium",
+    "expression_text_size": "medium"
+  },
+  "long_press_threshold_ms": 600
+}

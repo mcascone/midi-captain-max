@@ -27,6 +27,7 @@
   let leftPanelCollapsed = $state(false);
   let leftPanelWidth = $state(780);
   let isResizing = $state(false);
+  let reloadDevicePath = $state<string | null>(null); // Track device during reload cycle
 
   let devMode = $derived($config.dev_mode ?? false);
   let hasErrors = $derived($validationErrors.length > 0);
@@ -65,26 +66,46 @@
         if (!exists) {
           $devices = [...$devices, device];
           $statusMessage = `Device connected: ${device.name}`;
+
+          // Auto-select if: only device, was previously selected, or reconnecting after reload
           const shouldAutoSelect = $devices.length === 1 ||
-            ($selectedDevice && $selectedDevice.path === device.path);
+            ($selectedDevice && $selectedDevice.path === device.path) ||
+            (reloadDevicePath && reloadDevicePath === device.path);
+
           if (shouldAutoSelect) {
             await new Promise(resolve => setTimeout(resolve, 500));
             await deviceService.selectDevice(device);
+
+            // Clear reload tracking after successful reconnect
+            if (reloadDevicePath === device.path) {
+              reloadDevicePath = null;
+            }
           }
         }
       });
 
       unlistenDisconnect = await onDeviceDisconnected(async (name) => {
         const wasSelected = $selectedDevice?.name === name;
+        const disconnectedDevice = $devices.find(d => d.name === name);
+
         $devices = $devices.filter(d => d.name !== name);
+
         if (wasSelected) {
-          if ($hasUnsavedChanges) {
+          // If disconnecting during reload cycle, save path for reconnect
+          if ($isReloadingDevice && disconnectedDevice) {
+            reloadDevicePath = disconnectedDevice.path;
+          } else if ($hasUnsavedChanges) {
+            // Only warn about unsaved changes if NOT during expected reload
             await message(`Device "${name}" was disconnected. Unsaved changes lost.`,
               { title: 'Device Disconnected', kind: 'warning' });
           }
+
+          // Clear selection and config state
+          $selectedDevice = null;
           $currentConfigRaw = '';
           $hasUnsavedChanges = false;
         }
+
         // Suppress disconnect message during expected reload cycle
         if (!$isReloadingDevice) {
           $statusMessage = `Device disconnected: ${name}`;
@@ -119,8 +140,8 @@
   // Device selection delegated to deviceService
   const selectDevice = deviceService.selectDevice;
 
-  // Save and eject delegated to deviceService
-  const saveToDevice = deviceService.saveAndEject;
+  // Save only (auto-reload if dev mode)
+  const saveToDevice = deviceService.saveToDevice;
 
   // Eject logic delegated to deviceService
 

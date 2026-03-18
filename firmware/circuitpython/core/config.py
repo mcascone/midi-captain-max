@@ -11,7 +11,7 @@ except ImportError:
     json = None
 
 VALID_TYPES = ("cc", "note", "pc", "pc_inc", "pc_dec")
-STATE_OVERRIDE_FIELDS = ("press", "release", "long_press", "long_release", "cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label")
+STATE_OVERRIDE_FIELDS = ("press", "release", "long_press", "long_release", "cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label", "long_press_label", "long_press_color")
 
 
 def load_config(config_path="/config.json", button_count=10):
@@ -427,6 +427,11 @@ def validate_button(btn, index=0, global_channel=None):
     long_press_label = btn.get("long_press_label")
     if long_press_label is not None and isinstance(long_press_label, str) and long_press_label:
         validated["long_press_label"] = long_press_label[:6]
+
+    # Long press color: optional LED color override during long press
+    long_press_color = btn.get("long_press_color")
+    if long_press_color is not None and isinstance(long_press_color, str) and long_press_color:
+        validated["long_press_color"] = long_press_color
 
     return validated
 

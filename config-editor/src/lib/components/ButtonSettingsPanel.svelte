@@ -229,6 +229,14 @@
           onblur={(e) => update('long_press_label', strVal(e) || undefined)}
         />
       </div>
+
+      <div class="field">
+        <label>Long Press Color <span class="field-hint">(optional)</span></label>
+        <ColorSelect
+          value={btn.long_press_color ?? btn.color}
+          onchange={(c) => update('long_press_color', c === btn.color ? undefined : c)}
+        />
+      </div>
     </div>
 
     <!-- ── Behavior Section ──────────────────── -->
@@ -349,16 +357,16 @@
         {#each Array(keytimes) as _, i}
           {#if activeStateTab === `state-${i}`}
             {@const state = btn.states?.[i] ?? {}}
-            <div 
-              class="state-content" 
+            <div
+              class="state-content"
               style:--state-color={activeStateColor}
-              in:slide={{ duration: 300, axis: 'x' }} 
+              in:slide={{ duration: 300, axis: 'x' }}
               out:slide={{ duration: 200, axis: 'x' }}
             >
               <!-- Profile Selector for this state - keyed to force fresh instance per state -->
               {#key `state-${i}`}
-                <ProfileSelector 
-                  button={btn} 
+                <ProfileSelector
+                  button={btn}
                   onUpdate={update}
                   stateIndex={i}
                   onUpdateState={updateState}

@@ -899,7 +899,7 @@ def set_button_state(switch_idx, on):
 
 def init_leds():
     """Initialize all LEDs to off/dim state.
-    
+
     Delegates to handlers.button module for actual implementation.
     """
     button_handlers.init_leds(BUTTON_COUNT, set_button_state)
@@ -907,7 +907,7 @@ def init_leds():
 
 def clamp_pc_value(value):
     """Clamp PC value to valid MIDI range (0-127).
-    
+
     Delegates to handlers.midi module for actual implementation.
     """
     return midi_handlers.clamp_pc_value(value)
@@ -926,7 +926,7 @@ def flash_pc_button(button_idx, flash_ms=None):
 
 def update_pc_flash_timers():
     """Turn off LEDs whose flash period has expired. Call each main loop.
-    
+
     Delegates to handlers.timers module for actual implementation.
     """
     global pc_flash_timers
@@ -935,7 +935,7 @@ def update_pc_flash_timers():
 
 def update_blink_timers():
     """Toggle blink states for buttons configured with led_mode 'tap'.
-    
+
     Delegates to handlers.timers module for actual implementation.
     """
     global blink_next_toggle, blink_state
@@ -953,7 +953,7 @@ def update_blink_timers():
 
 def update_label_timeout():
     """Check if label timeout has expired and return to showing selected button.
-    
+
     Delegates to handlers.display module for actual implementation.
     """
     global _label_prev_len, label_timeout_return_to_select
@@ -995,7 +995,7 @@ def handle_midi():
 
 def _get_button_expected_cc_value(btn_config):
     """Extract expected CC number, channel, and value from button's press action.
-    
+
     Delegates to handlers.midi module for actual implementation.
     """
     return midi_handlers.get_button_expected_cc_value(btn_config)
@@ -1257,9 +1257,20 @@ def handle_switches():
                     if long_release_cfg:
                         _send_action_from_cfg(long_release_cfg, btn_num, idx, "long_release")
 
-                    # For momentary mode, set LED off after long press
+                    # For momentary mode: always turn LED off after long press
                     if mode == "momentary":
                         set_button_state(btn_num, False)
+                    else:
+                        # For toggle/select modes: keep long_press_color if button is ON, restore original color if OFF
+                        if btn_state.state:
+                            # Button is ON: keep the long_press_color (if configured) or restore normal ON color
+                            if "long_press_color" not in btn_config:
+                                # No long_press_color configured, restore normal ON state color
+                                set_button_state(btn_num, True)
+                            # else: keep the long_press_color that's currently displayed
+                        else:
+                            # Button is OFF: restore dim/off LED state
+                            set_button_state(btn_num, False)
                 else:
                     # Short press: handle deferred actions
                     if long_enabled:
@@ -1304,13 +1315,13 @@ def handle_switches():
                                     _send_action_from_cfg(press_cfg, btn_num, idx, "press")
                                     short_action_executed[idx] = True
 
-                    # Dispatch release event
-                    release_cfg = _get_effective_action_cfg(btn_config, "release", btn_state.get_keytime())
-                    if release_cfg:
-                        _send_action_from_cfg(release_cfg, btn_num, idx, "release")
-
-                    # For momentary mode, set LED off
+                    # Dispatch release event (momentary mode only)
+                    # For toggle/select/normal modes, release is dispatched during state change
                     if mode == "momentary":
+                        release_cfg = _get_effective_action_cfg(btn_config, "release", btn_state.get_keytime())
+                        if release_cfg:
+                            _send_action_from_cfg(release_cfg, btn_num, idx, "release")
+                        # Set LED off
                         set_button_state(btn_num, False)
 
         # --- Handle held buttons for long-press threshold crossing ---
@@ -1332,6 +1343,21 @@ def handle_switches():
                 # Trigger long-press action
                 long_press_triggered[idx] = True
 
+                # Apply long_press_color if configured
+                if "long_press_color" in btn_config:
+                    # Temporarily override LED color for long press visual feedback
+                    long_press_color_name = btn_config["long_press_color"]
+                    long_press_rgb = get_color(long_press_color_name)
+                    led_idx = switch_to_led(btn_num)
+                    print(f"[LONG_PRESS] Button {btn_num}: Applying color override '{long_press_color_name}' RGB={long_press_rgb}, LED={led_idx}")
+                    if led_idx is not None:
+                        base = led_idx * 3
+                        for j in range(3):
+                            if base + j < LED_COUNT:
+                                pixels[base + j] = long_press_rgb
+                        pixels.show()
+                        print(f"[LONG_PRESS] Button {btn_num}: LED updated successfully")
+
                 # For toggle/normal/select modes: update button state and LED before sending MIDI
                 if mode in ("toggle", "normal", "select") and not short_action_executed[idx]:
                     btn_state.advance_keytime()
@@ -1351,7 +1377,9 @@ def handle_switches():
                         new_state = True
 
                     btn_state.state = new_state
-                    set_button_state(btn_num, new_state)
+                    # Skip set_button_state if long_press_color is active (manual LED update above)
+                    if "long_press_color" not in btn_config:
+                        set_button_state(btn_num, new_state)
                     # Handle select_group exclusivity (applies to both toggle and select modes)
                     if new_state:
                         sg = btn_config.get("select_group")
@@ -1366,7 +1394,7 @@ def handle_switches():
 
 def handle_encoder_button():
     """Handle encoder push button.
-    
+
     Delegates to handlers.encoder module for actual implementation.
     """
     global encoder_push_state
@@ -1389,7 +1417,7 @@ def handle_encoder_button():
 
 def handle_encoder():
     """Handle rotary encoder.
-    
+
     Delegates to handlers.encoder module for actual implementation.
     """
     global encoder_last_pos, encoder_value, encoder_slot
@@ -1412,12 +1440,12 @@ def handle_encoder():
 
 def handle_expression():
     """Handle expression pedals.
-    
+
     Delegates to handlers.encoder module for actual implementation.
     """
     global exp1_min, exp1_max, exp1_last
     global exp2_min, exp2_max, exp2_last
-    
+
     exp1_min, exp1_max, exp1_last, exp2_min, exp2_max, exp2_last = encoder_handlers.handle_expression(
         exp1,
         exp2,

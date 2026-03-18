@@ -133,6 +133,8 @@ pub struct ButtonConfig {
     pub label: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub long_press_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_press_color: Option<ButtonColor>,
     pub color: ButtonColor,
 
     // ===== DEVICE PROFILE SUPPORT =====
