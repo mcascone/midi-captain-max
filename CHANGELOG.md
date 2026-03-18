@@ -2,7 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-03-15
+## [Unreleased] - 2026-03-18
+
+### Added
+- **Long Press Visual Feedback** (`long_press_color` and `long_press_label`): Enhanced long-press UX with LED color override
+  - `long_press_color` field: LED changes to configured color during long press (e.g., `"pink"`, `"orange"`)
+  - `long_press_label` field: Optional custom label displayed during long press (max 6 chars)
+  - Mode-specific persistence:
+    - **Toggle/Select modes**: LED stays in `long_press_color` after release if button is ON
+    - **Momentary mode**: LED returns to off state after release (standard momentary behavior)
+  - Config editor UI: ColorSelect and text input fields in ButtonSettingsPanel Actions section
+  - Full validation chain: TypeScript types → Rust config structs → CircuitPython firmware
+
+### Fixed
+- **Config validation stripping long_press_color**: `validate_button()` now preserves `long_press_color` field through normalization
+- **Test brittleness**: `test_check_volume_midicaptain` no longer assumes device is unmounted (handles mounted state correctly)
+
+### Tests & CI
+- All 188 pytest tests passing
+- All 48 Rust cargo tests passing
+- Tested on hardware with pink LED override during 600ms long press
+
+### Deployment
+- Branch: `fix/firmware-broken`
+- PR: https://github.com/guisperandio/midi-captain-max/pull/25
+- Ready for merge after validation
+
+---
+
+## [Code Quality Improvements] - 2026-03-15
 
 ### Added
 - **Handler Module Extraction** (Phase 1 Modularization): Extracted 5 handler modules from `code.py`

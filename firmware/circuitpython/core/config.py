@@ -11,7 +11,7 @@ except ImportError:
     json = None
 
 VALID_TYPES = ("cc", "note", "pc", "pc_inc", "pc_dec")
-STATE_OVERRIDE_FIELDS = ("press", "release", "long_press", "long_release", "cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label")
+STATE_OVERRIDE_FIELDS = ("press", "release", "long_press", "long_release", "cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program", "pc_step", "color", "label", "long_press_label", "long_press_color")
 
 
 def load_config(config_path="/config.json", button_count=10):
@@ -50,7 +50,7 @@ def _default_config(button_count):
 _MIDI_BYTE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program")
 
 def _clamp_state_field(field, value):
-    """Clamp numeric state override fields to valid MIDI ranges. Non-numeric fields pass through."""
+    """Clamp numeric state override fields to valid MIDI ranges. Validate label/color fields."""
     if field in _MIDI_BYTE_FIELDS:
         if not isinstance(value, int):
             return 0
@@ -59,7 +59,18 @@ def _clamp_state_field(field, value):
         if not isinstance(value, int):
             return 1
         return max(1, min(127, value))
-    return value  # color, label — pass through as-is
+    # Validate long_press_label: must be string, max 6 chars
+    if field == "long_press_label":
+        if isinstance(value, str) and value:
+            return value[:6]
+        return None
+    # Validate long_press_color: must be string (color name)
+    if field == "long_press_color":
+        if isinstance(value, str) and value:
+            return value
+        return None
+    # Other fields (color, label) pass through
+    return value
 
 
 def _validate_channel(channel, default_channel=0):
@@ -427,6 +438,11 @@ def validate_button(btn, index=0, global_channel=None):
     long_press_label = btn.get("long_press_label")
     if long_press_label is not None and isinstance(long_press_label, str) and long_press_label:
         validated["long_press_label"] = long_press_label[:6]
+
+    # Long press color: optional LED color override during long press
+    long_press_color = btn.get("long_press_color")
+    if long_press_color is not None and isinstance(long_press_color, str) and long_press_color:
+        validated["long_press_color"] = long_press_color
 
     return validated
 

@@ -1,6 +1,6 @@
 /**
  * Device Management Service
- * 
+ *
  * Encapsulates device selection, config loading/saving, and eject logic.
  * Separated from +page.svelte for better organization and testability.
  */
@@ -25,10 +25,10 @@ let reloadTimeoutId: ReturnType<typeof setTimeout> | null = null;
  */
 export async function selectDevice(device: DetectedDevice) {
   if (get(hasUnsavedChanges) && !confirm('You have unsaved changes. Discard them?')) return;
-  
+
   selectedDevice.set(device);
   isLoading.set(true);
-  
+
   try {
     if (device.has_config) {
       const configRaw = await readConfigRaw(device.config_path);
@@ -55,46 +55,59 @@ export async function selectDevice(device: DetectedDevice) {
 export async function saveToDevice(): Promise<boolean> {
   const device = get(selectedDevice);
   if (!device) return false;
-  
+
   if (!validate()) {
     showToast('Please fix validation errors before saving', 'error');
     return false;
   }
-  
+
   isLoading.set(true);
   let saveSucceeded = false;
-  
+
   try {
-    const configObj = normalizeConfig(get(config));
+    // Read dev_mode from config BEFORE normalization
+    const currentConfig = get(config);
+    const devMode = currentConfig.dev_mode ?? false;
+
+    const configObj = normalizeConfig(currentConfig);
     const configJson = JSON.stringify(configObj, null, 2);
     await writeConfigRaw(device.config_path, configJson);
     currentConfigRaw.set(configJson);
     hasUnsavedChanges.set(false);
     saveSucceeded = true;
 
-    // Brief delay to ensure FAT32 flush reaches device before triggering reload
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Extended delay to ensure FAT32 flush on macOS/Windows USB volumes
+    // Even with sync_all(), OS can buffer writes at volume manager level
+    // 1 second ensures config is fully committed before device reboots
+    statusMessage.set('Config saved — flushing to device…');
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Attempt serial reload — non-fatal; falls back to manual restart message
-    try {
-      await triggerDeviceReload(device.path);
-      isReloadingDevice.set(true);
-      statusMessage.set('Config saved — device reloading…');
-      showToast('Config saved — device reloading…', 'success');
-      
-      // Clear reload flag after 5s (reload takes ~2-3s, buffer for reconnect)
-      // Cancel any existing timeout from previous saves
-      if (reloadTimeoutId !== null) {
-        clearTimeout(reloadTimeoutId);
+    // Auto-reload only works in dev mode (USB drive remounts after reload)
+    // In performance mode, USB stays hidden after reload and editor loses connection
+
+    if (devMode) {
+      // Attempt serial reload — non-fatal; falls back to manual restart message
+      try {
+        await triggerDeviceReload(device.path);
+        isReloadingDevice.set(true);
+        statusMessage.set('Config saved — device reloading…');
+
+        // Clear reload flag after 5s (reload takes ~2-3s, buffer for reconnect)
+        // Cancel any existing timeout from previous saves
+        if (reloadTimeoutId !== null) {
+          clearTimeout(reloadTimeoutId);
+        }
+        reloadTimeoutId = setTimeout(() => {
+          isReloadingDevice.set(false);
+          reloadTimeoutId = null;
+        }, 5000);
+      } catch (e: any) {
+        console.warn('Serial reload failed:', e.message || e);
+        statusMessage.set('Config saved — restart device to apply changes');
       }
-      reloadTimeoutId = setTimeout(() => {
-        isReloadingDevice.set(false);
-        reloadTimeoutId = null;
-      }, 5000);
-    } catch (e: any) {
-      console.warn('Serial reload failed:', e.message || e);
-      statusMessage.set('Config saved — restart device to apply changes');
-      showToast('Config saved — restart device to apply changes', 'success');
+    } else {
+      // Performance mode: user must manually restart device
+      statusMessage.set('Config saved — unplug and reconnect device to apply changes');
     }
   } catch (e: any) {
     const errorMsg = `Error saving config: ${e.message || e}`;
@@ -103,7 +116,7 @@ export async function saveToDevice(): Promise<boolean> {
   } finally {
     isLoading.set(false);
   }
-  
+
   return saveSucceeded;
 }
 
@@ -113,7 +126,7 @@ export async function saveToDevice(): Promise<boolean> {
 export async function promptEjectDevice() {
   const device = get(selectedDevice);
   if (!device) return;
-  
+
   const shouldEject = confirm(
     'Config saved! Would you like to safely eject the device?\n\n' +
     'After ejecting:\n' +
@@ -122,20 +135,20 @@ export async function promptEjectDevice() {
     '3. Press the power button again to turn it back on\n\n' +
     'The new config will be loaded on startup.'
   );
-  
+
   if (!shouldEject) return;
-  
+
   try {
     const devicePath = device.path.toString();
     const deviceName = device.name;
-    
+
     const result = await ejectDevice(devicePath);
     showToast(result, 'success');
-    
+
     // Clear current device selection
     selectedDevice.set(null);
     statusMessage.set(`${deviceName} ejected - waiting for reconnection...`);
-    
+
     // Auto-select next available device if any
     const allDevices = get(devices);
     if (allDevices.length > 1) {
@@ -160,9 +173,9 @@ export async function promptEjectDevice() {
 export async function reloadFromDevice() {
   const device = get(selectedDevice);
   if (!device) return;
-  
+
   isLoading.set(true);
-  
+
   try {
     if (device.has_config) {
       const configRaw = await readConfigRaw(device.config_path);
@@ -185,7 +198,7 @@ export async function reloadFromDevice() {
 export async function resetDevice() {
   const device = get(selectedDevice);
   if (!device) return;
-  
+
   await message(
     'To apply config changes, restart your MIDI Captain:\n\n' +
     '1. Press the power button on the BACK of the device to turn it off\n' +

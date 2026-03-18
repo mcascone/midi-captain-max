@@ -321,6 +321,12 @@ rsync -av --checksum --inplace --itemize-changes --delete \
     --exclude='__pycache__' \
     "$DEV_DIR/devices/" "$MOUNT_POINT/devices/"
 
+rsync -av --checksum --inplace --itemize-changes --delete \
+    --exclude='.DS_Store' \
+    --exclude='*.pyc' \
+    --exclude='__pycache__' \
+    "$DEV_DIR/handlers/" "$MOUNT_POINT/handlers/"
+
 rsync -av --checksum --inplace --itemize-changes \
     --exclude='.DS_Store' \
     "$DEV_DIR/fonts/" "$MOUNT_POINT/fonts/"
