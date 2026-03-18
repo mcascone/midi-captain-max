@@ -10,17 +10,21 @@
 
   function handleSplashDuration(e: Event) {
     const target = e.target as HTMLInputElement;
-    const value = parseInt(target.value);
-    if (!isNaN(value) && value >= 0) {
-      updateField('splash_screen.duration_ms', value);
+    const value = parseInt(target.value, 10);
+    if (!isNaN(value)) {
+      // Clamp to match UI constraints (max 5000ms)
+      const clamped = Math.max(0, Math.min(value, 5000));
+      updateField('splash_screen.duration_ms', clamped);
     }
   }
 
   function handleIdleTimeout(e: Event) {
     const target = e.target as HTMLInputElement;
-    const value = parseInt(target.value);
-    if (!isNaN(value) && value >= 0) {
-      updateField('splash_screen.idle_timeout_seconds', value);
+    const value = parseInt(target.value, 10);
+    if (!isNaN(value)) {
+      // Clamp to match UI constraints (max 600 seconds)
+      const clamped = Math.max(0, Math.min(value, 600));
+      updateField('splash_screen.idle_timeout_seconds', clamped);
     }
   }
 </script>
@@ -151,10 +155,6 @@
     background: #1e293b;
     border-radius: 6px;
     color: #e5e7eb;
-  }
-
-  .splash-section label:has(.field-hint) {
-    grid-template-columns: 160px 1fr;
   }
 
   .field-label {

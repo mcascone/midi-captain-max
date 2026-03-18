@@ -52,7 +52,7 @@ This feature is useful for:
 - **Dimensions**: 240×240 pixels (square)
 - **Format**: BMP (bitmap)
 - **Color depth**: 24-bit RGB recommended (8-bit indexed also works)
-- **File size**: ~115KB for 24-bit, ~58KB for 8-bit
+- **File size**: ~173KB for 24-bit, ~58KB for 8-bit
 
 ### Design Tips
 
@@ -139,7 +139,7 @@ This generates `splash.bmp` ready to copy to your device.
 
 - Format: Windows BMP (uncompressed)
 - Color space: RGB (no alpha channel needed)
-- Orientation: Top-down (standard BMP)
+- Orientation: Bottom-up (standard Windows BMP) or top-down (some tools)
 - Storage: FAT32 filesystem on device
 - Display: ST7789 240×240 LCD
 - Load time: ~200-500ms depending on file size

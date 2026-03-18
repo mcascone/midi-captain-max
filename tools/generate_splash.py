@@ -3,7 +3,7 @@
 Generate a simple splash screen BMP for MIDI Captain.
 
 Usage:
-    python3 generate_splash.py ["LINE 1" "LINE 2"]
+    python3 generate_splash.py ["LINE 1" ["LINE 2" [output.bmp]]]
 
 Creates a 240×240 BMP with centered text on black background.
 
@@ -61,14 +61,14 @@ def generate_splash(line1="MIDI CAPTAIN", line2="", output="splash.bmp"):
 
     # Save as uncompressed 24-bit BMP
     img.save(output, 'BMP')
-    print(f"✅ Created {output}")
-    print(f"   Size: {img.size}")
-    print(f"   Mode: {img.mode}")
+    print(f"[OK] Created {output}")
+    print(f"     Size: {img.size}")
+    print(f"     Mode: {img.mode}")
 
     # Get file size
     import os
     size_kb = os.path.getsize(output) / 1024
-    print(f"   File: {size_kb:.1f} KB")
+    print(f"     File: {size_kb:.1f} KB")
     print(f"\nCopy {output} to the root of your MIDICAPTAIN drive")
 
 

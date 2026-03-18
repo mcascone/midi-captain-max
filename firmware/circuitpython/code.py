@@ -362,17 +362,26 @@ if splash_config.get("enabled", True):  # Enabled by default
         tile_grid = displayio.TileGrid(bitmap, pixel_shader=bitmap.pixel_shader)
         splash_group.append(tile_grid)
         display.show(splash_group)
-        # Display splash for configured duration (default 1.5s)
-        splash_duration = splash_config.get("duration_ms", 1500) / 1000.0
+        # Display splash for configured duration (default 1.5s, max 10s)
+        duration_ms = splash_config.get("duration_ms", 1500)
+        # Validate and clamp duration to prevent boot stalls
+        try:
+            duration_ms = max(0, min(int(duration_ms), 10000))
+        except (TypeError, ValueError):
+            duration_ms = 1500
+        splash_duration = duration_ms / 1000.0
         time.sleep(splash_duration)
     except OSError:
         # splash.bmp not found - silently continue
+        if splash_file:
+            splash_file.close()
         splash_file = None
         splash_group = None
     except Exception as e:
         # Other errors (e.g. corrupt bitmap) - print and continue
-        if not splash_config.get("silent_boot", False):
-            print(f"Splash screen error: {e}")
+        print(f"Splash screen error: {e}")
+        if splash_file:
+            splash_file.close()
         splash_file = None
         splash_group = None
 
