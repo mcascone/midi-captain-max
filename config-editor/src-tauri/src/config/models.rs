@@ -334,6 +334,27 @@ pub struct SplashScreenConfig {
     pub idle_timeout_seconds: Option<u32>,
 }
 
+/// Bank configuration for multi-bank mode
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BankConfig {
+    pub name: String,
+    pub buttons: Vec<ButtonConfig>,
+}
+
+/// Bank switching configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BankSwitchConfig {
+    pub method: BankSwitchMethod,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pc_base: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<u8>,
+}
+
 /// Complete MIDI Captain configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MidiCaptainConfig {
@@ -355,7 +376,24 @@ pub struct MidiCaptainConfig {
     /// "both" — send to USB and TRS simultaneously
     #[serde(skip_serializing_if = "Option::is_none")]
     pub midi_transport: Option<String>,
-    pub buttons: Vec<ButtonConfig>,
+    
+    // ===== MULTI-BANK SUPPORT =====
+    /// Array of banks (max 8 recommended for Flash storage)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub banks: Option<Vec<BankConfig>>,
+    /// Bank switching configuration (method, button/CC/PC, channel)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bank_switch: Option<BankSwitchConfig>,
+    /// Active bank on boot (0-indexed, default: 0)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_bank: Option<u8>,
+    
+    // ===== SINGLE-BANK MODE (legacy, backward compatibility) =====
+    /// Legacy: single bank of buttons (auto-wrapped in banks[0] on load if banks not present)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buttons: Option<Vec<ButtonConfig>>,
+    
+    // ===== SHARED ACROSS ALL BANKS =====
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoder: Option<EncoderConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
