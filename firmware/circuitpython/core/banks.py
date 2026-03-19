@@ -32,7 +32,8 @@ class BankManager:
         self.bank_states[self.current_bank_index] = button_states
 
         # Bank switch cooldown (prevent rapid switches)
-        self.last_switch_time = 0
+        # Initialize to -1.0 so first switch always succeeds
+        self.last_switch_time = -1.0
         self.switch_cooldown_ms = 200  # 200ms minimum between switches
 
     def get_current_bank_index(self):

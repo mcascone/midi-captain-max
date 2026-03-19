@@ -10,9 +10,14 @@
   
   $: method = bankSwitch.method ?? 'button';
   $: button = bankSwitch.button ?? 11;
+  $: buttonNext = bankSwitch.button_next;
+  $: buttonPrev = bankSwitch.button_prev;
   $: cc = bankSwitch.cc ?? 64;
   $: pcBase = bankSwitch.pc_base ?? 0;
   $: channel = bankSwitch.channel ?? 0;
+  
+  // Determine mode: dual-button if both next/prev are set, otherwise single-button
+  $: useDualButton = buttonNext !== undefined || buttonPrev !== undefined;
   
   // STD10 has 10 switches + encoder push (button 11)
   // Mini6 has 6 switches
@@ -27,6 +32,34 @@
     const num = parseInt(value, 10);
     if (!isNaN(num) && num >= 1 && num <= maxButton) {
       updateField('bank_switch.button', num);
+    }
+  }
+  
+  function handleButtonNextChange(value: string) {
+    const num = parseInt(value, 10);
+    if (!isNaN(num) && num >= 1 && num <= maxButton) {
+      updateField('bank_switch.button_next', num);
+    }
+  }
+  
+  function handleButtonPrevChange(value: string) {
+    const num = parseInt(value, 10);
+    if (!isNaN(num) && num >= 1 && num <= maxButton) {
+      updateField('bank_switch.button_prev', num);
+    }
+  }
+  
+  function toggleButtonMode() {
+    if (useDualButton) {
+      // Switch to single-button: clear next/prev, set button
+      updateField('bank_switch.button_next', undefined);
+      updateField('bank_switch.button_prev', undefined);
+      updateField('bank_switch.button', 11);
+    } else {
+      // Switch to dual-button: set next/prev, clear button
+      updateField('bank_switch.button_next', 10);
+      updateField('bank_switch.button_prev', 11);
+      updateField('bank_switch.button', undefined);
     }
   }
   
@@ -68,7 +101,7 @@
     </select>
     <p class="help-text">
       {#if method === 'button'}
-        Press a button to cycle through banks
+        Press one or two buttons to navigate banks
       {:else if method === 'cc'}
         CC value maps directly to bank index (0 → Bank 1, 1 → Bank 2, etc.)
       {:else if method === 'pc'}
@@ -79,22 +112,72 @@
   
   {#if method === 'button'}
     <div class="form-group">
-      <label for="bank-switch-button">Button Number</label>
-      <input
-        type="number"
-        id="bank-switch-button"
-        min="1"
-        max={maxButton}
-        value={button}
-        on:input={(e) => handleButtonChange(e.currentTarget.value)}
-      />
+      <label>Button Mode</label>
+      <button type="button" class="mode-toggle-btn" on:click={toggleButtonMode}>
+        {useDualButton ? 'Switch to Single Button (Cycle)' : 'Switch to Two Buttons (Up/Down)'}
+      </button>
       <p class="help-text">
-        Button to press for bank switching (1-{maxButton})
-        {#if deviceType === 'std10' && button === 11}
-          <br><strong>Note:</strong> Button 11 is the encoder push button
+        {#if useDualButton}
+          Use two buttons: one for next bank, one for previous bank
+        {:else}
+          Use one button to cycle through banks (wraps around)
         {/if}
       </p>
     </div>
+    
+    {#if useDualButton}
+      <div class="button-group">
+        <div class="form-group">
+          <label for="bank-switch-next">Bank Up Button</label>
+          <input
+            type="number"
+            id="bank-switch-next"
+            min="1"
+            max={maxButton}
+            value={buttonNext ?? 10}
+            on:input={(e) => handleButtonNextChange(e.currentTarget.value)}
+          />
+          <p class="help-text">Button for next bank (1-{maxButton})</p>
+        </div>
+        
+        <div class="form-group">
+          <label for="bank-switch-prev">Bank Down Button</label>
+          <input
+            type="number"
+            id="bank-switch-prev"
+            min="1"
+            max={maxButton}
+            value={buttonPrev ?? 11}
+            on:input={(e) => handleButtonPrevChange(e.currentTarget.value)}
+          />
+          <p class="help-text">Button for previous bank (1-{maxButton})</p>
+        </div>
+      </div>
+      
+      {#if deviceType === 'std10' && (buttonNext === 11 || buttonPrev === 11)}
+        <p class="help-text note">
+          <strong>Note:</strong> Button 11 is the encoder push button
+        </p>
+      {/if}
+    {:else}
+      <div class="form-group">
+        <label for="bank-switch-button">Button Number</label>
+        <input
+          type="number"
+          id="bank-switch-button"
+          min="1"
+          max={maxButton}
+          value={button}
+          on:input={(e) => handleButtonChange(e.currentTarget.value)}
+        />
+        <p class="help-text">
+          Button to press for cycling through banks (1-{maxButton})
+          {#if deviceType === 'std10' && button === 11}
+            <br><strong>Note:</strong> Button 11 is the encoder push button
+          {/if}
+        </p>
+      </div>
+    {/if}
   {/if}
   
   {#if method === 'cc'}
@@ -153,7 +236,8 @@
     <div>
       <strong>How Bank Switching Works:</strong>
       <ul>
-        <li><strong>Button:</strong> Long-press configured button to cycle banks</li>
+        <li><strong>Single Button:</strong> Press to cycle forward through banks (wraps around)</li>
+        <li><strong>Two Buttons:</strong> One for next bank, one for previous bank</li>
         <li><strong>CC:</strong> Send CC with value = target bank index (0-based)</li>
         <li><strong>PC:</strong> Send PC = (base + bank index) to switch</li>
       </ul>
@@ -181,6 +265,12 @@
     gap: 0.5rem;
   }
   
+  .button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  
   label {
     font-size: 0.875rem;
     font-weight: 500;
@@ -204,6 +294,26 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
   
+  .mode-toggle-btn {
+    padding: 0.5rem 1rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  
+  .mode-toggle-btn:hover {
+    background: #2563eb;
+  }
+  
+  .mode-toggle-btn:active {
+    background: #1d4ed8;
+  }
+  
   .help-text {
     margin: 0;
     font-size: 0.75rem;
@@ -213,6 +323,14 @@
   
   .help-text strong {
     color: var(--color-text, #1f2937);
+  }
+  
+  .help-text.note {
+    padding: 0.5rem;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 0.25rem;
+    color: #92400e;
   }
   
   .info-box {

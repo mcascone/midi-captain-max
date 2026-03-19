@@ -483,7 +483,16 @@ export function getFieldError(fieldPath: string): string | null {
 export function getButtonErrors(buttonIndex: number): Map<string, string> {
   const errors = get(validationErrors);
   const buttonErrors = new Map<string, string>();
-  const prefix = `buttons[${buttonIndex}]`;
+  
+  // Build prefix based on multi-bank mode
+  const state = get(formState);
+  let prefix: string;
+  if (state.config.banks) {
+    const activeIdx = get(activeBankIndex);
+    prefix = `banks[${activeIdx}].buttons[${buttonIndex}]`;
+  } else {
+    prefix = `buttons[${buttonIndex}]`;
+  }
 
   errors.forEach((error, key) => {
     if (key.startsWith(prefix)) {

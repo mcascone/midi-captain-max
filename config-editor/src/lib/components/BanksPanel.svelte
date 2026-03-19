@@ -162,8 +162,8 @@
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
-    background: var(--color-bg-secondary, #f9fafb);
-    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    background: #1a1f2e;
+    border-bottom: 1px solid #374151;
   }
   
   .bank-tabs {
@@ -178,28 +178,30 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    background: white;
-    border: 1px solid var(--color-border, #e5e7eb);
+    background: #2d3748;
+    border: 1px solid #4a5568;
     border-radius: 0.375rem;
     cursor: pointer;
     transition: all 0.15s ease;
     min-width: 120px;
+    color: #e2e8f0;
   }
   
   .bank-tab:hover {
-    border-color: var(--color-primary, #3b82f6);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-color: #3b82f6;
+    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+    background: #374151;
   }
   
   .bank-tab.active {
-    background: var(--color-primary, #3b82f6);
+    background: #3b82f6;
     color: white;
-    border-color: var(--color-primary, #3b82f6);
-    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+    border-color: #3b82f6;
+    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.5);
   }
   
   .bank-tab:focus-visible {
-    outline: 2px solid var(--color-primary, #3b82f6);
+    outline: 2px solid #3b82f6;
     outline-offset: 2px;
   }
   
@@ -212,15 +214,17 @@
   .bank-rename-input {
     flex: 1;
     padding: 0.25rem 0.5rem;
-    border: 1px solid var(--color-border, #e5e7eb);
+    border: 1px solid #4a5568;
     border-radius: 0.25rem;
     font-size: 0.875rem;
     font-weight: 500;
+    background: #1a1f2e;
+    color: #e2e8f0;
   }
   
   .bank-rename-input:focus {
-    outline: 2px solid var(--color-primary, #3b82f6);
-    border-color: var(--color-primary, #3b82f6);
+    outline: 2px solid #3b82f6;
+    border-color: #3b82f6;
   }
   
   .bank-actions {
@@ -261,18 +265,18 @@
     width: 40px;
     height: 40px;
     padding: 0;
-    background: white;
-    border: 2px dashed var(--color-border, #e5e7eb);
+    background: #2d3748;
+    border: 2px dashed #4a5568;
     border-radius: 0.375rem;
     cursor: pointer;
-    color: var(--color-text-secondary, #6b7280);
+    color: #9ca3af;
     transition: all 0.15s ease;
   }
   
   .add-bank-btn:hover {
-    border-color: var(--color-primary, #3b82f6);
-    color: var(--color-primary, #3b82f6);
-    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background: #374151;
   }
   
   .bank-info {
@@ -283,7 +287,7 @@
   
   .bank-counter {
     font-size: 0.75rem;
-    color: var(--color-text-secondary, #6b7280);
+    color: #9ca3af;
     font-weight: 500;
   }
   
@@ -291,7 +295,7 @@
   .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.7);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -299,27 +303,29 @@
   }
   
   .modal-dialog {
-    background: white;
+    background: #1f2937;
+    border: 1px solid #374151;
     border-radius: 0.5rem;
     padding: 1.5rem;
     max-width: 400px;
     width: 90%;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
   }
   
   .modal-dialog h3 {
     margin: 0 0 1rem 0;
     font-size: 1.25rem;
     font-weight: 600;
+    color: #f3f4f6;
   }
   
   .modal-dialog p {
     margin: 0.5rem 0;
-    color: var(--color-text-secondary, #6b7280);
+    color: #d1d5db;
   }
   
   .modal-dialog p.warning {
-    color: var(--color-danger, #ef4444);
+    color: #ef4444;
     font-weight: 500;
     font-size: 0.875rem;
   }
@@ -342,17 +348,17 @@
   }
   
   .btn-secondary {
-    background: white;
-    color: var(--color-text, #1f2937);
-    border: 1px solid var(--color-border, #e5e7eb);
+    background: #374151;
+    color: #f3f4f6;
+    border: 1px solid #4b5563;
   }
   
   .btn-secondary:hover {
-    background: var(--color-bg-secondary, #f9fafb);
+    background: #4b5563;
   }
   
   .btn-danger {
-    background: var(--color-danger, #ef4444);
+    background: #ef4444;
     color: white;
   }
   

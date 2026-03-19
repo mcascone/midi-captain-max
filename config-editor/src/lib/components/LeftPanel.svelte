@@ -9,29 +9,17 @@
   import ExpressionSection from './ExpressionSection.svelte';
   import BankSettingsPanel from './BankSettingsPanel.svelte';
   import { isMultiBankMode, bankCount } from '$lib/formStore';
-
-  let tabsCollapsed = $state(false);
   
   // Show banks panel if multi-bank mode and more than 1 bank
-  $: showBanksPanel = $isMultiBankMode && $bankCount > 0;
+  let showBanksPanel = $derived($isMultiBankMode && $bankCount > 0);
 </script>
 
 <div class="left-panel-container">
-  <!-- Banks Panel (if multi-bank mode) -->
-  {#if showBanksPanel}
-  <BanksPanel />
-  {/if}
-  
-  <!-- Device Layout (visual representation) -->
-  <div class="layout-container">
-    <DeviceLayout />
-  </div>
-
-  <!-- Tabs for settings -->
-  <div class="tabs-container" class:collapsed={tabsCollapsed}>
-    {#if !tabsCollapsed}
-    <Tabs defaultValue="display">
+  <!-- Tabs for all content -->
+  <div class="tabs-container">
+    <Tabs defaultValue="buttons" class="tabs-root">
       <Tabs.List class="tabs-list">
+        <Tabs.Trigger value="buttons" class="tab-trigger">Buttons</Tabs.Trigger>
         <Tabs.Trigger value="display" class="tab-trigger">Display</Tabs.Trigger>
         <Tabs.Trigger value="boot" class="tab-trigger">Boot</Tabs.Trigger>
         <Tabs.Trigger value="device" class="tab-trigger">Device</Tabs.Trigger>
@@ -40,11 +28,18 @@
         {/if}
         <Tabs.Trigger value="encoder" class="tab-trigger">Encoder</Tabs.Trigger>
         <Tabs.Trigger value="expression" class="tab-trigger">Expression</Tabs.Trigger>
-        <button class="tabs-collapse-toggle" onclick={() => tabsCollapsed = !tabsCollapsed} title="Collapse settings">
-          ▼
-        </button>
         <Tabs.Indicator />
       </Tabs.List>
+      <Tabs.Content value="buttons" class="tab-content tab-content-buttons">
+        {#if showBanksPanel}
+        <div class="banks-panel-section">
+          <BanksPanel />
+        </div>
+        {/if}
+        <div class="device-layout-section">
+          <DeviceLayout />
+        </div>
+      </Tabs.Content>
       <Tabs.Content value="display" class="tab-content">
         <DisplaySection />
       </Tabs.Content>
@@ -66,13 +61,6 @@
         <ExpressionSection />
       </Tabs.Content>
     </Tabs>
-    {:else}
-    <div class="tabs-collapsed-header">
-      <button class="tabs-expand-toggle" onclick={() => tabsCollapsed = !tabsCollapsed} title="Expand settings">
-        ▲
-      </button>
-    </div>
-    {/if}
   </div>
 </div>
 
@@ -84,45 +72,19 @@
     overflow: hidden;
   }
 
-  .layout-container {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 400px;
-  }
-
   .tabs-container {
-    flex-shrink: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     border-top: 1px solid #374151;
     background: #111827;
+    overflow: hidden;
   }
 
-  .tabs-collapsed-header {
+  .tabs-container :global(.tabs-root) {
     display: flex;
-    justify-content: center;
-    padding: 4px;
-    background: #1f2937;
-  }
-
-  .tabs-expand-toggle {
-    width: 100%;
-    height: 32px;
-    padding: 0;
-    background: #1f2937;
-    border: 1px solid #374151;
-    border-radius: 6px;
-    color: #9ca3af;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    transition: all 0.2s ease;
-  }
-
-  .tabs-expand-toggle:hover {
-    background: #374151;
-    color: #ffffff;
-    border-color: #4b5563;
+    flex-direction: column;
+    height: 100%;
   }
 
   .tabs-container :global(.tabs-list) {
@@ -131,23 +93,6 @@
     border-bottom: 1px solid #374151;
     background: #1f2937;
     align-items: center;
-  }
-
-  .tabs-collapse-toggle {
-    margin-left: auto;
-    padding: 8px 16px;
-    background: transparent;
-    border: none;
-    color: #9ca3af;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    height: 100%;
-  }
-
-  .tabs-collapse-toggle:hover {
-    color: #ffffff;
-    background: #374151;
   }
 
   .tabs-container :global(.tab-trigger) {
@@ -177,10 +122,34 @@
 
   .tabs-container :global(.tab-content) {
     padding: 16px;
-    max-height: 300px;
+    flex: 1;
     overflow-y: auto;
     background: #1f2937;
     color: #e5e7eb;
+  }
+
+  /* Special styling for buttons tab */
+  .tabs-container :global(.tab-content-buttons) {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    gap: 0;
+  }
+
+  .banks-panel-section {
+    flex-shrink: 0;
+    padding: 16px;
+    background: #1a1f2e;
+    border-bottom: 1px solid #374151;
+  }
+
+  .device-layout-section {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow-y: auto;
   }
 
   .tabs-container :global(.tab-content) :global(label),

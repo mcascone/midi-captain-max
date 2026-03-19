@@ -345,8 +345,15 @@ pub struct BankConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BankSwitchConfig {
     pub method: BankSwitchMethod,
+    /// [Legacy] Single button cycles through banks
     #[serde(skip_serializing_if = "Option::is_none")]
     pub button: Option<u8>,
+    /// Button for next bank (bank up) - takes precedence over 'button'
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button_next: Option<u8>,
+    /// Button for previous bank (bank down)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button_prev: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cc: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]

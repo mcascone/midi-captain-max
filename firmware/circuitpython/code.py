@@ -1359,6 +1359,32 @@ def handle_switches():
                     long_press_triggered[idx] = False
                     short_action_executed[idx] = False
 
+                # Check for bank switching button
+                if bank_manager and bank_switch_config and len(banks) > 0:
+                    method = bank_switch_config.get("method", "button")
+                    if method == "button":
+                        # Legacy single button cycling
+                        bank_btn = bank_switch_config.get("button")
+                        # New dual button mode
+                        bank_next = bank_switch_config.get("button_next")
+                        bank_prev = bank_switch_config.get("button_prev")
+                        
+                        if bank_next and btn_num == bank_next:
+                            # Bank up button pressed
+                            bank_manager.next_bank()
+                            handle_bank_switch(bank_manager.current_bank_index)
+                            continue
+                        elif bank_prev and btn_num == bank_prev:
+                            # Bank down button pressed
+                            bank_manager.previous_bank()
+                            handle_bank_switch(bank_manager.current_bank_index)
+                            continue
+                        elif bank_btn and btn_num == bank_btn and not bank_next and not bank_prev:
+                            # Legacy mode: single button cycles forward
+                            bank_manager.next_bank()
+                            handle_bank_switch(bank_manager.current_bank_index)
+                            continue
+
                 # Handle tap tempo recording
                 if mode == "tap":
                     record_tap_tempo(idx, now)

@@ -173,7 +173,9 @@ export type BankSwitchMethod = 'button' | 'cc' | 'pc';
 
 export interface BankSwitchConfig {
   method: BankSwitchMethod;  // How to switch banks
-  button?: number;           // Button number (1-10 for STD10, 1-6 for Mini6) if method='button'
+  button?: number;           // [Legacy] Single button cycles through banks (1-10 for STD10, 1-6 for Mini6)
+  button_next?: number;      // Button for next bank (bank up) - if set, takes precedence over 'button'
+  button_prev?: number;      // Button for previous bank (bank down)
   cc?: number;               // CC number (0-127) if method='cc'
   pc_base?: number;          // Base PC number (0-127) if method='pc' (bank 0 = pc_base, bank 1 = pc_base+1, etc.)
   channel?: number;          // MIDI channel for bank switching (0-15)
