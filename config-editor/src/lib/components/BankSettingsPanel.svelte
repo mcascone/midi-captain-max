@@ -135,7 +135,7 @@
             id="bank-switch-next"
             min="1"
             max={maxButton}
-            value={buttonNext ?? 10}
+            value={buttonNext ?? maxButton}
             on:input={(e) => handleButtonNextChange(e.currentTarget.value)}
           />
           <p class="help-text">Button for next bank (1-{maxButton})</p>
@@ -148,7 +148,7 @@
             id="bank-switch-prev"
             min="1"
             max={maxButton}
-            value={buttonPrev ?? 11}
+            value={buttonPrev ?? (maxButton - 1)}
             on:input={(e) => handleButtonPrevChange(e.currentTarget.value)}
           />
           <p class="help-text">Button for previous bank (1-{maxButton})</p>

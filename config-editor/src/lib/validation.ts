@@ -207,8 +207,25 @@ function validateButtons(
       }
     };
 
-    validateAction(btn.long_press, `${btnPath}.long_press`);
-    validateAction(btn.long_release, `${btnPath}.long_release`);
+    // Validate long_press and long_release arrays
+    const validateActionArray = (actions: any, pathBase: string) => {
+      if (!actions) return;
+      if (Array.isArray(actions)) {
+        actions.forEach((action, idx) => {
+          validateAction(action, `${pathBase}[${idx}]`);
+          // threshold_ms only valid on first command
+          if (idx > 0 && action.threshold_ms !== undefined) {
+            errors.set(`${pathBase}[${idx}].threshold_ms`, 'threshold_ms only allowed on first command');
+          }
+        });
+      } else {
+        // Backward compatibility: treat single object as array of one
+        validateAction(actions, pathBase);
+      }
+    };
+
+    validateActionArray(btn.long_press, `${btnPath}.long_press`);
+    validateActionArray(btn.long_release, `${btnPath}.long_release`);
 
     // select_group validation
     if (btn.select_group !== undefined) {

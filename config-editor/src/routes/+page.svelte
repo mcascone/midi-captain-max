@@ -363,7 +363,7 @@
 <!-- Toast notifications -->
 <Toast.Group {toaster}>
   {#snippet children(toast)}
-    <Toast {toast} class="toast-item toast-{toast.type}">
+    <Toast {toast} class={`toast-item toast-${toast.type}`}>
       <Toast.Message class="toast-message">
         <Toast.Title class="toast-title">{toast.title}</Toast.Title>
         {#if toast.description}

@@ -1157,8 +1157,7 @@ def handle_bank_switch(target_bank_idx=None):
     # Get button states for new bank
     button_states = bank_manager.get_button_states()
     
-    # Flash all LEDs (100ms pulse)
-    flash_start = time.monotonic()
+    # Flash all LEDs briefly to indicate bank switch
     for i in range(BUTTON_COUNT):
         # Show ON color briefly
         btn_config = buttons[i] if i < len(buttons) else {}
@@ -1170,10 +1169,7 @@ def handle_bank_switch(target_bank_idx=None):
                 pixels[base + j] = color
     pixels.show()
     
-    # Hold for 100ms - use sleep to avoid blocking
-    time.sleep(0.1)
-    
-    # Restore button states
+    # Restore button states (non-blocking - happens in next loop iteration)
     for i in range(BUTTON_COUNT):
         set_button_state(i + 1, button_states[i].state)
     
