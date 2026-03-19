@@ -268,88 +268,125 @@ export function setDevice(deviceType: DeviceType) {
     const currentDevice = state.config.device;
 
     // Helper: get buttons array from config (handles both banks and legacy)
-    const getButtons = () => {
+    const getButtons = (bankIdx?: number) => {
+      if (bankIdx !== undefined && state.config.banks) {
+        return state.config.banks[bankIdx]?.buttons ?? [];
+      }
       return state.config.banks?.[get(activeBankIndex)]?.buttons ?? state.config.buttons ?? [];
     };
 
     // Helper: set buttons array in config (handles both banks and legacy)
-    const setButtons = (buttons: ButtonConfig[]) => {
+    const setButtons = (buttons: ButtonConfig[], bankIdx?: number) => {
       if (newState.config.banks) {
-        const activeIdx = get(activeBankIndex);
-        newState.config.banks[activeIdx].buttons = buttons;
+        const idx = bankIdx !== undefined ? bankIdx : get(activeBankIndex);
+        if (newState.config.banks[idx]) {
+          newState.config.banks[idx].buttons = buttons;
+        }
       } else {
         newState.config.buttons = buttons;
       }
     };
 
-    const buttons = getButtons();
-
-    // Switching TO Mini6: preserve STD10-only features
-    if (deviceType === 'mini6' && currentDevice === 'std10') {
-      // Preserve buttons 7-10
-      if (buttons.length > 6) {
-        newState._hiddenButtons = buttons.slice(6);
+    // Apply device change to ALL banks (if in multi-bank mode)
+    if (newState.config.banks) {
+      for (let bankIdx = 0; bankIdx < newState.config.banks.length; bankIdx++) {
+        const buttons = getButtons(bankIdx);
+        
+        if (deviceType === 'mini6' && currentDevice === 'std10') {
+          // Truncate to 6 buttons
+          setButtons(buttons.slice(0, 6), bankIdx);
+        } else if (deviceType === 'std10' && currentDevice === 'mini6') {
+          // Expand to 10 buttons
+          const expandedButtons = [...buttons.slice(0, 6)];
+          while (expandedButtons.length < 10) {
+            expandedButtons.push(createDefaultButton(expandedButtons.length));
+          }
+          setButtons(expandedButtons, bankIdx);
+        }
       }
 
-      // Preserve encoder config
-      if (state.config.encoder) {
-        newState._hiddenEncoder = structuredClone(state.config.encoder);
-      }
-
-      // Truncate buttons array and disable encoder
-      setButtons(buttons.slice(0, 6));
-      newState.config.device = 'mini6';
-      if (newState.config.encoder) {
+      // Update encoder for device type
+      if (deviceType === 'mini6' && newState.config.encoder) {
         newState.config.encoder = { ...newState.config.encoder, enabled: false };
       }
+      newState.config.device = deviceType;
     }
-
-    // Switching TO STD10: restore preserved features
-    else if (deviceType === 'std10' && currentDevice === 'mini6') {
-      // Ensure we have exactly 6 Mini6 buttons before appending 7-10
-      const mini6Buttons = buttons.slice(0, 6);
-      while (mini6Buttons.length < 6) {
-        mini6Buttons.push(createDefaultButton(mini6Buttons.length));
-      }
-
-      setButtons([
-        ...mini6Buttons,
-        ...(state._hiddenButtons || createDefaultButtons(6, 9)),
-      ]);
-      newState.config.device = 'std10';
-      newState.config.encoder = state._hiddenEncoder || state.config.encoder;
-
-      // Clear preserved data
-      delete newState._hiddenButtons;
-      delete newState._hiddenEncoder;
-    }
-
-    // First-time Mini6 initialization
-    else if (deviceType === 'mini6' && !currentDevice) {
-      const currentButtons = buttons.slice(0, 6);
-      while (currentButtons.length < 6) {
-        currentButtons.push(createDefaultButton(currentButtons.length));
-      }
-      setButtons(currentButtons);
-      newState.config.device = 'mini6';
-      if (newState.config.encoder) {
-        newState.config.encoder = { ...newState.config.encoder, enabled: false };
-      }
-    }
-
-    // First-time STD10 initialization
-    else if (deviceType === 'std10' && !currentDevice) {
-      const currentButtons = [...buttons];
-      while (currentButtons.length < 10) {
-        currentButtons.push(createDefaultButton(currentButtons.length));
-      }
-      setButtons(currentButtons);
-      newState.config.device = 'std10';
-    }
-
-    // Same device: no-op
+    // Legacy single-bank mode
     else {
-      newState.config = { ...state.config, device: deviceType };
+      const buttons = getButtons();
+
+      // Switching TO Mini6: preserve STD10-only features
+      if (deviceType === 'mini6' && currentDevice === 'std10') {
+        // Preserve buttons 7-10
+        if (buttons.length > 6) {
+          newState._hiddenButtons = buttons.slice(6);
+        }
+
+        // Preserve encoder config
+        if (state.config.encoder) {
+          newState._hiddenEncoder = structuredClone(state.config.encoder);
+        }
+
+        // Truncate buttons array and disable encoder
+        setButtons(buttons.slice(0, 6));
+        newState.config.device = 'mini6';
+        if (newState.config.encoder) {
+          newState.config.encoder = { ...newState.config.encoder, enabled: false };
+        }
+      }
+
+      // Switching TO STD10: restore preserved features
+      else if (deviceType === 'std10' && currentDevice === 'mini6') {
+        // Ensure we have exactly 6 Mini6 buttons before appending 7-10
+        const mini6Buttons = buttons.slice(0, 6);
+        while (mini6Buttons.length < 6) {
+          mini6Buttons.push(createDefaultButton(mini6Buttons.length));
+        }
+
+        const allButtons = [
+          ...mini6Buttons,
+          ...(state._hiddenButtons || createDefaultButtons(6, 9)),
+        ];
+
+        // Restore preserved encoder
+        if (state._hiddenEncoder) {
+          newState.config.encoder = structuredClone(state._hiddenEncoder);
+          delete newState._hiddenEncoder;
+        } else if (newState.config.encoder) {
+          newState.config.encoder = { ...newState.config.encoder, enabled: true };
+        }
+
+        setButtons(allButtons);
+        newState.config.device = 'std10';
+      }
+
+      // First-time Mini6 initialization
+      else if (deviceType === 'mini6' && !currentDevice) {
+        const currentButtons = buttons.slice(0, 6);
+        while (currentButtons.length < 6) {
+          currentButtons.push(createDefaultButton(currentButtons.length));
+        }
+        setButtons(currentButtons);
+        newState.config.device = 'mini6';
+        if (newState.config.encoder) {
+          newState.config.encoder = { ...newState.config.encoder, enabled: false };
+        }
+      }
+
+      // First-time STD10 initialization
+      else if (deviceType === 'std10' && !currentDevice) {
+        const currentButtons = [...buttons];
+        while (currentButtons.length < 10) {
+          currentButtons.push(createDefaultButton(currentButtons.length));
+        }
+        setButtons(currentButtons);
+        newState.config.device = 'std10';
+      }
+
+      // Same device: no-op
+      else {
+        newState.config = { ...state.config, device: deviceType };
+      }
     }
 
     return pushHistory(newState);

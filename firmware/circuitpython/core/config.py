@@ -567,31 +567,49 @@ def validate_config(cfg, button_count=10):
     Returns:
         Validated config with all required fields
     """
-    buttons = cfg.get("buttons", [])
-
     # Get global channel (0-15 = MIDI Ch 1-16), default to 0
     global_channel = cfg.get("global_channel", 0)
     # Clamp to valid range
     if not isinstance(global_channel, int) or global_channel < 0 or global_channel > 15:
         global_channel = 0
 
-    # Extend buttons array if needed
-    while len(buttons) < button_count:
-        buttons.append({})
-
-    # Normalize old-format configs to new event-based format, then validate
-    normalized_buttons = [
-        normalize_button_config(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
-    ]
-    validated_buttons = [
-        validate_button(btn, i, global_channel) for i, btn in enumerate(normalized_buttons)
-    ]
-
     result = {}
     for k, v in cfg.items():
         result[k] = v
-    result["buttons"] = validated_buttons
     result["global_channel"] = global_channel
+
+    # Validate banks if present (multi-bank mode)
+    if "banks" in cfg and cfg["banks"]:
+        validated_banks = []
+        for bank_idx, bank in enumerate(cfg["banks"]):
+            buttons = bank.get("buttons", [])
+            # Extend buttons array if needed
+            while len(buttons) < button_count:
+                buttons.append({})
+            # Normalize and validate
+            normalized_buttons = [
+                normalize_button_config(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
+            ]
+            validated_buttons = [
+                validate_button(btn, i, global_channel) for i, btn in enumerate(normalized_buttons)
+            ]
+            validated_bank = {"name": bank.get("name", f"Bank {bank_idx + 1}"), "buttons": validated_buttons}
+            validated_banks.append(validated_bank)
+        result["banks"] = validated_banks
+    # Validate legacy buttons if present (single-bank mode)
+    elif "buttons" in cfg:
+        buttons = cfg.get("buttons", [])
+        # Extend buttons array if needed
+        while len(buttons) < button_count:
+            buttons.append({})
+        # Normalize old-format configs to new event-based format, then validate
+        normalized_buttons = [
+            normalize_button_config(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
+        ]
+        validated_buttons = [
+            validate_button(btn, i, global_channel) for i, btn in enumerate(normalized_buttons)
+        ]
+        result["buttons"] = validated_buttons
     # Preserve optional global long-press threshold (ms)
     if isinstance(cfg.get("long_press_threshold_ms"), int):
         result["long_press_threshold_ms"] = cfg.get("long_press_threshold_ms")

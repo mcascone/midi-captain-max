@@ -50,15 +50,16 @@
   }
   
   function toggleButtonMode() {
+    const maxButton = $config.device === 'mini6' ? 6 : 10;
     if (useDualButton) {
       // Switch to single-button: clear next/prev, set button
       updateField('bank_switch.button_next', undefined);
       updateField('bank_switch.button_prev', undefined);
-      updateField('bank_switch.button', 10);
+      updateField('bank_switch.button', maxButton);
     } else {
       // Switch to dual-button: set next/prev, clear button
-      updateField('bank_switch.button_next', 10);
-      updateField('bank_switch.button_prev', 9);
+      updateField('bank_switch.button_next', maxButton);
+      updateField('bank_switch.button_prev', Math.max(1, maxButton - 1));
       updateField('bank_switch.button', undefined);
     }
   }

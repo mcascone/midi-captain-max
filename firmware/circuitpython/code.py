@@ -1167,8 +1167,8 @@ def handle_bank_switch(target_bank_idx=None):
     
     # Update center display
     bank_name = new_bank_config.get("name", f"Bank {target_bank_idx + 1}")
-    display_handlers.set_label_text(button_name_label, bank_name)
-    display_handlers.set_label_text(status_label, f"Bank {target_bank_idx + 1}/{len(banks)}")
+    set_label_text(button_name_label, bank_name)
+    set_label_text(status_label, f"Bank {target_bank_idx + 1}/{len(banks)}")
     
     # Set timeout to return to "Ready" after 2 seconds
     global label_timeout_return_to_select

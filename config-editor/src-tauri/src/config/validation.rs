@@ -101,18 +101,21 @@ impl MidiCaptainConfig {
         }
 
         // Validate legacy buttons array if present (single-bank mode)
-        if let Some(ref buttons) = self.buttons {
-            if buttons.len() != expected_buttons {
-                errors.push(format!(
-                    "Expected {} buttons for {:?}, found {}",
-                    expected_buttons,
-                    self.device,
-                    buttons.len()
-                ));
-            }
+        // Skip legacy validation if banks are present (banks take precedence)
+        if self.banks.is_none() {
+            if let Some(ref buttons) = self.buttons {
+                if buttons.len() != expected_buttons {
+                    errors.push(format!(
+                        "Expected {} buttons for {:?}, found {}",
+                        expected_buttons,
+                        self.device,
+                        buttons.len()
+                    ));
+                }
 
-            self.validate_buttons(buttons, None, expected_buttons, &mut errors);
-        } // end if let Some(ref buttons)
+                self.validate_buttons(buttons, None, expected_buttons, &mut errors);
+            }
+        } // end if self.banks.is_none()
 
         // Validate encoder if present
         if let Some(ref enc) = self.encoder {

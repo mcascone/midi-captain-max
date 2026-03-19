@@ -324,6 +324,10 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       }
 
       // Validate button count
+      if (!Array.isArray(bank.buttons)) {
+        errors.set(`${bankPrefix}.buttons`, 'Bank buttons must be an array');
+        return; // Skip further validation for this bank
+      }
       if (bank.buttons.length !== expectedButtons) {
         errors.set(`${bankPrefix}.buttons`, `Expected ${expectedButtons} buttons for ${config.device}, found ${bank.buttons.length}`);
       }
