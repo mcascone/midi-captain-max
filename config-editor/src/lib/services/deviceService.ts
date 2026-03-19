@@ -56,9 +56,10 @@ export async function saveToDevice(): Promise<boolean> {
   const device = get(selectedDevice);
   if (!device) return false;
 
-  if (!validate()) {
-    // Get validation errors and format them for display
-    const errors = get(validationErrors);
+  const validationResult = validate();
+  if (!validationResult.isValid) {
+    // Get validation errors directly from result (avoids timing issues with derived stores)
+    const errors = validationResult.errors;
     if (errors.size > 0) {
       const errorList = Array.from(errors.entries())
         .slice(0, 5) // Show first 5 errors

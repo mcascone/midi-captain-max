@@ -542,7 +542,7 @@ export function validate() {
     validationErrors: result.errors,
   }));
 
-  return result.isValid;
+  return result;  // Return full result with isValid and errors
 }
 
 // Get error for a specific field path (e.g., "buttons[0].label")
