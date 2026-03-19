@@ -1409,19 +1409,19 @@ def handle_switches():
                         if bank_next and btn_num == bank_next:
                             # Bank up button pressed - get target first
                             target_idx = (bank_manager.current_bank_index + 1) % len(banks)
-                            bank_manager._switch_to(target_idx)
+                            bank_manager.switch_bank(target_idx)
                             handle_bank_switch(target_idx)
                             continue
                         elif bank_prev and btn_num == bank_prev:
                             # Bank down button pressed - get target first
                             target_idx = (bank_manager.current_bank_index - 1) % len(banks)
-                            bank_manager._switch_to(target_idx)
+                            bank_manager.switch_bank(target_idx)
                             handle_bank_switch(target_idx)
                             continue
                         elif bank_btn and btn_num == bank_btn and not bank_next and not bank_prev:
                             # Legacy mode: single button cycles forward - get target first
                             target_idx = (bank_manager.current_bank_index + 1) % len(banks)
-                            bank_manager._switch_to(target_idx)
+                            bank_manager.switch_bank(target_idx)
                             handle_bank_switch(target_idx)
                             continue
 
