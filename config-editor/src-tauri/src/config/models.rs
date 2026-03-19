@@ -405,3 +405,28 @@ pub struct MidiCaptainConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub long_press_threshold_ms: Option<u32>,
 }
+
+impl MidiCaptainConfig {
+    /// Helper for tests: Get buttons from either banks[0] or legacy buttons field
+    /// Returns reference to first bank's buttons if banks exist, otherwise legacy buttons
+    #[cfg(test)]
+    pub fn get_buttons(&self) -> &[ButtonConfig] {
+        if let Some(ref banks) = self.banks {
+            if !banks.is_empty() {
+                return &banks[0].buttons;
+            }
+        }
+        self.buttons.as_ref().map(|b| b.as_slice()).unwrap_or(&[])
+    }
+
+    /// Helper for tests: Mutable access to buttons
+    #[cfg(test)]
+    pub fn get_buttons_mut(&mut self) -> &mut Vec<ButtonConfig> {
+        if let Some(ref mut banks) = self.banks {
+            if !banks.is_empty() {
+                return &mut banks[0].buttons;
+            }
+        }
+        self.buttons.as_mut().unwrap()
+    }
+}

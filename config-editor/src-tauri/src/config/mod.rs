@@ -59,7 +59,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(config.buttons.len(), 1);
+        assert_eq!(config.buttons.as_ref().unwrap().len(), 1);
         assert!(config.encoder.is_some());
     }
 
@@ -89,7 +89,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.message_type, MessageType::Note);
         assert_eq!(btn.note, Some(60));
         assert_eq!(btn.velocity_on, Some(100));
@@ -98,7 +98,7 @@ mod tests {
         // Re-serialize and re-parse to confirm round-trip
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        let btn2 = &config2.buttons[0];
+        let btn2 = &config2.buttons.as_ref().unwrap()[0];
         assert_eq!(btn2.message_type, MessageType::Note);
         assert_eq!(btn2.note, Some(60));
         assert_eq!(btn2.velocity_on, Some(100));
@@ -113,13 +113,13 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.message_type, MessageType::Pc);
         assert_eq!(btn.program, Some(42));
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(config2.buttons[0].program, Some(42));
+        assert_eq!(config2.buttons.as_ref().unwrap()[0].program, Some(42));
     }
 
     #[test]
@@ -132,15 +132,15 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(config.buttons[0].message_type, MessageType::PcInc);
-        assert_eq!(config.buttons[0].pc_step, Some(5));
-        assert_eq!(config.buttons[1].message_type, MessageType::PcDec);
-        assert_eq!(config.buttons[1].pc_step, Some(2));
+        assert_eq!(config.buttons.as_ref().unwrap()[0].message_type, MessageType::PcInc);
+        assert_eq!(config.buttons.as_ref().unwrap()[0].pc_step, Some(5));
+        assert_eq!(config.buttons.as_ref().unwrap()[1].message_type, MessageType::PcDec);
+        assert_eq!(config.buttons.as_ref().unwrap()[1].pc_step, Some(2));
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(config2.buttons[0].pc_step, Some(5));
-        assert_eq!(config2.buttons[1].pc_step, Some(2));
+        assert_eq!(config2.buttons.as_ref().unwrap()[0].pc_step, Some(5));
+        assert_eq!(config2.buttons.as_ref().unwrap()[1].pc_step, Some(2));
     }
 
     #[test]
@@ -163,7 +163,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.keytimes, Some(3));
         let states = btn.states.as_ref().unwrap();
         assert_eq!(states.len(), 3);
@@ -174,7 +174,7 @@ mod tests {
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        let states2 = config2.buttons[0].states.as_ref().unwrap();
+        let states2 = config2.buttons.as_ref().unwrap()[0].states.as_ref().unwrap();
         assert_eq!(states2[0].cc, Some(1));
         assert_eq!(states2[1].color, Some(ButtonColor::Red));
     }
@@ -312,7 +312,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.value_on, Some(127));
         assert_eq!(btn.value_off, Some(0));
         assert_eq!(btn.default_on, Some(false));
@@ -324,7 +324,7 @@ mod tests {
         );
         assert!(reserialized.contains("\"cc\":46") || reserialized.contains("\"cc\": 46"));
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        let btn2 = &config2.buttons[0];
+        let btn2 = &config2.buttons.as_ref().unwrap()[0];
         assert_eq!(btn2.value_on, Some(127));
         assert_eq!(btn2.value_off, Some(0));
     }
@@ -338,13 +338,13 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        assert!(matches!(config.buttons[0].mode, ButtonMode::Normal));
-        assert_eq!(config.buttons[0].keytimes, Some(2));
+        assert!(matches!(config.buttons.as_ref().unwrap()[0].mode, ButtonMode::Normal));
+        assert_eq!(config.buttons.as_ref().unwrap()[0].keytimes, Some(2));
 
         let reserialized = serde_json::to_string(&config).unwrap();
         assert!(reserialized.contains("\"normal\""));
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert!(matches!(config2.buttons[0].mode, ButtonMode::Normal));
+        assert!(matches!(config2.buttons.as_ref().unwrap()[0].mode, ButtonMode::Normal));
     }
 
     #[test]
@@ -356,13 +356,13 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.select_group.as_deref(), Some("scene_a"));
         assert_eq!(btn.default_selected, Some(true));
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        let btn2 = &config2.buttons[0];
+        let btn2 = &config2.buttons.as_ref().unwrap()[0];
         assert_eq!(btn2.select_group.as_deref(), Some("scene_a"));
         assert_eq!(btn2.default_selected, Some(true));
     }
@@ -397,7 +397,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert!(btn.press.is_some());
         let press_cmds = btn.press.as_ref().unwrap();
         assert_eq!(press_cmds.len(), 2);
@@ -409,7 +409,7 @@ mod tests {
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        let press_cmds2 = config2.buttons[0].press.as_ref().unwrap();
+        let press_cmds2 = config2.buttons.as_ref().unwrap()[0].press.as_ref().unwrap();
         assert_eq!(press_cmds2.len(), 2);
         assert_eq!(press_cmds2[0].cc, Some(20));
         assert_eq!(press_cmds2[1].channel, Some(1));
@@ -439,7 +439,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert!(btn.press.is_some());
         assert!(btn.release.is_some());
         assert!(btn.long_press.is_some());
@@ -452,7 +452,7 @@ mod tests {
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        let btn2 = &config2.buttons[0];
+        let btn2 = &config2.buttons.as_ref().unwrap()[0];
         assert!(btn2.press.is_some());
         assert!(btn2.release.is_some());
         assert!(btn2.long_press.is_some());
@@ -474,14 +474,14 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let cmd = &config.buttons[0].press.as_ref().unwrap()[0];
+        let cmd = &config.buttons.as_ref().unwrap()[0].press.as_ref().unwrap()[0];
         assert_eq!(cmd.command_type, MessageType::Note);
         assert_eq!(cmd.note, Some(72));
         assert_eq!(cmd.velocity, Some(100));
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        let cmd2 = &config2.buttons[0].press.as_ref().unwrap()[0];
+        let cmd2 = &config2.buttons.as_ref().unwrap()[0].press.as_ref().unwrap()[0];
         assert_eq!(cmd2.note, Some(72));
         assert_eq!(cmd2.velocity, Some(100));
     }
@@ -509,30 +509,30 @@ mod tests {
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
         assert_eq!(
-            config.buttons[0].press.as_ref().unwrap()[0].command_type,
+            config.buttons.as_ref().unwrap()[0].press.as_ref().unwrap()[0].command_type,
             MessageType::PcInc
         );
         assert_eq!(
-            config.buttons[0].press.as_ref().unwrap()[0].pc_step,
+            config.buttons.as_ref().unwrap()[0].press.as_ref().unwrap()[0].pc_step,
             Some(5)
         );
         assert_eq!(
-            config.buttons[1].press.as_ref().unwrap()[0].command_type,
+            config.buttons.as_ref().unwrap()[1].press.as_ref().unwrap()[0].command_type,
             MessageType::PcDec
         );
         assert_eq!(
-            config.buttons[1].press.as_ref().unwrap()[0].pc_step,
+            config.buttons.as_ref().unwrap()[1].press.as_ref().unwrap()[0].pc_step,
             Some(2)
         );
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(
-            config2.buttons[0].press.as_ref().unwrap()[0].pc_step,
+            config2.buttons.as_ref().unwrap()[0].press.as_ref().unwrap()[0].pc_step,
             Some(5)
         );
         assert_eq!(
-            config2.buttons[1].press.as_ref().unwrap()[0].pc_step,
+            config2.buttons.as_ref().unwrap()[1].press.as_ref().unwrap()[0].pc_step,
             Some(2)
         );
     }
@@ -552,12 +552,12 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let cmd = &config.buttons[0].long_press.as_ref().unwrap()[0];
+        let cmd = &config.buttons.as_ref().unwrap()[0].long_press.as_ref().unwrap()[0];
         assert_eq!(cmd.threshold_ms, Some(1000));
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        let cmd2 = &config2.buttons[0].long_press.as_ref().unwrap()[0];
+        let cmd2 = &config2.buttons.as_ref().unwrap()[0].long_press.as_ref().unwrap()[0];
         assert_eq!(cmd2.threshold_ms, Some(1000));
     }
 
@@ -575,8 +575,8 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        assert!(config.buttons[0].long_press.is_some());
-        let long_press = config.buttons[0].long_press.as_ref().unwrap();
+        assert!(config.buttons.as_ref().unwrap()[0].long_press.is_some());
+        let long_press = config.buttons.as_ref().unwrap()[0].long_press.as_ref().unwrap();
         assert_eq!(long_press.len(), 1);
         assert_eq!(long_press[0].cc, Some(25));
         assert_eq!(long_press[0].value, Some(64));
@@ -587,7 +587,7 @@ mod tests {
 
         // And can be deserialized again
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(config2.buttons[0].long_press.as_ref().unwrap().len(), 1);
+        assert_eq!(config2.buttons.as_ref().unwrap()[0].long_press.as_ref().unwrap().len(), 1);
     }
 
     #[test]
@@ -605,13 +605,13 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(config.buttons[0].press.as_ref().unwrap().len(), 1);
-        assert_eq!(config.buttons[0].long_press.as_ref().unwrap().len(), 1);
+        assert_eq!(config.buttons.as_ref().unwrap()[0].press.as_ref().unwrap().len(), 1);
+        assert_eq!(config.buttons.as_ref().unwrap()[0].long_press.as_ref().unwrap().len(), 1);
 
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(config2.buttons[0].press.as_ref().unwrap().len(), 1);
-        assert_eq!(config2.buttons[0].long_press.as_ref().unwrap().len(), 1);
+        assert_eq!(config2.buttons.as_ref().unwrap()[0].press.as_ref().unwrap().len(), 1);
+        assert_eq!(config2.buttons.as_ref().unwrap()[0].long_press.as_ref().unwrap().len(), 1);
     }
 
     #[test]
@@ -657,7 +657,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.keytimes, Some(2));
 
         let states = btn.states.as_ref().unwrap();
@@ -685,7 +685,7 @@ mod tests {
         // Round-trip test
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        let states2 = config2.buttons[0].states.as_ref().unwrap();
+        let states2 = config2.buttons.as_ref().unwrap()[0].states.as_ref().unwrap();
 
         // Verify all per-state commands survived
         assert!(states2[0].press.is_some());
@@ -714,14 +714,14 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.off_mode, OffMode::Dim);
         assert_eq!(btn.dim_brightness, Some(50));
 
         // Round-trip test
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
-        assert_eq!(config2.buttons[0].dim_brightness, Some(50));
+        assert_eq!(config2.buttons.as_ref().unwrap()[0].dim_brightness, Some(50));
     }
 
     #[test]
@@ -740,7 +740,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.label, "PLAY");
         assert_eq!(btn.long_press_label, Some("PAUSE".to_string()));
 
@@ -748,7 +748,7 @@ mod tests {
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(
-            config2.buttons[0].long_press_label,
+            config2.buttons.as_ref().unwrap()[0].long_press_label,
             Some("PAUSE".to_string())
         );
     }
@@ -840,7 +840,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.keytimes, Some(2));
 
         let states = btn.states.as_ref().unwrap();
@@ -865,7 +865,7 @@ mod tests {
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(
-            config2.buttons[0].states.as_ref().unwrap()[0]
+            config2.buttons.as_ref().unwrap()[0].states.as_ref().unwrap()[0]
                 .press
                 .as_ref()
                 .unwrap()
@@ -1023,7 +1023,7 @@ mod tests {
         }"#;
 
         let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
-        let btn = &config.buttons[0];
+        let btn = &config.buttons.as_ref().unwrap()[0];
         assert_eq!(btn.profile_id, Some("quad-cortex".to_string()));
         assert_eq!(btn.action_id, Some("scene_b".to_string()));
         assert!(btn.press.is_some());
@@ -1032,10 +1032,10 @@ mod tests {
         let reserialized = serde_json::to_string(&config).unwrap();
         let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
         assert_eq!(
-            config2.buttons[0].profile_id,
+            config2.buttons.as_ref().unwrap()[0].profile_id,
             Some("quad-cortex".to_string())
         );
-        assert_eq!(config2.buttons[0].action_id, Some("scene_b".to_string()));
-        assert!(config2.buttons[0].press.is_some());
+        assert_eq!(config2.buttons.as_ref().unwrap()[0].action_id, Some("scene_b".to_string()));
+        assert!(config2.buttons.as_ref().unwrap()[0].press.is_some());
     }
 }
