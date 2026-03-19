@@ -43,8 +43,12 @@ from adafruit_midi.note_off import NoteOff
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
-from core.config import load_config as _load_config_from_file, validate_config, get_display_config, get_button_state_config
+from core.config import (
+    load_config as _load_config_from_file, validate_config, get_display_config, get_button_state_config,
+    migrate_legacy_config, load_banks, get_active_bank_config, get_bank_switch_config
+)
 from core.button import Switch, ButtonState
+from core.banks import BankManager
 from core.constants import (
     DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_CENTER_X, DISPLAY_CENTER_Y,
     DISPLAY_BACKGROUND_COLOR, DISPLAY_STATUS_TEXT_COLOR, COLOR_WHITE,
@@ -255,16 +259,39 @@ def load_config():
 config = load_config()
 buttons = config.get("buttons", [])
 print(f"Loaded {len(buttons)} button configs")
+
+# Migrate legacy single-bank config to multi-bank format
+config = migrate_legacy_config(config, button_count=BUTTON_COUNT)
+
 # Validate/normalize config so derived fields like `led_mode` are populated
 try:
     config = validate_config(config, button_count=BUTTON_COUNT)
-    buttons = config.get("buttons", [])
 except (ValueError, KeyError, TypeError) as e:
     # Config validation failed, but continue with raw config
     print(f"Config validation error: {e}. Using raw config.")
 except Exception as e:
     print(f"Unexpected config validation error: {e}")
+
+# Load banks from migrated config
+banks = load_banks(config)
+print(f"Loaded {len(banks)} bank(s)")
+
+# Get active bank configuration
+active_bank_idx, active_bank_config = get_active_bank_config(config)
+if active_bank_config:
+    buttons = active_bank_config.get("buttons", [])
+    print(f"Active bank {active_bank_idx + 1}: {active_bank_config.get('name', 'Unnamed')} ({len(buttons)} buttons)")
+else:
+    buttons = []
+    print("No active bank config found")
+
 print(f"Validated {len(buttons)} button configs")
+
+# Get bank switch config (for CC/PC triggering)
+bank_switch_config = get_bank_switch_config(config)
+if bank_switch_config:
+    method = bank_switch_config.get("method", "button")
+    print(f"Bank switching: {method}")
 
 # =============================================================================
 # Fonts
@@ -509,6 +536,14 @@ for i in range(BUTTON_COUNT):
     # blinking is driven by recent taps. Initialize as OFF.
     initial_on = False
     button_states.append(ButtonState(cc=cc, mode=mode, initial_state=initial_on, keytimes=keytimes))
+
+# Initialize BankManager with current button states
+bank_manager = None
+if len(banks) > 0:
+    bank_manager = BankManager(banks, button_states, active_bank=active_bank_idx)
+    print(f"BankManager initialized: {len(banks)} banks, active={active_bank_idx}")
+else:
+    print("No banks configured, BankManager disabled")
 
     # Long-press support state
     # Per-button: time when press started (monotonic), 0 if not pressed
@@ -1063,6 +1098,70 @@ def handle_midi():
         _process_incoming_midi(msg)
 
 
+def handle_bank_switch(target_bank_idx=None):
+    """Switch to the specified bank with visual feedback.
+    
+    Args:
+        target_bank_idx: Target bank index (0-indexed), or None to use BankManager default
+    
+    Returns:
+        True if switch succeeded, False otherwise
+    """
+    global button_states, buttons
+    
+    if not bank_manager or len(banks) == 0:
+        return False
+    
+    if target_bank_idx is None:
+        return False
+    
+    # Attempt switch
+    success = bank_manager.switch_bank(target_bank_idx)
+    if not success:
+        return False
+    
+    # Get new bank config
+    new_bank_config = bank_manager.get_current_bank_config()
+    if not new_bank_config:
+        return False
+    
+    # Update global buttons array
+    buttons = new_bank_config.get("buttons", [])
+    
+    # Get button states for new bank
+    button_states = bank_manager.get_button_states()
+    
+    # Flash all LEDs (100ms pulse)
+    flash_start = time.monotonic()
+    for i in range(BUTTON_COUNT):
+        # Show ON color briefly
+        btn_config = buttons[i] if i < len(buttons) else {}
+        color = get_color(btn_config.get("color", "white"))
+        for led_idx in switch_to_led[i + 1]:
+            pixels[led_idx] = color
+    pixels.show()
+    
+    # Hold for 100ms
+    while (time.monotonic() - flash_start) < 0.1:
+        pass
+    
+    # Restore button states
+    for i in range(BUTTON_COUNT):
+        set_button_state(i + 1, button_states[i].state)
+    
+    # Update center display
+    bank_name = new_bank_config.get("name", f"Bank {target_bank_idx + 1}")
+    display_handlers.set_label_text(button_name_label, bank_name)
+    display_handlers.set_label_text(status_label, f"Bank {target_bank_idx + 1}/{len(banks)}")
+    
+    # Set timeout to return to "Ready" after 2 seconds
+    global label_timeout_return_to_select
+    label_timeout_return_to_select = time.monotonic() + 2.0
+    
+    print(f"[BANK] Switched to bank {target_bank_idx + 1}: {bank_name}")
+    return True
+
+
 def _get_button_expected_cc_value(btn_config):
     """Extract expected CC number, channel, and value from button's press action.
 
@@ -1095,6 +1194,13 @@ def _process_incoming_midi(msg):
         cc = getattr(msg, 'control')
         val = getattr(msg, 'value', 0)
         print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
+
+        # Check for bank switch trigger (CC-based)
+        if bank_manager and bank_switch_config:
+            target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="cc", value=val)
+            if target_bank is not None:
+                handle_bank_switch(target_bank)
+                return  # Don't process as button action
 
         # Match CC number, channel, AND value for value-based scene switching
         for i, btn_config in enumerate(buttons):
@@ -1151,6 +1257,14 @@ def _process_incoming_midi(msg):
     elif hasattr(msg, 'patch'):
         program = getattr(msg, 'patch')
         print(f"[MIDI RX] Ch{msg_channel+1} PC{program}")
+        
+        # Check for bank switch trigger (PC-based)
+        if bank_manager and bank_switch_config:
+            target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="pc", value=program)
+            if target_bank is not None:
+                handle_bank_switch(target_bank)
+                return  # Don't update pc_values for bank switches
+        
         # pc_values is per-channel, so one assignment covers all pc_inc/pc_dec buttons on this channel
         pc_values[msg_channel] = program
         set_label_text(status_label, f"RX PC{program}")
