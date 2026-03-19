@@ -47,7 +47,7 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 export function loadConfig(newConfig: MidiCaptainConfig) {
   // Ensure display always exists so DisplaySection can traverse into it
   let config = { ...newConfig, display: newConfig.display ?? {} };
-  
+
   // Auto-migrate legacy single-bank format to multi-bank
   if (!config.banks && config.buttons) {
     const buttons = config.buttons;
@@ -59,11 +59,11 @@ export function loadConfig(newConfig: MidiCaptainConfig) {
     delete config.buttons;
     console.log('[formStore] Auto-migrated legacy config to multi-bank format');
   }
-  
+
   // Initialize activeBankIndex from config
   const initialBank = config.active_bank ?? 0;
   activeBankIndex.set(initialBank);
-  
+
   formState.update(_state => ({
     config: structuredClone(config),
     history: [structuredClone(config)],
@@ -215,11 +215,11 @@ export function syncButtonStates(buttonIndex: number, keytimes: number) {
 
   formState.update(state => {
     const newConfig = structuredClone(state.config);
-    
+
     // Get buttons array - from active bank or top-level
     const buttons = newConfig.banks?.[get(activeBankIndex)]?.buttons ?? newConfig.buttons;
     if (!buttons) return state;
-    
+
     const btn = buttons[buttonIndex];
     if (!btn) return state;
 
@@ -413,7 +413,7 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
 export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
   // Normalize buttons - handle both banks and legacy format
   let normalized: MidiCaptainConfig;
-  
+
   if (cfg.banks) {
     // Multi-bank mode: normalize each bank's buttons
     normalized = {
@@ -430,7 +430,7 @@ export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
     // No buttons at all
     normalized = { ...cfg };
   }
-  
+
   // Strip display if no fields were set (avoids writing `"display": {}` for untouched configs)
   if (normalized.display && Object.values(normalized.display).every(v => v === undefined)) {
     delete normalized.display;
@@ -482,7 +482,7 @@ export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
       }
     }
   }
-  
+
   return normalized;
 }
 
@@ -508,7 +508,7 @@ export function getFieldError(fieldPath: string): string | null {
 export function getButtonErrors(buttonIndex: number): Map<string, string> {
   const errors = get(validationErrors);
   const buttonErrors = new Map<string, string>();
-  
+
   // Build prefix based on multi-bank mode
   const state = get(formState);
   let prefix: string;
@@ -552,12 +552,12 @@ export const bankCount = derived(config, $config => {
 export function switchBank(index: number) {
   const state = get(formState);
   const banks = state.config.banks ?? [];
-  
+
   if (index < 0 || index >= banks.length) {
     console.error(`Invalid bank index: ${index}`);
     return;
   }
-  
+
   activeBankIndex.set(index);
 }
 
@@ -565,16 +565,16 @@ export function switchBank(index: number) {
 export function addBank(name?: string) {
   const state = get(formState);
   const banks = state.config.banks ?? [];
-  
+
   // Enforce 8-bank maximum
   if (banks.length >= 8) {
     console.error('Cannot add bank: maximum of 8 banks reached');
     return;
   }
-  
+
   const currentDevice = state.config.device ?? 'std10';
   const buttonCount = currentDevice === 'mini6' ? 6 : 10;
-  
+
   // Create default buttons for new bank
   const defaultButtons: ButtonConfig[] = Array.from({ length: buttonCount }, (_, i) => ({
     label: `${i + 1}`,
@@ -584,17 +584,16 @@ export function addBank(name?: string) {
     press: [{ type: 'cc' as const, cc: 20 + i, value: 127 }],
     release: [{ type: 'cc' as const, cc: 20 + i, value: 0 }],
   }));
-  
-  const banks = state.config.banks ?? [];
+
   const newBankName = name ?? `Bank ${banks.length + 1}`;
-  
+
   const newBank: import('./types').BankConfig = {
     name: newBankName,
     buttons: defaultButtons,
   };
-  
+
   updateField('banks', [...banks, newBank]);
-  
+
   // Switch to the new bank
   activeBankIndex.set(banks.length);
 }
@@ -603,20 +602,20 @@ export function addBank(name?: string) {
 export function duplicateBank(index: number) {
   const state = get(formState);
   const banks = state.config.banks ?? [];
-  
+
   if (index < 0 || index >= banks.length) {
     console.error(`Invalid bank index: ${index}`);
     return;
   }
-  
+
   const sourceBank = banks[index];
   const newBank: import('./types').BankConfig = {
     name: `${sourceBank.name} (Copy)`,
     buttons: structuredClone(sourceBank.buttons),
   };
-  
+
   updateField('banks', [...banks, newBank]);
-  
+
   // Switch to the new bank
   activeBankIndex.set(banks.length);
 }
@@ -625,21 +624,21 @@ export function duplicateBank(index: number) {
 export function deleteBank(index: number) {
   const state = get(formState);
   const banks = state.config.banks ?? [];
-  
+
   if (index < 0 || index >= banks.length) {
     console.error(`Invalid bank index: ${index}`);
     return;
   }
-  
+
   // Prevent deleting the last bank
   if (banks.length <= 1) {
     console.error('Cannot delete the last bank');
     return;
   }
-  
+
   const newBanks = banks.filter((_, i) => i !== index);
   updateField('banks', newBanks);
-  
+
   // Adjust active bank index if needed
   const currentActive = get(activeBankIndex);
   if (currentActive >= newBanks.length) {
@@ -653,43 +652,43 @@ export function deleteBank(index: number) {
 export function renameBank(index: number, newName: string) {
   const state = get(formState);
   const banks = state.config.banks ?? [];
-  
+
   if (index < 0 || index >= banks.length) {
     console.error(`Invalid bank index: ${index}`);
     return;
   }
-  
+
   updateField(`banks[${index}].name`, newName);
 }
 
 // Convert single-bank config to multi-bank
 export function convertToMultiBank() {
   const state = get(formState);
-  
+
   // Already multi-bank
   if (state.config.banks) {
     return;
   }
-  
+
   // Legacy single-bank format
   const buttons = state.config.buttons ?? [];
   const bank: import('./types').BankConfig = {
     name: 'Bank 1',
     buttons: structuredClone(buttons),
   };
-  
+
   formState.update(_state => {
     const newConfig = { ..._state.config };
     newConfig.banks = [bank];
     newConfig.active_bank = 0;
     delete newConfig.buttons;
-    
+
     return {
       ..._state,
       config: newConfig,
     };
   });
-  
+
   activeBankIndex.set(0);
   validate();
 }

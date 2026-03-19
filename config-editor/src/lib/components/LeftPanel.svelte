@@ -9,7 +9,7 @@
   import ExpressionSection from './ExpressionSection.svelte';
   import BankSettingsPanel from './BankSettingsPanel.svelte';
   import { isMultiBankMode, bankCount } from '$lib/formStore';
-  
+
   // Show banks panel if multi-bank mode and more than 1 bank
   let showBanksPanel = $derived($isMultiBankMode && $bankCount > 0);
 </script>
@@ -91,7 +91,7 @@
     display: flex;
     gap: 0;
     border-bottom: 1px solid #374151;
-    background: #1f2937;
+    background: #0f0f1a;
     align-items: center;
   }
 
@@ -117,14 +117,14 @@
   .tabs-container :global(.tab-trigger[aria-selected="true"]) {
     color: #8b5cf6;
     border-bottom-color: #8b5cf6;
-    background: #1f2937;
+    background: #0f0f1a;
   }
 
   .tabs-container :global(.tab-content) {
     padding: 16px;
     flex: 1;
     overflow-y: auto;
-    background: #1f2937;
+    background: #0f0f1a;
     color: #e5e7eb;
   }
 

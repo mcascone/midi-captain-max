@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Accordion as SkeletonAccordion } from '@skeletonlabs/skeleton-svelte';
   import type { Snippet } from 'svelte';
   
   interface Props {
@@ -11,45 +12,43 @@
   
   let { title, defaultOpen = true, disabled = false, message, children }: Props = $props();
   
-  let isOpen = $state(defaultOpen);
+  // Generate a unique value for this accordion item
+  const itemValue = `accordion-${Math.random().toString(36).substr(2, 9)}`;
   
-  function toggle() {
-    if (!disabled) {
-      isOpen = !isOpen;
-    }
-  }
+  // Control the open state
+  let value = $state<string[]>(defaultOpen ? [itemValue] : []);
 </script>
 
-<div class="accordion">
-  <button 
-    class="accordion-header" 
-    class:disabled 
-    onclick={toggle}
-    type="button"
-  >
-    <span class="triangle">{isOpen ? '▼' : '▶'}</span>
-    <span class="title">{title}</span>
-    {#if message}
-      <span class="message">({message})</span>
-    {/if}
-  </button>
-  
-  {#if isOpen}
-    <div class="accordion-content">
+<SkeletonAccordion {value} collapsible={true} {disabled} class="accordion-wrapper">
+  <SkeletonAccordion.Item value={itemValue} class="accordion-item">
+    <SkeletonAccordion.ItemTrigger class="accordion-header">
+      <span class="indicator">
+        {#if value.includes(itemValue)}▼{:else}▶{/if}
+      </span>
+      <span class="title">{title}</span>
+      {#if message}
+        <span class="message">({message})</span>
+      {/if}
+    </SkeletonAccordion.ItemTrigger>
+    
+    <SkeletonAccordion.ItemContent class="accordion-content">
       {@render children()}
-    </div>
-  {/if}
-</div>
+    </SkeletonAccordion.ItemContent>
+  </SkeletonAccordion.Item>
+</SkeletonAccordion>
 
 <style>
-  .accordion {
+  :global(.accordion-wrapper) {
     margin-bottom: 1rem;
+  }
+
+  :global(.accordion-item) {
     border: 1px solid #374151;
     border-radius: 4px;
     background: #1f2937;
   }
   
-  .accordion-header {
+  :global(.accordion-header) {
     width: 100%;
     padding: 0.75rem 1rem;
     background: #374151;
@@ -63,22 +62,23 @@
     font-weight: 600;
     text-align: left;
     color: #e5e7eb;
+    transition: background 0.2s ease;
   }
   
-  .accordion-header:hover {
+  :global(.accordion-header:hover) {
     background: #4b5563;
   }
   
-  .accordion-header.disabled {
+  :global(.accordion-header:disabled) {
     opacity: 0.6;
     cursor: not-allowed;
   }
   
-  .accordion-header.disabled:hover {
+  :global(.accordion-header:disabled:hover) {
     background: #374151;
   }
   
-  .triangle {
+  .indicator {
     font-size: 0.75rem;
     color: #9ca3af;
   }
@@ -93,7 +93,7 @@
     font-weight: 400;
   }
   
-  .accordion-content {
+  :global(.accordion-content) {
     padding: 1rem;
     background: #1f2937;
     color: #e5e7eb;

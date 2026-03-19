@@ -1,41 +1,46 @@
 <script lang="ts">
+  import { Carousel, Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import { activeBankIndex, activeBank, bankCount, config, switchBank, addBank, duplicateBank, deleteBank, renameBank } from '$lib/formStore';
-  
-  let editingBankIndex: number | null = null;
+
+  let isEditing = false;
   let editingValue = '';
-  let showDeleteConfirm: number | null = null;
-  
+  let showDeleteConfirm = false;
+
   // Get banks array for iteration
   $: banks = $config.banks ?? [];
-  
-  function handleTabClick(index: number) {
-    switchBank(index);
+  $: currentBank = banks[$activeBankIndex];
+
+  // Update carousel page when active bank changes
+  $: carouselPage = $activeBankIndex;
+
+  function handlePageChange(details: { page: number }) {
+    switchBank(details.page);
   }
-  
+
   function handleAddBank() {
     addBank();
   }
-  
-  function handleDuplicateBank(index: number) {
-    duplicateBank(index);
+
+  function handleDuplicateBank() {
+    duplicateBank($activeBankIndex);
   }
-  
-  function startRename(index: number, currentName: string) {
-    editingBankIndex = index;
-    editingValue = currentName;
+
+  function startRename() {
+    isEditing = true;
+    editingValue = currentBank.name;
   }
-  
+
   function finishRename() {
-    if (editingBankIndex !== null && editingValue.trim()) {
-      renameBank(editingBankIndex, editingValue.trim());
+    if (isEditing && editingValue.trim()) {
+      renameBank($activeBankIndex, editingValue.trim());
     }
-    editingBankIndex = null;
+    isEditing = false;
   }
-  
+
   function cancelRename() {
-    editingBankIndex = null;
+    isEditing = false;
   }
-  
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') {
       finishRename();
@@ -43,266 +48,306 @@
       cancelRename();
     }
   }
-  
-  function confirmDelete(index: number) {
-    showDeleteConfirm = index;
+
+  function confirmDelete() {
+    showDeleteConfirm = true;
   }
-  
-  function handleDeleteBank(index: number) {
-    deleteBank(index);
-    showDeleteConfirm = null;
+
+  function handleDeleteBank() {
+    deleteBank($activeBankIndex);
+    showDeleteConfirm = false;
   }
-  
+
   function cancelDelete() {
-    showDeleteConfirm = null;
+    showDeleteConfirm = false;
   }
 </script>
 
 <div class="banks-panel">
-  <div class="bank-tabs">
-    {#each banks as bank, i}
-      {@const isActive = i === $activeBankIndex}
-      {@const isEditing = editingBankIndex === i}
-      
-      <div
-        class="bank-tab"
-        class:active={isActive}
-        on:click={() => !isEditing && handleTabClick(i)}
-        on:keydown={(e) => e.key === 'Enter' && !isEditing && handleTabClick(i)}
-        role="tab"
-        tabindex={isEditing ? -1 : 0}
-        aria-selected={isActive}
-      >
-        {#if isEditing}
-          <input
-            type="text"
-            class="bank-rename-input"
-            bind:value={editingValue}
-            on:blur={finishRename}
-            on:keydown={handleKeydown}
-            autofocus
-            maxlength="20"
-          />
-        {:else}
-          <span class="bank-name" on:dblclick={() => startRename(i, bank.name)}>
-            {bank.name}
-          </span>
-          
-          {#if isActive && banks.length > 1}
-            <div class="bank-actions">
-              <button
-                type="button"
-                class="bank-action-btn duplicate"
-                on:click|stopPropagation={() => handleDuplicateBank(i)}
-                title="Duplicate bank"
-                aria-label="Duplicate bank"
+  <Carousel
+    slideCount={banks.length}
+    page={carouselPage}
+    onPageChange={handlePageChange}
+    loop={false}
+  >
+    <div class="carousel-layout">
+      <Carousel.Control>
+        <Carousel.PrevTrigger class="carousel-nav-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </Carousel.PrevTrigger>
+      </Carousel.Control>
+
+      <Carousel.ItemGroup class="carousel-items">
+        {#each banks as bank, i}
+          <Carousel.Item index={i} class="carousel-item">
+            {#if isEditing && i === $activeBankIndex}
+              <input
+                type="text"
+                class="bank-rename-input"
+                bind:value={editingValue}
+                onblur={finishRename}
+                onkeydown={handleKeydown}
+                autofocus
+                maxlength="20"
+              />
+            {:else}
+              <div
+                class="bank-display"
+                ondblclick={() => i === $activeBankIndex && startRename()}
+                role="button"
+                tabindex="0"
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="2" y="2" width="6" height="6" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
-                  <path d="M4 10H10V4" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-              </button>
-              
-              {#if banks.length > 1}
-                <button
-                  type="button"
-                  class="bank-action-btn delete"
-                  on:click|stopPropagation={() => confirmDelete(i)}
-                  title="Delete bank"
-                  aria-label="Delete bank"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M2 3L10 3M4 3V2a1 1 0 011-1h2a1 1 0 011 1v1M5 5.5v3M7 5.5v3M3.5 3v6.5a1 1 0 001 1h3a1 1 0 001-1V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                  </svg>
-                </button>
-              {/if}
-            </div>
-          {/if}
+                <span class="bank-name">{bank.name}</span>
+                <span class="bank-counter">{i + 1} / {banks.length}</span>
+              </div>
+            {/if}
+          </Carousel.Item>
+        {/each}
+      </Carousel.ItemGroup>
+
+      <Carousel.Control>
+        <Carousel.NextTrigger class="carousel-nav-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </Carousel.NextTrigger>
+      </Carousel.Control>
+
+      <div class="action-buttons">
+        <button
+          type="button"
+          class="action-btn"
+          onclick={handleAddBank}
+          disabled={banks.length >= 8}
+          title="Add new bank"
+          aria-label="Add new bank"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          class="action-btn"
+          onclick={handleDuplicateBank}
+          disabled={banks.length >= 8}
+          title="Duplicate bank"
+          aria-label="Duplicate bank"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M6 12H12V6" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+        </button>
+
+        {#if banks.length > 1}
+          <button
+            type="button"
+            class="action-btn delete"
+            onclick={confirmDelete}
+            title="Delete bank"
+            aria-label="Delete bank"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 5L13 5M6 5V4a1 1 0 011-1h2a1 1 0 011 1v1M7 7v5M9 7v5M5 5v8a1 1 0 001 1h4a1 1 0 001-1V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
         {/if}
       </div>
-    {/each}
-    
-    <button
-      type="button"
-      class="add-bank-btn"
-      on:click={handleAddBank}
-      title="Add new bank"
-      aria-label="Add new bank"
-    >
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </button>
-  </div>
-  
-  <div class="bank-info">
-    <span class="bank-counter">
-      Bank {$activeBankIndex + 1} / {banks.length}
-    </span>
-  </div>
+    </div>
+  </Carousel>
 </div>
 
-{#if showDeleteConfirm !== null}
-  <div class="modal-overlay" on:click={cancelDelete} role="presentation">
-    <div class="modal-dialog" on:click|stopPropagation role="dialog" aria-modal="true">
-      <h3>Delete Bank?</h3>
-      <p>Are you sure you want to delete "{banks[showDeleteConfirm]?.name ?? `Bank ${showDeleteConfirm + 1}`}"?</p>
-      <p class="warning">This action cannot be undone.</p>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" on:click={cancelDelete}>Cancel</button>
-        <button type="button" class="btn btn-danger" on:click={() => handleDeleteBank(showDeleteConfirm!)}>Delete</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<!-- Delete Confirmation Dialog -->
+<Dialog open={showDeleteConfirm} onOpenChange={(details) => showDeleteConfirm = details.open} role="alertdialog">
+  <Portal>
+    <Dialog.Backdrop class="delete-modal-backdrop" />
+    <Dialog.Positioner class="delete-modal-positioner">
+      <Dialog.Content class="delete-modal-content">
+        <Dialog.Title class="delete-modal-title">Delete Bank?</Dialog.Title>
+        <Dialog.Description class="delete-modal-description">
+          Are you sure you want to delete "{currentBank?.name ?? `Bank ${$activeBankIndex + 1}`}"?
+          <br />
+          <strong class="warning-text">This action cannot be undone.</strong>
+        </Dialog.Description>
+        <div class="delete-modal-actions">
+          <Dialog.CloseTrigger class="btn btn-secondary">Cancel</Dialog.CloseTrigger>
+          <button type="button" class="btn btn-danger" onclick={handleDeleteBank}>Delete</button>
+        </div>
+      </Dialog.Content>
+    </Dialog.Positioner>
+  </Portal>
+</Dialog>
 
 <style>
   .banks-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
     padding: 1rem;
     background: #1a1f2e;
     border-bottom: 1px solid #374151;
   }
-  
-  .bank-tabs {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-  
-  .bank-tab {
-    position: relative;
+
+  .carousel-layout {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    gap: 0.75rem;
+  }
+
+  /* Carousel navigation buttons - uses Skeleton's Control wrapper */
+  .banks-panel :global(.carousel-nav-btn) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
     background: #2d3748;
     border: 1px solid #4a5568;
     border-radius: 0.375rem;
     cursor: pointer;
+    color: #e2e8f0;
     transition: all 0.15s ease;
-    min-width: 120px;
-    color: #e2e8f0;
+    flex-shrink: 0;
   }
-  
-  .bank-tab:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+
+  .banks-panel :global(.carousel-nav-btn:hover:not(:disabled)) {
+    border-color: #8b5cf6;
     background: #374151;
+    color: #8b5cf6;
   }
-  
-  .bank-tab.active {
-    background: #3b82f6;
-    color: white;
-    border-color: #3b82f6;
-    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.5);
+
+  .banks-panel :global(.carousel-nav-btn:disabled) {
+    cursor: not-allowed;
+    opacity: 0.3;
   }
-  
-  .bank-tab:focus-visible {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-  }
-  
-  .bank-name {
+
+  /* Carousel items container */
+  .banks-panel :global(.carousel-items) {
     flex: 1;
-    font-weight: 500;
-    font-size: 0.875rem;
-  }
-  
-  .bank-rename-input {
-    flex: 1;
-    padding: 0.25rem 0.5rem;
-    border: 1px solid #4a5568;
-    border-radius: 0.25rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    background: #1a1f2e;
-    color: #e2e8f0;
-  }
-  
-  .bank-rename-input:focus {
-    outline: 2px solid #3b82f6;
-    border-color: #3b82f6;
-  }
-  
-  .bank-actions {
     display: flex;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .banks-panel :global(.carousel-item) {
+    flex: 0 0 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Bank display */
+  .bank-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: 0.25rem;
-    margin-left: 0.5rem;
-  }
-  
-  .bank-action-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: 0.25rem;
+    padding: 0.5rem 1rem;
     cursor: pointer;
-    color: white;
-    opacity: 0.8;
-    transition: all 0.15s ease;
-  }
-  
-  .bank-action-btn:hover {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.1);
-  }
-  
-  .bank-action-btn.delete:hover {
-    background: rgba(239, 68, 68, 0.9);
-  }
-  
-  .add-bank-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    background: #2d3748;
-    border: 2px dashed #4a5568;
     border-radius: 0.375rem;
-    cursor: pointer;
-    color: #9ca3af;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease;
+    width: 100%;
+    max-width: 280px;
   }
-  
-  .add-bank-btn:hover {
-    border-color: #3b82f6;
-    color: #3b82f6;
-    background: #374151;
+
+  .bank-display:hover {
+    background: rgba(139, 92, 246, 0.1);
   }
-  
-  .bank-info {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+
+  .bank-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
   }
-  
+
   .bank-counter {
     font-size: 0.75rem;
     color: #9ca3af;
     font-weight: 500;
   }
-  
-  /* Modal styles */
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.7);
+
+  .bank-rename-input {
+    width: 100%;
+    max-width: 280px;
+    padding: 0.5rem 1rem;
+    border: 2px solid #8b5cf6;
+    border-radius: 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    background: #1a1f2e;
+    color: #e2e8f0;
+    text-align: center;
+  }
+
+  .bank-rename-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+  }
+
+  /* Action buttons */
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .action-btn {
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    color: #9ca3af;
+    transition: all 0.15s ease;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    border-color: #8b5cf6;
+    color: #8b5cf6;
+    background: #374151;
+  }
+
+  .action-btn.delete:hover:not(:disabled) {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .action-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+  }
+
+  /* Delete Dialog styles */
+  :global(.delete-modal-backdrop) {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7) !important;
     z-index: 1000;
   }
-  
-  .modal-dialog {
+
+  :global(.delete-modal-positioner) {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+  }
+
+  :global(.delete-modal-content) {
     background: #1f2937;
     border: 1px solid #374151;
     border-radius: 0.5rem;
@@ -311,32 +356,32 @@
     width: 90%;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
   }
-  
-  .modal-dialog h3 {
+
+  :global(.delete-modal-title) {
     margin: 0 0 1rem 0;
     font-size: 1.25rem;
     font-weight: 600;
     color: #f3f4f6;
   }
-  
-  .modal-dialog p {
+
+  :global(.delete-modal-description) {
     margin: 0.5rem 0;
     color: #d1d5db;
   }
-  
-  .modal-dialog p.warning {
+
+  .warning-text {
     color: #ef4444;
     font-weight: 500;
     font-size: 0.875rem;
   }
-  
-  .modal-actions {
+
+  .delete-modal-actions {
     display: flex;
     gap: 0.75rem;
     margin-top: 1.5rem;
     justify-content: flex-end;
   }
-  
+
   .btn {
     padding: 0.5rem 1rem;
     border-radius: 0.375rem;
@@ -346,22 +391,22 @@
     border: none;
     font-size: 0.875rem;
   }
-  
+
   .btn-secondary {
     background: #374151;
     color: #f3f4f6;
     border: 1px solid #4b5563;
   }
-  
+
   .btn-secondary:hover {
     background: #4b5563;
   }
-  
+
   .btn-danger {
     background: #ef4444;
     color: white;
   }
-  
+
   .btn-danger:hover {
     background: #dc2626;
   }

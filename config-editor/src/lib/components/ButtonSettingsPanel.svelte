@@ -14,10 +14,10 @@
       ? $activeBank.buttons
       : $config.buttons ?? []
   );
-  
+
   let btn = $derived(buttons[$selectedButtonIndex] ?? null);
   let globalCh = $derived($config.global_channel ?? 0);
-  
+
   // Helper to get correct button path based on mode
   function getButtonPath(): string {
     if ($isMultiBankMode) {
@@ -252,7 +252,7 @@
         />
       </div>
 
-      <div class="field full">
+      <div class="field full" style="margin-top: 1.5rem;">
         <label class="checkbox-label">
           <input
             type="checkbox"
@@ -261,7 +261,7 @@
           />
           <span>Keep long press label visible</span>
         </label>
-        <span class="field-hint">When disabled, long press label shows for 3s then returns to button label</span>
+        <span class="field-hint" style="display: block; margin-top: 0.5rem;">When disabled, long press label shows for 3s then returns to button label</span>
       </div>
     </div>
 

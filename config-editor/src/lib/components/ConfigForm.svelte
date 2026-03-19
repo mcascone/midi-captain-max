@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, type Snippet } from 'svelte';
+  import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
   import { isDirty, canUndo, canRedo, undo, redo, validationErrors, config } from '$lib/formStore';
   
   interface Props {
@@ -111,23 +112,25 @@
 </div>
 
 <!-- JSON Modal -->
-{#if showJsonModal}
-  <div class="modal-backdrop" onclick={closeJsonModal}>
-    <div class="modal-content" onclick={(e) => e.stopPropagation()}>
-      <div class="modal-header">
-        <h2>Current Configuration (JSON)</h2>
-        <button class="close-btn" onclick={closeJsonModal}>✕</button>
-      </div>
-      <div class="modal-body">
-        <pre class="json-display">{jsonText}</pre>
-      </div>
-      <div class="modal-footer">
-        <button class="toolbar-btn secondary" onclick={copyJsonToClipboard}>Copy to Clipboard</button>
-        <button class="toolbar-btn" onclick={closeJsonModal}>Close</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<Dialog open={showJsonModal} onOpenChange={(details) => showJsonModal = details.open}>
+  <Portal>
+    <Dialog.Backdrop class="modal-backdrop" />
+    <Dialog.Positioner class="modal-positioner">
+      <Dialog.Content class="modal-content">
+        <Dialog.Title class="modal-title">Current Configuration (JSON)</Dialog.Title>
+        
+        <div class="modal-body">
+          <pre class="json-display">{jsonText}</pre>
+        </div>
+        
+        <div class="modal-footer">
+          <button class="toolbar-btn secondary" onclick={copyJsonToClipboard}>Copy to Clipboard</button>
+          <Dialog.CloseTrigger class="toolbar-btn">Close</Dialog.CloseTrigger>
+        </div>
+      </Dialog.Content>
+    </Dialog.Positioner>
+  </Portal>
+</Dialog>
 
 <style>
   .config-form {
@@ -201,20 +204,29 @@
   }
 
   /* JSON Modal */
-  .modal-backdrop {
+  :global(.modal-backdrop) {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.6) !important;
     z-index: 1000;
   }
 
-  .modal-content {
+  :global(.modal-positioner) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+  }
+
+  :global(.modal-content) {
     background-color: var(--color-bg);
     border-radius: 8px;
     width: 90%;
@@ -223,39 +235,15 @@
     display: flex;
     flex-direction: column;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--color-border);
   }
 
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  :global(.modal-title) {
     padding: 16px 20px;
     border-bottom: 1px solid var(--color-border);
-  }
-
-  .modal-header h2 {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-  }
-
-  .close-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 0;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    color: var(--color-text-secondary);
-  }
-
-  .close-btn:hover {
-    background-color: var(--color-bg-hover);
   }
 
   .modal-body {
