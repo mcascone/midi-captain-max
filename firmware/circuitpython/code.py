@@ -917,25 +917,32 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
 
     # Display button name in center (large font)
     btn_config = buttons[idx] if idx < len(buttons) else {}
-    # Use long_press_label if action is long_press and label is configured
-    label_text = btn_config.get("label", str(btn_num))
-    if action_name == "long_press" and "long_press_label" in btn_config:
-        label_text = btn_config.get("long_press_label", label_text)
-    set_label_text(button_name_label, label_text)
     
-    # Handle label timeout based on long_press_label_persist setting
-    if action_name == "long_press" and "long_press_label" in btn_config:
-        # Check if label should persist or timeout
-        persist = btn_config.get("long_press_label_persist", True)
-        if not persist:
-            # Override select_group logic: force timeout even for select buttons
-            global label_timeout_return_to_select
-            label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+    # For long_press actions: only update label if long_press_label is configured
+    # Otherwise, keep the current display (likely showing the selected button)
+    if action_name == "long_press":
+        if "long_press_label" in btn_config:
+            # Long press label configured - show it
+            label_text = btn_config.get("long_press_label")
+            set_label_text(button_name_label, label_text)
+            
+            # Check if label should persist or timeout
+            persist = btn_config.get("long_press_label_persist", True)
+            if not persist:
+                # Override select_group logic: force timeout even for select buttons
+                global label_timeout_return_to_select
+                label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+            else:
+                # Use normal logic (select buttons stay, others timeout)
+                arm_label_return_timeout(btn_config)
         else:
-            # Use normal logic (select buttons stay, others timeout)
-            arm_label_return_timeout(btn_config)
+            # No long_press_label configured - don't change the display
+            # Keep showing whatever was there (likely the selected button's label)
+            pass
     else:
-        # Normal action (not long_press), use standard timeout logic
+        # Normal press/release action - always show button label
+        label_text = btn_config.get("label", str(btn_num))
+        set_label_text(button_name_label, label_text)
         arm_label_return_timeout(btn_config)
 
     # Track if any PC command executed (for LED flash feedback)
@@ -1605,34 +1612,10 @@ def handle_switches():
                                 pixels[base + j] = long_press_rgb
                         pixels.show()
 
-                # For toggle/normal/select modes: update button state and LED before sending MIDI
-                if mode in ("toggle", "normal", "select") and not short_action_executed[idx]:
-                    btn_state.advance_keytime()
-                    # For buttons with select_group: pressing when already ON keeps it ON (radio button behavior)
-                    # For toggle/normal mode without select_group: flip state
-                    # For select mode: always turns ON
-                    if btn_state.keytimes > 1:
-                        new_state = True
-                    elif mode == "select":
-                        new_state = True
-                    elif btn_config.get("select_group") and btn_state.state:
-                        # Radio button behavior: if already selected, stay selected
-                        new_state = True
-                    elif mode in ("toggle", "normal"):
-                        new_state = not btn_state.state
-                    else:
-                        new_state = True
-
-                    btn_state.state = new_state
-                    # Skip set_button_state if long_press_color is active (manual LED update above)
-                    if "long_press_color" not in btn_config:
-                        set_button_state(btn_num, new_state)
-                    # Handle select_group exclusivity (applies to both toggle and select modes)
-                    if new_state:
-                        sg = btn_config.get("select_group")
-                        if sg:
-                            _deselect_group(sg, idx)
-                    short_action_executed[idx] = True
+                # Long press should NOT affect button state or select groups
+                # It's an alternate action that doesn't change which button is "selected"
+                # Only update LED color if long_press_color is configured
+                short_action_executed[idx] = True
 
                 # Send long_press MIDI action
                 if effective_long_press:
