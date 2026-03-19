@@ -1649,6 +1649,37 @@ def handle_encoder_button():
     Delegates to handlers.encoder module for actual implementation.
     """
     global encoder_push_state
+    
+    # Check for bank switching first (button 11 = encoder push)
+    if bank_manager and bank_switch_config and len(banks) > 0:
+        method = bank_switch_config.get("method", "button")
+        if method == "button":
+            bank_btn = bank_switch_config.get("button")
+            bank_next = bank_switch_config.get("button_next")
+            bank_prev = bank_switch_config.get("button_prev")
+            
+            # Check if encoder push is configured for bank switching (button 11)
+            sw = switches[0]
+            changed, pressed = sw.changed()
+            
+            if changed and pressed:
+                if bank_next == 11:
+                    target_idx = (bank_manager.current_bank_index + 1) % len(banks)
+                    handle_bank_switch(target_idx)
+                    reset_activity_timer()
+                    return
+                elif bank_prev == 11:
+                    target_idx = (bank_manager.current_bank_index - 1) % len(banks)
+                    handle_bank_switch(target_idx)
+                    reset_activity_timer()
+                    return
+                elif bank_btn == 11 and not bank_next and not bank_prev:
+                    target_idx = (bank_manager.current_bank_index + 1) % len(banks)
+                    handle_bank_switch(target_idx)
+                    reset_activity_timer()
+                    return
+    
+    # Normal encoder push button handling
     old_state = encoder_push_state
     encoder_push_state = encoder_handlers.handle_encoder_button(
         switches,
