@@ -80,14 +80,14 @@
   // Long-press handlers
   function handleLongPressTypeChange(e: Event) {
     const target = e.target as HTMLSelectElement;
-    onUpdate('long_press.type', target.value);
+    onUpdate('long_press[0].type', target.value);
   }
 
   function handleLongPressEnableChange(e: Event) {
     const target = e.target as HTMLInputElement;
     if (target.checked) {
-      const ch = button.long_press?.channel !== undefined ? button.long_press.channel : (button.channel !== undefined ? button.channel : globalChannel);
-      onUpdate('long_press', { type: 'cc', cc: button.cc ?? 20 + index, value: 127, channel: ch, threshold_ms: button.long_press?.threshold_ms ?? 600 });
+      const ch = button.long_press?.[0]?.channel !== undefined ? button.long_press[0].channel : (button.channel !== undefined ? button.channel : globalChannel);
+      onUpdate('long_press', [{ type: 'cc', cc: button.cc ?? 20 + index, value: 127, channel: ch, threshold_ms: button.long_press?.[0]?.threshold_ms ?? 600 }]);
     } else {
       onUpdate('long_press', undefined);
     }
@@ -95,20 +95,24 @@
 
   function handleLongPressNumberField(field: string, e: Event) {
     const target = e.target as HTMLInputElement;
-    const value = target.value === '' ? undefined : parseInt(target.value);
-    onUpdate(`long_press.${field}`, value);
+    let value: number | undefined = target.value === '' ? undefined : parseInt(target.value);
+    // Adjust channel from 1-16 display to 0-15 storage
+    if (field === 'channel' && value !== undefined) {
+      value = value - 1;
+    }
+    onUpdate(`long_press[0].${field}`, value);
   }
 
   function handleLongReleaseTypeChange(e: Event) {
     const target = e.target as HTMLSelectElement;
-    onUpdate('long_release.type', target.value);
+    onUpdate('long_release[0].type', target.value);
   }
 
   function handleLongReleaseEnableChange(e: Event) {
     const target = e.target as HTMLInputElement;
     if (target.checked) {
-      const ch = button.long_release?.channel !== undefined ? button.long_release.channel : (button.channel !== undefined ? button.channel : globalChannel);
-      onUpdate('long_release', { type: 'cc', cc: button.cc ?? 20 + index, value: 0, channel: ch });
+      const ch = button.long_release?.[0]?.channel !== undefined ? button.long_release[0].channel : (button.channel !== undefined ? button.channel : globalChannel);
+      onUpdate('long_release', [{ type: 'cc', cc: button.cc ?? 20 + index, value: 0, channel: ch }]);
     } else {
       onUpdate('long_release', undefined);
     }
@@ -116,8 +120,12 @@
 
   function handleLongReleaseNumberField(field: string, e: Event) {
     const target = e.target as HTMLInputElement;
-    const value = target.value === '' ? undefined : parseInt(target.value);
-    onUpdate(`long_release.${field}`, value);
+    let value: number | undefined = target.value === '' ? undefined : parseInt(target.value);
+    // Adjust channel from 1-16 display to 0-15 storage
+    if (field === 'channel' && value !== undefined) {
+      value = value - 1;
+    }
+    onUpdate(`long_release[0].${field}`, value);
   }
 
   function handleChannelChange(e: Event) {
@@ -453,22 +461,22 @@
     {#if button.long_press}
     <div class="field long-fields">
       <label class="field-label">Type:</label>
-      <select class="select" value={button.long_press?.type ?? 'cc'} onchange={handleLongPressTypeChange} disabled={disabled} title="Message type for long press">
+      <select class="select" value={button.long_press?.[0]?.type ?? 'cc'} onchange={handleLongPressTypeChange} disabled={disabled} title="Message type for long press">
         <option value="cc">CC</option>
         <option value="note">Note</option>
         <option value="pc">PC</option>
       </select>
-      {#if (button.long_press?.type ?? 'cc') === 'cc'}
-        <input type="number" class="input-cc" value={button.long_press?.cc ?? ''} onblur={(e)=>handleLongPressNumberField('cc', e)} disabled={disabled} min="0" max="127" placeholder="CC" title="CC number (0-127)" />
-        <input type="number" class="input-cc-value" value={button.long_press?.value ?? ''} onblur={(e)=>handleLongPressNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Value" title="Value (0-127)" />
-        <input type="number" class="input-cc" value={button.long_press?.threshold_ms ?? ''} onblur={(e)=>handleLongPressNumberField('threshold_ms', e)} disabled={disabled} min="50" max="10000" placeholder="Thr ms" title="Threshold in ms (hold duration)" />
-      {:else if (button.long_press?.type ?? '') === 'note'}
-        <input type="number" class="input-cc" value={button.long_press?.note ?? ''} onblur={(e)=>handleLongPressNumberField('note', e)} disabled={disabled} min="0" max="127" placeholder="Note" title="Note number (0-127)" />
-        <input type="number" class="input-cc-value" value={button.long_press?.value ?? ''} onblur={(e)=>handleLongPressNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Vel" title="Velocity (0-127)" />
+      {#if (button.long_press?.[0]?.type ?? 'cc') === 'cc'}
+        <input type="number" class="input-cc" value={button.long_press?.[0]?.cc ?? ''} onblur={(e)=>handleLongPressNumberField('cc', e)} disabled={disabled} min="0" max="127" placeholder="CC" title="CC number (0-127)" />
+        <input type="number" class="input-cc-value" value={button.long_press?.[0]?.value ?? ''} onblur={(e)=>handleLongPressNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Value" title="Value (0-127)" />
+        <input type="number" class="input-cc" value={button.long_press?.[0]?.threshold_ms ?? ''} onblur={(e)=>handleLongPressNumberField('threshold_ms', e)} disabled={disabled} min="50" max="10000" placeholder="Thr ms" title="Threshold in ms (hold duration)" />
+      {:else if (button.long_press?.[0]?.type ?? '') === 'note'}
+        <input type="number" class="input-cc" value={button.long_press?.[0]?.note ?? ''} onblur={(e)=>handleLongPressNumberField('note', e)} disabled={disabled} min="0" max="127" placeholder="Note" title="Note number (0-127)" />
+        <input type="number" class="input-cc-value" value={button.long_press?.[0]?.value ?? ''} onblur={(e)=>handleLongPressNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Vel" title="Velocity (0-127)" />
       {:else}
-        <input type="number" class="input-cc" value={button.long_press?.program ?? ''} onblur={(e)=>handleLongPressNumberField('program', e)} disabled={disabled} min="0" max="127" placeholder="Program" title="Program number (0-127)" />
+        <input type="number" class="input-cc" value={button.long_press?.[0]?.program ?? ''} onblur={(e)=>handleLongPressNumberField('program', e)} disabled={disabled} min="0" max="127" placeholder="Program" title="Program number (0-127)" />
       {/if}
-      <input type="number" class="input-channel" value={button.long_press?.channel !== undefined ? button.long_press.channel + 1 : ''} onblur={(e)=>handleLongPressNumberField('channel', e)} disabled={disabled} min="1" max="16" placeholder="Ch" title="MIDI channel (1-16)" />
+      <input type="number" class="input-channel" value={button.long_press?.[0]?.channel !== undefined ? button.long_press[0].channel + 1 : ''} onblur={(e)=>handleLongPressNumberField('channel', e)} disabled={disabled} min="1" max="16" placeholder="Ch" title="MIDI channel (1-16)" />
     </div>
     {/if}
   </details>
@@ -482,21 +490,21 @@
     {#if button.long_release}
     <div class="field long-fields">
       <label class="field-label">Type:</label>
-      <select class="select" value={button.long_release?.type ?? 'cc'} onchange={handleLongReleaseTypeChange} disabled={disabled} title="Message type for long-release">
+      <select class="select" value={button.long_release?.[0]?.type ?? 'cc'} onchange={handleLongReleaseTypeChange} disabled={disabled} title="Message type for long-release">
         <option value="cc">CC</option>
         <option value="note">Note</option>
         <option value="pc">PC</option>
       </select>
-      {#if (button.long_release?.type ?? 'cc') === 'cc'}
-        <input type="number" class="input-cc" value={button.long_release?.cc ?? ''} onblur={(e)=>handleLongReleaseNumberField('cc', e)} disabled={disabled} min="0" max="127" placeholder="CC" title="CC number (0-127)" />
-        <input type="number" class="input-cc-value" value={button.long_release?.value ?? ''} onblur={(e)=>handleLongReleaseNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Value" title="Value (0-127)" />
-      {:else if (button.long_release?.type ?? '') === 'note'}
-        <input type="number" class="input-cc" value={button.long_release?.note ?? ''} onblur={(e)=>handleLongReleaseNumberField('note', e)} disabled={disabled} min="0" max="127" placeholder="Note" title="Note number (0-127)" />
-        <input type="number" class="input-cc-value" value={button.long_release?.value ?? ''} onblur={(e)=>handleLongReleaseNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Vel" title="Velocity (0-127)" />
+      {#if (button.long_release?.[0]?.type ?? 'cc') === 'cc'}
+        <input type="number" class="input-cc" value={button.long_release?.[0]?.cc ?? ''} onblur={(e)=>handleLongReleaseNumberField('cc', e)} disabled={disabled} min="0" max="127" placeholder="CC" title="CC number (0-127)" />
+        <input type="number" class="input-cc-value" value={button.long_release?.[0]?.value ?? ''} onblur={(e)=>handleLongReleaseNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Value" title="Value (0-127)" />
+      {:else if (button.long_release?.[0]?.type ?? '') === 'note'}
+        <input type="number" class="input-cc" value={button.long_release?.[0]?.note ?? ''} onblur={(e)=>handleLongReleaseNumberField('note', e)} disabled={disabled} min="0" max="127" placeholder="Note" title="Note number (0-127)" />
+        <input type="number" class="input-cc-value" value={button.long_release?.[0]?.value ?? ''} onblur={(e)=>handleLongReleaseNumberField('value', e)} disabled={disabled} min="0" max="127" placeholder="Vel" title="Velocity (0-127)" />
       {:else}
-        <input type="number" class="input-cc" value={button.long_release?.program ?? ''} onblur={(e)=>handleLongReleaseNumberField('program', e)} disabled={disabled} min="0" max="127" placeholder="Program" title="Program number (0-127)" />
+        <input type="number" class="input-cc" value={button.long_release?.[0]?.program ?? ''} onblur={(e)=>handleLongReleaseNumberField('program', e)} disabled={disabled} min="0" max="127" placeholder="Program" title="Program number (0-127)" />
       {/if}
-      <input type="number" class="input-channel" value={button.long_release?.channel !== undefined ? button.long_release.channel + 1 : ''} onblur={(e)=>handleLongReleaseNumberField('channel', e)} disabled={disabled} min="1" max="16" placeholder="Ch" title="MIDI channel (1-16)" />
+      <input type="number" class="input-channel" value={button.long_release?.[0]?.channel !== undefined ? button.long_release[0].channel + 1 : ''} onblur={(e)=>handleLongReleaseNumberField('channel', e)} disabled={disabled} min="1" max="16" placeholder="Ch" title="MIDI channel (1-16)" />
     </div>
     {/if}
   </details>
