@@ -57,7 +57,18 @@ export async function saveToDevice(): Promise<boolean> {
   if (!device) return false;
 
   if (!validate()) {
-    showToast('Please fix validation errors before saving', 'error');
+    // Get validation errors and format them for display
+    const errors = get(validationErrors);
+    if (errors.size > 0) {
+      const errorList = Array.from(errors.entries())
+        .slice(0, 5) // Show first 5 errors
+        .map(([field, message]) => `• ${field}: ${message}`)
+        .join('\n');
+      const remaining = errors.size > 5 ? `\n... and ${errors.size - 5} more errors` : '';
+      showToast(`Validation errors:\n${errorList}${remaining}`, 'error');
+    } else {
+      showToast('Please fix validation errors before saving', 'error');
+    }
     return false;
   }
 
