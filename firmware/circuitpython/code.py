@@ -1009,7 +1009,8 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
             continue
 
     # Flash LED once if any PC command was sent in this action
-    if pc_command_sent:
+    # BUT skip flash if long_press is active - preserve long_press_color instead
+    if pc_command_sent and action_name != "long_press":
         flash_pc_button(btn_num)
 
 
@@ -1509,20 +1510,15 @@ def handle_switches():
                     if long_release_cfg:
                         _send_action_from_cfg(long_release_cfg, btn_num, idx, "long_release")
 
-                    # For momentary mode: always turn LED off after long press
+                    # Restore button LED to match its actual state
+                    # (long_press_color is temporary feedback only, not persistent state)
                     if mode == "momentary":
+                        # Momentary: always turn LED off on release
                         set_button_state(btn_num, False)
                     else:
-                        # For toggle/select modes: keep long_press_color if button is ON, restore original color if OFF
-                        if btn_state.state:
-                            # Button is ON: keep the long_press_color (if configured) or restore normal ON color
-                            if "long_press_color" not in btn_config:
-                                # No long_press_color configured, restore normal ON state color
-                                set_button_state(btn_num, True)
-                            # else: keep the long_press_color that's currently displayed
-                        else:
-                            # Button is OFF: restore dim/off LED state
-                            set_button_state(btn_num, False)
+                        # Toggle/select: restore LED to match button's actual state
+                        # This preserves select button state even after long press
+                        set_button_state(btn_num, btn_state.state)
                 else:
                     # Short press: handle deferred actions
                     if long_enabled:
