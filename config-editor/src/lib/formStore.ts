@@ -57,7 +57,6 @@ export function loadConfig(newConfig: MidiCaptainConfig) {
     }];
     config.active_bank = 0;
     delete config.buttons;
-    console.log('[formStore] Auto-migrated legacy config to multi-bank format');
   }
 
   // Initialize activeBankIndex from config

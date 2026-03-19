@@ -31,7 +31,6 @@ export function resolveProfileAction(
     convertProfileCommand(cmd)
   );
 
-  console.log(`[Profile Resolver] Resolved ${profileId}.${actionId}:`, resolvedCommands);
   return resolvedCommands;
 }
 

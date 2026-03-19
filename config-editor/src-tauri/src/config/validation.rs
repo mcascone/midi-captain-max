@@ -240,7 +240,7 @@ impl MidiCaptainConfig {
         &self,
         buttons: &[ButtonConfig],
         bank_info: Option<(usize, &str)>,
-        expected_count: usize,
+        _expected_count: usize,
         errors: &mut Vec<String>,
     ) {
         let prefix = if let Some((idx, name)) = bank_info {
@@ -249,8 +249,8 @@ impl MidiCaptainConfig {
             String::new()
         };
 
-        let btn_path_prefix = if bank_info.is_some() {
-            format!("banks[{}].buttons", bank_info.unwrap().0)
+        let _btn_path_prefix = if let Some((bank_idx, _)) = bank_info {
+            format!("banks[{}].buttons", bank_idx)
         } else {
             "buttons".to_string()
         };
@@ -298,7 +298,7 @@ impl MidiCaptainConfig {
                 }
             }
             if let Some(ms) = button.flash_ms {
-                if ms < 50 || ms > 5000 {
+                if !(50..=5000).contains(&ms) {
                     errors.push(format!(
                         "{}Button {} flash_ms {} out of range (50-5000)",
                         prefix, btn_num, ms
@@ -366,7 +366,7 @@ impl MidiCaptainConfig {
                     }
                 }
                 if let Some(step) = cmd.pc_step {
-                    if step < 1 || step > 127 {
+                    if !(1..=127).contains(&step) {
                         cmd_errors.push(format!(
                             "{}Button {} {}.{} pc_step {} out of range (1-127)",
                             prefix, btn_num, event_name, cmd_idx, step
@@ -374,7 +374,7 @@ impl MidiCaptainConfig {
                     }
                 }
                 if let Some(thresh) = cmd.threshold_ms {
-                    if thresh < 50 || thresh > 10000 {
+                    if !(50..=10000).contains(&thresh) {
                         cmd_errors.push(format!(
                             "{}Button {} {}.{} threshold_ms {} out of range (50-10000)",
                             prefix, btn_num, event_name, cmd_idx, thresh
@@ -450,7 +450,7 @@ impl MidiCaptainConfig {
             }
 
             // select_group rules: not allowed with momentary, tap, or keytimes > 1
-            if let Some(_) = button.select_group {
+            if button.select_group.is_some() {
                 if button.mode == ButtonMode::Momentary {
                     errors.push(format!(
                         "{}Button {} select_group not supported for momentary mode",

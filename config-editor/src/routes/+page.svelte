@@ -127,13 +127,26 @@
         }
       };
       document.addEventListener('keydown', handleKeydown);
-      return () => document.removeEventListener('keydown', handleKeydown);
+      
+      // Cleanup in onDestroy instead of returning from async onMount
     } catch (e: any) {
       $statusMessage = `Error initializing: ${e.message || e}`;
     }
   });
 
   onDestroy(() => {
+    // Clean up keyboard event listener
+    const handleKeydown = (e: KeyboardEvent) => {
+      const isCmd = e.metaKey || e.ctrlKey;
+      if (isCmd && e.key === 's') {
+        e.preventDefault();
+      } else if (isCmd && e.key === 'z') {
+        e.preventDefault();
+      }
+    };
+    document.removeEventListener('keydown', handleKeydown);
+    
+    // Clean up device watchers
     unlistenConnect?.();
     unlistenDisconnect?.();
   });
@@ -155,8 +168,8 @@
   function loadDemoConfig() {
     try {
       // Load demo STD10 config
-      const demoConfig = {
-        "device": "std10",
+      const demoConfig: import('$lib/types').MidiCaptainConfig = {
+        "device": "std10" as import('$lib/types').DeviceType,
         "global_channel": 0,
         "usb_drive_name": "MIDICAPTAIN",
         "dev_mode": false,
