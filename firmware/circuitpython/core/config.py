@@ -47,6 +47,107 @@ def _default_config(button_count):
     }
 
 
+def migrate_legacy_config(cfg, button_count=10):
+    """Convert legacy single-bank config to multi-bank format.
+
+    If 'banks' field exists, returns config unchanged (already multi-bank).
+    If 'buttons' field exists, wraps it in a single bank.
+    If neither exists, creates default single bank.
+
+    Args:
+        cfg: Configuration dict (may be legacy or multi-bank format)
+        button_count: Number of buttons for fallback defaults
+
+    Returns:
+        Configuration dict in multi-bank format with 'banks' array
+    """
+    # Already multi-bank format
+    if "banks" in cfg:
+        return cfg
+
+    # Legacy single-bank format
+    if "buttons" in cfg:
+        buttons = cfg["buttons"]
+        # Wrap buttons in a single bank
+        cfg["banks"] = [
+            {
+                "name": "Bank 1",
+                "buttons": buttons
+            }
+        ]
+        # Remove legacy buttons field (now in banks[0])
+        del cfg["buttons"]
+        # Set default active bank
+        if "active_bank" not in cfg:
+            cfg["active_bank"] = 0
+        return cfg
+
+    # No buttons or banks - create default single bank
+    cfg["banks"] = [
+        {
+            "name": "Bank 1",
+            "buttons": [
+                {"label": str(i + 1), "cc": 20 + i, "color": "white"}
+                for i in range(button_count)
+            ]
+        }
+    ]
+    if "active_bank" not in cfg:
+        cfg["active_bank"] = 0
+    return cfg
+
+
+def load_banks(cfg):
+    """Load banks array from config.
+
+    Args:
+        cfg: Configuration dict (migrated to multi-bank format)
+
+    Returns:
+        List of bank config dicts, each with 'name' and 'buttons' keys
+    """
+    banks = cfg.get("banks", [])
+    if not banks:
+        # No banks - return empty list (caller must handle with fallback)
+        return []
+    return banks
+
+
+def get_active_bank_config(cfg):
+    """Get the active bank's configuration.
+
+    Args:
+        cfg: Configuration dict (migrated to multi-bank format)
+
+    Returns:
+        Tuple of (bank_index, bank_config) where bank_config has 'name' and 'buttons'
+        Returns (0, None) if no banks exist
+    """
+    banks = cfg.get("banks", [])
+    if not banks:
+        return (0, None)
+
+    active_idx = cfg.get("active_bank", 0)
+    # Clamp to valid range
+    if not isinstance(active_idx, int) or active_idx < 0 or active_idx >= len(banks):
+        active_idx = 0
+
+    return (active_idx, banks[active_idx])
+
+
+def get_bank_switch_config(cfg):
+    """Get bank switching configuration.
+
+    Args:
+        cfg: Configuration dict
+
+    Returns:
+        Bank switch config dict with keys: method, button, cc, pc_base, channel
+        Returns None if bank_switch not configured
+    """
+    return cfg.get("bank_switch", None)
+
+
 _MIDI_BYTE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program")
 
 def _clamp_state_field(field, value):
