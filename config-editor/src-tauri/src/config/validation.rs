@@ -71,19 +71,25 @@ impl MidiCaptainConfig {
                     }
                 }
                 // Validate button numbers
+                // STD10 can use buttons 1-10 or 11 (encoder push) for bank switching
+                // Mini6 can use buttons 1-6 only (no encoder)
+                let max_bank_switch_button: u8 = match self.device {
+                    DeviceType::Std10 => 11,
+                    DeviceType::Mini6 => 6,
+                };
                 if let Some(btn) = bs.button {
-                    if btn < 1 || btn > expected_buttons as u8 {
-                        errors.push(format!("bank_switch.button {} out of range (1-{})", btn, expected_buttons));
+                    if btn < 1 || btn > max_bank_switch_button {
+                        errors.push(format!("bank_switch.button {} out of range (1-{})", btn, max_bank_switch_button));
                     }
                 }
                 if let Some(btn) = bs.button_next {
-                    if btn < 1 || btn > expected_buttons as u8 {
-                        errors.push(format!("bank_switch.button_next {} out of range (1-{})", btn, expected_buttons));
+                    if btn < 1 || btn > max_bank_switch_button {
+                        errors.push(format!("bank_switch.button_next {} out of range (1-{})", btn, max_bank_switch_button));
                     }
                 }
                 if let Some(btn) = bs.button_prev {
-                    if btn < 1 || btn > expected_buttons as u8 {
-                        errors.push(format!("bank_switch.button_prev {} out of range (1-{})", btn, expected_buttons));
+                    if btn < 1 || btn > max_bank_switch_button {
+                        errors.push(format!("bank_switch.button_prev {} out of range (1-{})", btn, max_bank_switch_button));
                     }
                 }
             }

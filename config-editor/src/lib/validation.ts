@@ -369,19 +369,22 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
         if (pcErr) errors.set('bank_switch.pc_base', pcErr);
       }
       // Validate button numbers (1-indexed, must be within device button count)
+      // STD10 can use buttons 1-10 or 11 (encoder push) for bank switching
+      // Mini6 can use buttons 1-6 only (no encoder)
+      const maxBankSwitchButton = config.device === 'mini6' ? 6 : 11;
       if (bs.button !== undefined) {
-        if (bs.button < 1 || bs.button > expectedButtons) {
-          errors.set('bank_switch.button', `Button must be between 1 and ${expectedButtons}`);
+        if (bs.button < 1 || bs.button > maxBankSwitchButton) {
+          errors.set('bank_switch.button', `Button must be between 1 and ${maxBankSwitchButton}`);
         }
       }
       if (bs.button_next !== undefined) {
-        if (bs.button_next < 1 || bs.button_next > expectedButtons) {
-          errors.set('bank_switch.button_next', `Button must be between 1 and ${expectedButtons}`);
+        if (bs.button_next < 1 || bs.button_next > maxBankSwitchButton) {
+          errors.set('bank_switch.button_next', `Button must be between 1 and ${maxBankSwitchButton}`);
         }
       }
       if (bs.button_prev !== undefined) {
-        if (bs.button_prev < 1 || bs.button_prev > expectedButtons) {
-          errors.set('bank_switch.button_prev', `Button must be between 1 and ${expectedButtons}`);
+        if (bs.button_prev < 1 || bs.button_prev > maxBankSwitchButton) {
+          errors.set('bank_switch.button_prev', `Button must be between 1 and ${maxBankSwitchButton}`);
         }
       }
     }
