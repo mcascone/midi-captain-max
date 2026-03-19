@@ -251,6 +251,18 @@
           onchange={(c) => update('long_press_color', c === btn.color ? undefined : c)}
         />
       </div>
+
+      <div class="field full">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            checked={btn.long_press_label_persist ?? true}
+            onchange={(e) => update('long_press_label_persist', e.currentTarget.checked)}
+          />
+          <span>Keep long press label visible</span>
+        </label>
+        <span class="field-hint">When disabled, long press label shows for 3s then returns to button label</span>
+      </div>
     </div>
 
     <!-- ── Behavior Section ──────────────────── -->

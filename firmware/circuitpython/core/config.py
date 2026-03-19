@@ -545,6 +545,15 @@ def validate_button(btn, index=0, global_channel=None):
     if long_press_color is not None and isinstance(long_press_color, str) and long_press_color:
         validated["long_press_color"] = long_press_color
 
+    # Long press label persist: whether to keep long_press_label visible indefinitely
+    # Default true for backward compatibility (select/toggle buttons keep label)
+    # Set to false to show label for 3s then return to select button
+    long_press_label_persist = btn.get("long_press_label_persist")
+    if long_press_label_persist is not None:
+        validated["long_press_label_persist"] = bool(long_press_label_persist)
+    else:
+        validated["long_press_label_persist"] = True  # Default to true
+
     return validated
 
 

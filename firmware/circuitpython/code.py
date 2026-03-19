@@ -910,7 +910,21 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
     if action_name == "long_press" and "long_press_label" in btn_config:
         label_text = btn_config.get("long_press_label", label_text)
     set_label_text(button_name_label, label_text)
-    arm_label_return_timeout(btn_config)
+    
+    # Handle label timeout based on long_press_label_persist setting
+    if action_name == "long_press" and "long_press_label" in btn_config:
+        # Check if label should persist or timeout
+        persist = btn_config.get("long_press_label_persist", True)
+        if not persist:
+            # Override select_group logic: force timeout even for select buttons
+            global label_timeout_return_to_select
+            label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+        else:
+            # Use normal logic (select buttons stay, others timeout)
+            arm_label_return_timeout(btn_config)
+    else:
+        # Normal action (not long_press), use standard timeout logic
+        arm_label_return_timeout(btn_config)
 
     # Track if any PC command executed (for LED flash feedback)
     pc_command_sent = False

@@ -135,6 +135,10 @@ pub struct ButtonConfig {
     pub long_press_label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub long_press_color: Option<ButtonColor>,
+    /// Whether to keep long_press_label visible indefinitely (default: true)
+    /// When false, label shows for 3s then returns to selected button
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_press_label_persist: Option<bool>,
     pub color: ButtonColor,
 
     // ===== DEVICE PROFILE SUPPORT =====
