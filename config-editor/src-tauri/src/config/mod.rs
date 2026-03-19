@@ -754,6 +754,81 @@ mod tests {
     }
 
     #[test]
+    fn test_roundtrip_long_press_label_persist() {
+        // Test long_press_label_persist field survives round-trip
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "SCENE",
+                    "long_press_label": "DELAY",
+                    "long_press_label_persist": false,
+                    "color": "green",
+                    "mode": "select",
+                    "press": [{"type": "cc", "cc": 43, "value": 0}],
+                    "long_press": [{"type": "cc", "cc": 52, "value": 5}]
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons.as_ref().unwrap()[0];
+        assert_eq!(btn.label, "SCENE");
+        assert_eq!(btn.long_press_label, Some("DELAY".to_string()));
+        assert_eq!(btn.long_press_label_persist, Some(false));
+
+        // Round-trip test
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        let btn2 = &config2.buttons.as_ref().unwrap()[0];
+        assert_eq!(btn2.long_press_label_persist, Some(false));
+    }
+
+    #[test]
+    fn test_long_press_label_persist_defaults_omitted() {
+        // When long_press_label_persist is not set, it should be None (not serialized)
+        // Firmware will default to true
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "color": "green"
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons.as_ref().unwrap()[0];
+        assert_eq!(btn.long_press_label_persist, None);
+
+        // Should not be serialized when None
+        let reserialized = serde_json::to_string(&config).unwrap();
+        assert!(!reserialized.contains("long_press_label_persist"));
+    }
+
+    #[test]
+    fn test_long_press_label_persist_true_serialized() {
+        // When explicitly set to true, it should be serialized
+        let json = r#"{
+            "buttons": [
+                {
+                    "label": "TEST",
+                    "long_press_label_persist": true,
+                    "color": "green"
+                }
+            ]
+        }"#;
+
+        let config: MidiCaptainConfig = serde_json::from_str(json).unwrap();
+        let btn = &config.buttons.as_ref().unwrap()[0];
+        assert_eq!(btn.long_press_label_persist, Some(true));
+
+        // Should be serialized when explicitly true
+        let reserialized = serde_json::to_string(&config).unwrap();
+        let config2: MidiCaptainConfig = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(config2.buttons.as_ref().unwrap()[0].long_press_label_persist, Some(true));
+    }
+
+    #[test]
     fn test_validate_per_state_commands() {
         // Test that invalid MIDI fields in per-state command arrays are caught by validation
         let json = r#"{
