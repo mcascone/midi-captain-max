@@ -615,23 +615,48 @@ def validate_config(cfg, button_count=10):
         result["long_press_threshold_ms"] = cfg.get("long_press_threshold_ms")
 
     # Normalize select_group default selections: ensure at most one default per group
-    groups = {}
-    for i, b in enumerate(result["buttons"]):
-        g = b.get("select_group")
-        if not g:
-            continue
-        if g not in groups:
-            groups[g] = []
-        if b.get("default_selected"):
-            groups[g].append(i)
+    # Handle both legacy (result["buttons"]) and multi-bank (result["banks"]) modes
+    if "banks" in result and result["banks"]:
+        # Multi-bank mode: normalize each bank independently
+        for bank_idx, bank in enumerate(result["banks"]):
+            groups = {}
+            buttons = bank.get("buttons", [])
+            for i, b in enumerate(buttons):
+                g = b.get("select_group")
+                if not g:
+                    continue
+                if g not in groups:
+                    groups[g] = []
+                if b.get("default_selected"):
+                    groups[g].append(i)
+            
+            for g, indices in groups.items():
+                if len(indices) > 1:
+                    # Keep the first default-selected, clear others
+                    first = indices[0]
+                    for idx in indices[1:]:
+                        result["banks"][bank_idx]["buttons"][idx].pop("default_selected", None)
+                    print(f"Warning: Bank {bank_idx+1} - multiple default_selected in group '{g}'; keeping button {first+1}")
+    elif "buttons" in result:
+        # Legacy mode: normalize single button array
+        groups = {}
+        for i, b in enumerate(result["buttons"]):
+            g = b.get("select_group")
+            if not g:
+                continue
+            if g not in groups:
+                groups[g] = []
+            if b.get("default_selected"):
+                groups[g].append(i)
 
-    for g, indices in groups.items():
-        if len(indices) > 1:
-            # Keep the first default-selected, clear others
-            first = indices[0]
-            for idx in indices[1:]:
-                result["buttons"][idx].pop("default_selected", None)
-            print(f"Warning: multiple default_selected in group '{g}'; keeping button {first+1}")
+        for g, indices in groups.items():
+            if len(indices) > 1:
+                # Keep the first default-selected, clear others
+                first = indices[0]
+                for idx in indices[1:]:
+                    result["buttons"][idx].pop("default_selected", None)
+                print(f"Warning: multiple default_selected in group '{g}'; keeping button {first+1}")
+    
     return result
 
 

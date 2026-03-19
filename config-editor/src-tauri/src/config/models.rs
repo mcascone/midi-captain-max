@@ -5,6 +5,11 @@
 use super::types::*;
 use serde::{Deserialize, Serialize};
 
+// Default value functions for serde
+fn default_bank_switch_method() -> BankSwitchMethod {
+    BankSwitchMethod::Button
+}
+
 /// Per-state overrides for keytimes cycling
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StateOverride {
@@ -348,6 +353,7 @@ pub struct BankConfig {
 /// Bank switching configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BankSwitchConfig {
+    #[serde(default = "default_bank_switch_method")]
     pub method: BankSwitchMethod,
     /// [Legacy] Single button cycles through banks
     #[serde(skip_serializing_if = "Option::is_none")]

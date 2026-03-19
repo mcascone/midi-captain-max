@@ -519,6 +519,17 @@ export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
     }
   }
 
+  // Auto-create bank_switch config if missing but we have multiple banks
+  if (normalized.banks && normalized.banks.length > 1 && !normalized.bank_switch) {
+    // Default to button-based switching using the last button
+    const maxButton = normalized.device === 'mini6' ? 6 : 10;
+    normalized.bank_switch = {
+      method: 'button' as const,
+      button: maxButton,
+      channel: normalized.global_channel ?? 0,
+    };
+  }
+
   return normalized;
 }
 
@@ -630,6 +641,16 @@ export function addBank(name?: string) {
 
   updateField('banks', [...banks, newBank]);
 
+  // Auto-create bank_switch config if this is the second bank
+  if (banks.length === 1 && !state.config.bank_switch) {
+    const maxButton = currentDevice === 'mini6' ? 6 : 10;
+    updateField('bank_switch', {
+      method: 'button' as const,
+      button: maxButton,
+      channel: state.config.global_channel ?? 0,
+    });
+  }
+
   // Switch to the new bank
   activeBankIndex.set(banks.length);
 }
@@ -651,6 +672,18 @@ export function duplicateBank(index: number) {
   };
 
   updateField('banks', [...banks, newBank]);
+
+  // Auto-create bank_switch config if this is the second bank
+  const state2 = get(formState);
+  if (banks.length === 1 && !state2.config.bank_switch) {
+    const currentDevice = state2.config.device ?? 'std10';
+    const maxButton = currentDevice === 'mini6' ? 6 : 10;
+    updateField('bank_switch', {
+      method: 'button' as const,
+      button: maxButton,
+      channel: state2.config.global_channel ?? 0,
+    });
+  }
 
   // Switch to the new bank
   activeBankIndex.set(banks.length);

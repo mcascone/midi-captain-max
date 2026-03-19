@@ -233,16 +233,28 @@ def load_config():
       2. /config-{device}.json (device-specific defaults)
       3. Built-in fallback defaults
     """
+    # Helper to check if config is valid (has buttons or banks)
+    def is_valid_config(cfg):
+        # Multi-bank format: check if banks array exists and has at least one bank with buttons
+        if "banks" in cfg and len(cfg.get("banks", [])) > 0:
+            first_bank = cfg["banks"][0]
+            if "buttons" in first_bank and len(first_bank["buttons"]) > 0:
+                return True
+        # Legacy format: check if buttons array exists
+        if "buttons" in cfg and len(cfg["buttons"]) > 0:
+            return True
+        return False
+    
     # Try user config
     cfg = _load_config_from_file("/config.json", button_count=BUTTON_COUNT)
-    if "buttons" in cfg and len(cfg["buttons"]) > 0:
+    if is_valid_config(cfg):
         print("Loaded config.json")
         return cfg
 
     # Try device-specific default
     device_config = f"/config-{DETECTED_DEVICE}.json"
     cfg = _load_config_from_file(device_config, button_count=BUTTON_COUNT)
-    if "buttons" in cfg and len(cfg["buttons"]) > 0:
+    if is_valid_config(cfg):
         print(f"Loaded {device_config}")
         return cfg
 
