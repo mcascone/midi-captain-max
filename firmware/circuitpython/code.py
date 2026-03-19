@@ -1137,13 +1137,15 @@ def handle_bank_switch(target_bank_idx=None):
         # Show ON color briefly
         btn_config = buttons[i] if i < len(buttons) else {}
         color = get_color(btn_config.get("color", "white"))
-        for led_idx in switch_to_led[i + 1]:
-            pixels[led_idx] = color
+        led_idx = switch_to_led(i + 1)
+        if led_idx is not None:
+            base = led_idx * 3
+            for j in range(3):
+                pixels[base + j] = color
     pixels.show()
     
-    # Hold for 100ms
-    while (time.monotonic() - flash_start) < 0.1:
-        pass
+    # Hold for 100ms - use sleep to avoid blocking
+    time.sleep(0.1)
     
     # Restore button states
     for i in range(BUTTON_COUNT):
@@ -1197,10 +1199,15 @@ def _process_incoming_midi(msg):
 
         # Check for bank switch trigger (CC-based)
         if bank_manager and bank_switch_config:
-            target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="cc", value=val)
-            if target_bank is not None:
-                handle_bank_switch(target_bank)
-                return  # Don't process as button action
+            method = bank_switch_config.get("method", "button")
+            if method == "cc":
+                expected_cc = bank_switch_config.get("cc")
+                expected_channel = bank_switch_config.get("channel", 0)
+                if cc == expected_cc and msg_channel == expected_channel:
+                    target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="cc", value=val)
+                    if target_bank is not None:
+                        handle_bank_switch(target_bank)
+                        return  # Don't process as button action
 
         # Match CC number, channel, AND value for value-based scene switching
         for i, btn_config in enumerate(buttons):
@@ -1260,10 +1267,14 @@ def _process_incoming_midi(msg):
         
         # Check for bank switch trigger (PC-based)
         if bank_manager and bank_switch_config:
-            target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="pc", value=program)
-            if target_bank is not None:
-                handle_bank_switch(target_bank)
-                return  # Don't update pc_values for bank switches
+            method = bank_switch_config.get("method", "button")
+            if method == "pc":
+                expected_channel = bank_switch_config.get("channel", 0)
+                if msg_channel == expected_channel:
+                    target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="pc", value=program)
+                    if target_bank is not None:
+                        handle_bank_switch(target_bank)
+                        return  # Don't update pc_values for bank switches
         
         # pc_values is per-channel, so one assignment covers all pc_inc/pc_dec buttons on this channel
         pc_values[msg_channel] = program
@@ -1370,19 +1381,22 @@ def handle_switches():
                         bank_prev = bank_switch_config.get("button_prev")
                         
                         if bank_next and btn_num == bank_next:
-                            # Bank up button pressed
-                            bank_manager.next_bank()
-                            handle_bank_switch(bank_manager.current_bank_index)
+                            # Bank up button pressed - get target first
+                            target_idx = (bank_manager.current_bank_index + 1) % len(banks)
+                            bank_manager._switch_to(target_idx)
+                            handle_bank_switch(target_idx)
                             continue
                         elif bank_prev and btn_num == bank_prev:
-                            # Bank down button pressed
-                            bank_manager.previous_bank()
-                            handle_bank_switch(bank_manager.current_bank_index)
+                            # Bank down button pressed - get target first
+                            target_idx = (bank_manager.current_bank_index - 1) % len(banks)
+                            bank_manager._switch_to(target_idx)
+                            handle_bank_switch(target_idx)
                             continue
                         elif bank_btn and btn_num == bank_btn and not bank_next and not bank_prev:
-                            # Legacy mode: single button cycles forward
-                            bank_manager.next_bank()
-                            handle_bank_switch(bank_manager.current_bank_index)
+                            # Legacy mode: single button cycles forward - get target first
+                            target_idx = (bank_manager.current_bank_index + 1) % len(banks)
+                            bank_manager._switch_to(target_idx)
+                            handle_bank_switch(target_idx)
                             continue
 
                 # Handle tap tempo recording

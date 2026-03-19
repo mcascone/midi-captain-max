@@ -4,12 +4,12 @@
   
   $: bankSwitch = $config.bank_switch ?? {
     method: 'button' as BankSwitchMethod,
-    button: 11,
+    button: 10,
     channel: 0,
   };
   
   $: method = bankSwitch.method ?? 'button';
-  $: button = bankSwitch.button ?? 11;
+  $: button = bankSwitch.button ?? 10;
   $: buttonNext = bankSwitch.button_next;
   $: buttonPrev = bankSwitch.button_prev;
   $: cc = bankSwitch.cc ?? 64;
@@ -19,10 +19,10 @@
   // Determine mode: dual-button if both next/prev are set, otherwise single-button
   $: useDualButton = buttonNext !== undefined || buttonPrev !== undefined;
   
-  // STD10 has 10 switches + encoder push (button 11)
+  // STD10 has 10 footswitches (buttons 1-10)
   // Mini6 has 6 switches
   $: deviceType = $config.device ?? 'std10';
-  $: maxButton = deviceType === 'mini6' ? 6 : 11;
+  $: maxButton = deviceType === 'mini6' ? 6 : 10;
   
   function handleMethodChange(newMethod: BankSwitchMethod) {
     updateField('bank_switch.method', newMethod);
@@ -54,11 +54,11 @@
       // Switch to single-button: clear next/prev, set button
       updateField('bank_switch.button_next', undefined);
       updateField('bank_switch.button_prev', undefined);
-      updateField('bank_switch.button', 11);
+      updateField('bank_switch.button', 10);
     } else {
       // Switch to dual-button: set next/prev, clear button
       updateField('bank_switch.button_next', 10);
-      updateField('bank_switch.button_prev', 11);
+      updateField('bank_switch.button_prev', 9);
       updateField('bank_switch.button', undefined);
     }
   }
@@ -154,11 +154,6 @@
         </div>
       </div>
       
-      {#if deviceType === 'std10' && (buttonNext === 11 || buttonPrev === 11)}
-        <p class="help-text note">
-          <strong>Note:</strong> Button 11 is the encoder push button
-        </p>
-      {/if}
     {:else}
       <div class="form-group">
         <label for="bank-switch-button">Button Number</label>
@@ -172,9 +167,6 @@
         />
         <p class="help-text">
           Button to press for cycling through banks (1-{maxButton})
-          {#if deviceType === 'std10' && button === 11}
-            <br><strong>Note:</strong> Button 11 is the encoder push button
-          {/if}
         </p>
       </div>
     {/if}

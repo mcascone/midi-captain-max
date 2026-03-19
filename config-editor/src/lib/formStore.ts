@@ -436,28 +436,53 @@ export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
     delete normalized.display;
   }
 
-  // Get buttons for validation (from first bank or top-level)
-  const buttons = normalized.banks?.[0]?.buttons ?? normalized.buttons ?? [];
-
-  // Normalize select_group default selections: ensure at most one default per group
-  const groups: Record<string, number[]> = {};
-  buttons.forEach((b, i) => {
-    const g = (b as any).select_group;
-    const ds = (b as any).default_selected;
-    if (g && typeof g === 'string') {
-      if (!groups[g]) groups[g] = [];
-      if (ds) groups[g].push(i);
-    }
-  });
-  for (const g in groups) {
-    const idxs = groups[g];
-    if (idxs.length > 1) {
-      // Keep the first, clear others
-      for (let k = 1; k < idxs.length; k++) {
-        delete (buttons[idxs[k]] as any).default_selected;
+  // Normalize select_group default selections: ensure at most one default per group PER BANK
+  if (normalized.banks) {
+    // Multi-bank mode: normalize each bank independently
+    normalized.banks.forEach((bank) => {
+      const buttons = bank.buttons;
+      const groups: Record<string, number[]> = {};
+      buttons.forEach((b, i) => {
+        const g = (b as any).select_group;
+        const ds = (b as any).default_selected;
+        if (g && typeof g === 'string') {
+          if (!groups[g]) groups[g] = [];
+          if (ds) groups[g].push(i);
+        }
+      });
+      for (const g in groups) {
+        const idxs = groups[g];
+        if (idxs.length > 1) {
+          // Keep the first, clear others
+          for (let k = 1; k < idxs.length; k++) {
+            delete (buttons[idxs[k]] as any).default_selected;
+          }
+        }
+      }
+    });
+  } else if (normalized.buttons) {
+    // Single-bank mode
+    const buttons = normalized.buttons;
+    const groups: Record<string, number[]> = {};
+    buttons.forEach((b, i) => {
+      const g = (b as any).select_group;
+      const ds = (b as any).default_selected;
+      if (g && typeof g === 'string') {
+        if (!groups[g]) groups[g] = [];
+        if (ds) groups[g].push(i);
+      }
+    });
+    for (const g in groups) {
+      const idxs = groups[g];
+      if (idxs.length > 1) {
+        // Keep the first, clear others
+        for (let k = 1; k < idxs.length; k++) {
+          delete (buttons[idxs[k]] as any).default_selected;
+        }
       }
     }
   }
+  
   return normalized;
 }
 
@@ -539,6 +564,14 @@ export function switchBank(index: number) {
 // Add a new bank
 export function addBank(name?: string) {
   const state = get(formState);
+  const banks = state.config.banks ?? [];
+  
+  // Enforce 8-bank maximum
+  if (banks.length >= 8) {
+    console.error('Cannot add bank: maximum of 8 banks reached');
+    return;
+  }
+  
   const currentDevice = state.config.device ?? 'std10';
   const buttonCount = currentDevice === 'mini6' ? 6 : 10;
   
@@ -576,10 +609,10 @@ export function duplicateBank(index: number) {
     return;
   }
   
-  const sourcBank = banks[index];
+  const sourceBank = banks[index];
   const newBank: import('./types').BankConfig = {
-    name: `${sourcBank.name} (Copy)`,
-    buttons: structuredClone(sourcBank.buttons),
+    name: `${sourceBank.name} (Copy)`,
+    buttons: structuredClone(sourceBank.buttons),
   };
   
   updateField('banks', [...banks, newBank]);
