@@ -1591,26 +1591,48 @@ def handle_switches():
                 # Trigger long-press action
                 long_press_triggered[idx] = True
 
-                # Apply long_press_color if configured
-                if "long_press_color" in btn_config:
-                    # Temporarily override LED color for long press visual feedback
-                    # NOTE: Writing directly to pixels[] instead of using set_button_state()
-                    # to preserve exact color during threshold crossing without triggering
-                    # display updates or tap-mode blink bookkeeping. State restoration
-                    # happens on button release via set_button_state().
-                    long_press_color_name = btn_config["long_press_color"]
-                    long_press_rgb = get_color(long_press_color_name)
-                    led_idx = switch_to_led(btn_num)
-                    if led_idx is not None:
-                        base = led_idx * 3
-                        for j in range(3):
-                            if base + j < LED_COUNT:
-                                pixels[base + j] = long_press_rgb
-                        pixels.show()
+                # Check if long_press_label_persist means this acts like a state change
+                persist = btn_config.get("long_press_label_persist", True)
+                
+                if persist and mode in ("toggle", "normal", "select"):
+                    # Long press with persist acts like a button press - update state
+                    # Turn this button ON and deselect others in same select_group
+                    btn_state.state = True
+                    
+                    # Apply long_press_color if configured, otherwise use normal ON color
+                    if "long_press_color" in btn_config:
+                        # Use long_press_color during hold
+                        long_press_color_name = btn_config["long_press_color"]
+                        long_press_rgb = get_color(long_press_color_name)
+                        led_idx = switch_to_led(btn_num)
+                        if led_idx is not None:
+                            base = led_idx * 3
+                            for j in range(3):
+                                if base + j < LED_COUNT:
+                                    pixels[base + j] = long_press_rgb
+                            pixels.show()
+                    else:
+                        # No long_press_color - use normal ON state
+                        set_button_state(btn_num, True)
+                    
+                    # Handle select_group exclusivity
+                    sg = btn_config.get("select_group")
+                    if sg:
+                        _deselect_group(sg, idx)
+                else:
+                    # Long press without persist - alternate action, no state change
+                    # Apply long_press_color if configured (temporary visual feedback only)
+                    if "long_press_color" in btn_config:
+                        long_press_color_name = btn_config["long_press_color"]
+                        long_press_rgb = get_color(long_press_color_name)
+                        led_idx = switch_to_led(btn_num)
+                        if led_idx is not None:
+                            base = led_idx * 3
+                            for j in range(3):
+                                if base + j < LED_COUNT:
+                                    pixels[base + j] = long_press_rgb
+                            pixels.show()
 
-                # Long press should NOT affect button state or select groups
-                # It's an alternate action that doesn't change which button is "selected"
-                # Only update LED color if long_press_color is configured
                 short_action_executed[idx] = True
 
                 # Send long_press MIDI action
