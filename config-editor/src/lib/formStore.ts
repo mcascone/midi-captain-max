@@ -46,7 +46,24 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function loadConfig(newConfig: MidiCaptainConfig) {
   // Ensure display always exists so DisplaySection can traverse into it
-  const config = { ...newConfig, display: newConfig.display ?? {} };
+  let config = { ...newConfig, display: newConfig.display ?? {} };
+  
+  // Auto-migrate legacy single-bank format to multi-bank
+  if (!config.banks && config.buttons) {
+    const buttons = config.buttons;
+    config.banks = [{
+      name: 'Bank 1',
+      buttons: structuredClone(buttons),
+    }];
+    config.active_bank = 0;
+    delete config.buttons;
+    console.log('[formStore] Auto-migrated legacy config to multi-bank format');
+  }
+  
+  // Initialize activeBankIndex from config
+  const initialBank = config.active_bank ?? 0;
+  activeBankIndex.set(initialBank);
+  
   formState.update(_state => ({
     config: structuredClone(config),
     history: [structuredClone(config)],
@@ -198,7 +215,12 @@ export function syncButtonStates(buttonIndex: number, keytimes: number) {
 
   formState.update(state => {
     const newConfig = structuredClone(state.config);
-    const btn = newConfig.buttons[buttonIndex];
+    
+    // Get buttons array - from active bank or top-level
+    const buttons = newConfig.banks?.[get(activeBankIndex)]?.buttons ?? newConfig.buttons;
+    if (!buttons) return state;
+    
+    const btn = buttons[buttonIndex];
     if (!btn) return state;
 
     if (keytimes <= 1) {
@@ -245,11 +267,28 @@ export function setDevice(deviceType: DeviceType) {
     const newState = { ...state };
     const currentDevice = state.config.device;
 
+    // Helper: get buttons array from config (handles both banks and legacy)
+    const getButtons = () => {
+      return state.config.banks?.[get(activeBankIndex)]?.buttons ?? state.config.buttons ?? [];
+    };
+
+    // Helper: set buttons array in config (handles both banks and legacy)
+    const setButtons = (buttons: ButtonConfig[]) => {
+      if (newState.config.banks) {
+        const activeIdx = get(activeBankIndex);
+        newState.config.banks[activeIdx].buttons = buttons;
+      } else {
+        newState.config.buttons = buttons;
+      }
+    };
+
+    const buttons = getButtons();
+
     // Switching TO Mini6: preserve STD10-only features
     if (deviceType === 'mini6' && currentDevice === 'std10') {
       // Preserve buttons 7-10
-      if (state.config.buttons.length > 6) {
-        newState._hiddenButtons = state.config.buttons.slice(6);
+      if (buttons.length > 6) {
+        newState._hiddenButtons = buttons.slice(6);
       }
 
       // Preserve encoder config
@@ -258,31 +297,27 @@ export function setDevice(deviceType: DeviceType) {
       }
 
       // Truncate buttons array and disable encoder
-      newState.config = {
-        ...state.config,
-        device: 'mini6',
-        buttons: state.config.buttons.slice(0, 6),
-        encoder: state.config.encoder ? { ...state.config.encoder, enabled: false } : undefined,
-      };
+      setButtons(buttons.slice(0, 6));
+      newState.config.device = 'mini6';
+      if (newState.config.encoder) {
+        newState.config.encoder = { ...newState.config.encoder, enabled: false };
+      }
     }
 
     // Switching TO STD10: restore preserved features
     else if (deviceType === 'std10' && currentDevice === 'mini6') {
       // Ensure we have exactly 6 Mini6 buttons before appending 7-10
-      const mini6Buttons = state.config.buttons.slice(0, 6);
+      const mini6Buttons = buttons.slice(0, 6);
       while (mini6Buttons.length < 6) {
         mini6Buttons.push(createDefaultButton(mini6Buttons.length));
       }
 
-      newState.config = {
-        ...state.config,
-        device: 'std10',
-        buttons: [
-          ...mini6Buttons,
-          ...(state._hiddenButtons || createDefaultButtons(6, 9)),
-        ],
-        encoder: state._hiddenEncoder || state.config.encoder,
-      };
+      setButtons([
+        ...mini6Buttons,
+        ...(state._hiddenButtons || createDefaultButtons(6, 9)),
+      ]);
+      newState.config.device = 'std10';
+      newState.config.encoder = state._hiddenEncoder || state.config.encoder;
 
       // Clear preserved data
       delete newState._hiddenButtons;
@@ -291,29 +326,25 @@ export function setDevice(deviceType: DeviceType) {
 
     // First-time Mini6 initialization
     else if (deviceType === 'mini6' && !currentDevice) {
-      const buttons = state.config.buttons.slice(0, 6);
-      while (buttons.length < 6) {
-        buttons.push(createDefaultButton(buttons.length));
+      const currentButtons = buttons.slice(0, 6);
+      while (currentButtons.length < 6) {
+        currentButtons.push(createDefaultButton(currentButtons.length));
       }
-      newState.config = {
-        ...state.config,
-        device: 'mini6',
-        buttons,
-        encoder: state.config.encoder ? { ...state.config.encoder, enabled: false } : undefined,
-      };
+      setButtons(currentButtons);
+      newState.config.device = 'mini6';
+      if (newState.config.encoder) {
+        newState.config.encoder = { ...newState.config.encoder, enabled: false };
+      }
     }
 
     // First-time STD10 initialization
     else if (deviceType === 'std10' && !currentDevice) {
-      const buttons = [...state.config.buttons];
-      while (buttons.length < 10) {
-        buttons.push(createDefaultButton(buttons.length));
+      const currentButtons = [...buttons];
+      while (currentButtons.length < 10) {
+        currentButtons.push(createDefaultButton(currentButtons.length));
       }
-      newState.config = {
-        ...state.config,
-        device: 'std10',
-        buttons,
-      };
+      setButtons(currentButtons);
+      newState.config.device = 'std10';
     }
 
     // Same device: no-op
@@ -380,15 +411,37 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
 }
 
 export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
-  const normalized: MidiCaptainConfig = { ...cfg, buttons: cfg.buttons.map(normalizeButton) };
+  // Normalize buttons - handle both banks and legacy format
+  let normalized: MidiCaptainConfig;
+  
+  if (cfg.banks) {
+    // Multi-bank mode: normalize each bank's buttons
+    normalized = {
+      ...cfg,
+      banks: cfg.banks.map(bank => ({
+        ...bank,
+        buttons: bank.buttons.map(normalizeButton),
+      })),
+    };
+  } else if (cfg.buttons) {
+    // Legacy mode: normalize top-level buttons
+    normalized = { ...cfg, buttons: cfg.buttons.map(normalizeButton) };
+  } else {
+    // No buttons at all
+    normalized = { ...cfg };
+  }
+  
   // Strip display if no fields were set (avoids writing `"display": {}` for untouched configs)
   if (normalized.display && Object.values(normalized.display).every(v => v === undefined)) {
     delete normalized.display;
   }
 
+  // Get buttons for validation (from first bank or top-level)
+  const buttons = normalized.banks?.[0]?.buttons ?? normalized.buttons ?? [];
+
   // Normalize select_group default selections: ensure at most one default per group
   const groups: Record<string, number[]> = {};
-  normalized.buttons.forEach((b, i) => {
+  buttons.forEach((b, i) => {
     const g = (b as any).select_group;
     const ds = (b as any).default_selected;
     if (g && typeof g === 'string') {
@@ -401,7 +454,7 @@ export function normalizeConfig(cfg: MidiCaptainConfig): MidiCaptainConfig {
     if (idxs.length > 1) {
       // Keep the first, clear others
       for (let k = 1; k < idxs.length; k++) {
-        delete (normalized.buttons[idxs[k]] as any).default_selected;
+        delete (buttons[idxs[k]] as any).default_selected;
       }
     }
   }
@@ -440,3 +493,166 @@ export function getButtonErrors(buttonIndex: number): Map<string, string> {
 
   return buttonErrors;
 }
+// =============================================================================
+// Bank Management Functions
+// =============================================================================
+
+// Active bank index (0-indexed)
+export const activeBankIndex = writable<number>(0);
+
+// Derived: get current bank config
+export const activeBank = derived(
+  [config, activeBankIndex],
+  ([$config, $activeBankIndex]) => {
+    const banks = $config.banks ?? [];
+    return banks[$activeBankIndex] ?? null;
+  }
+);
+
+// Derived: total number of banks
+export const bankCount = derived(config, $config => {
+  return $config.banks?.length ?? 0;
+});
+
+// Switch to a different bank
+export function switchBank(index: number) {
+  const state = get(formState);
+  const banks = state.config.banks ?? [];
+  
+  if (index < 0 || index >= banks.length) {
+    console.error(`Invalid bank index: ${index}`);
+    return;
+  }
+  
+  activeBankIndex.set(index);
+}
+
+// Add a new bank
+export function addBank(name?: string) {
+  const state = get(formState);
+  const currentDevice = state.config.device ?? 'std10';
+  const buttonCount = currentDevice === 'mini6' ? 6 : 10;
+  
+  // Create default buttons for new bank
+  const defaultButtons: ButtonConfig[] = Array.from({ length: buttonCount }, (_, i) => ({
+    label: `${i + 1}`,
+    color: 'white',
+    mode: 'toggle' as const,
+    channel: 0,
+    press: [{ type: 'cc' as const, cc: 20 + i, value: 127 }],
+    release: [{ type: 'cc' as const, cc: 20 + i, value: 0 }],
+  }));
+  
+  const banks = state.config.banks ?? [];
+  const newBankName = name ?? `Bank ${banks.length + 1}`;
+  
+  const newBank: import('./types').BankConfig = {
+    name: newBankName,
+    buttons: defaultButtons,
+  };
+  
+  updateField('banks', [...banks, newBank]);
+  
+  // Switch to the new bank
+  activeBankIndex.set(banks.length);
+}
+
+// Duplicate an existing bank
+export function duplicateBank(index: number) {
+  const state = get(formState);
+  const banks = state.config.banks ?? [];
+  
+  if (index < 0 || index >= banks.length) {
+    console.error(`Invalid bank index: ${index}`);
+    return;
+  }
+  
+  const sourcBank = banks[index];
+  const newBank: import('./types').BankConfig = {
+    name: `${sourcBank.name} (Copy)`,
+    buttons: structuredClone(sourcBank.buttons),
+  };
+  
+  updateField('banks', [...banks, newBank]);
+  
+  // Switch to the new bank
+  activeBankIndex.set(banks.length);
+}
+
+// Delete a bank
+export function deleteBank(index: number) {
+  const state = get(formState);
+  const banks = state.config.banks ?? [];
+  
+  if (index < 0 || index >= banks.length) {
+    console.error(`Invalid bank index: ${index}`);
+    return;
+  }
+  
+  // Prevent deleting the last bank
+  if (banks.length <= 1) {
+    console.error('Cannot delete the last bank');
+    return;
+  }
+  
+  const newBanks = banks.filter((_, i) => i !== index);
+  updateField('banks', newBanks);
+  
+  // Adjust active bank index if needed
+  const currentActive = get(activeBankIndex);
+  if (currentActive >= newBanks.length) {
+    activeBankIndex.set(newBanks.length - 1);
+  } else if (currentActive > index) {
+    activeBankIndex.set(currentActive - 1);
+  }
+}
+
+// Rename a bank
+export function renameBank(index: number, newName: string) {
+  const state = get(formState);
+  const banks = state.config.banks ?? [];
+  
+  if (index < 0 || index >= banks.length) {
+    console.error(`Invalid bank index: ${index}`);
+    return;
+  }
+  
+  updateField(`banks[${index}].name`, newName);
+}
+
+// Convert single-bank config to multi-bank
+export function convertToMultiBank() {
+  const state = get(formState);
+  
+  // Already multi-bank
+  if (state.config.banks) {
+    return;
+  }
+  
+  // Legacy single-bank format
+  const buttons = state.config.buttons ?? [];
+  const bank: import('./types').BankConfig = {
+    name: 'Bank 1',
+    buttons: structuredClone(buttons),
+  };
+  
+  formState.update(_state => {
+    const newConfig = { ..._state.config };
+    newConfig.banks = [bank];
+    newConfig.active_bank = 0;
+    delete newConfig.buttons;
+    
+    return {
+      ..._state,
+      config: newConfig,
+    };
+  });
+  
+  activeBankIndex.set(0);
+  validate();
+}
+
+// Check if config is in multi-bank mode
+export const isMultiBankMode = derived(config, $config => {
+  return !!$config.banks && $config.banks.length > 0;
+});

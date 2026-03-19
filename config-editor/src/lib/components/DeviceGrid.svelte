@@ -1,10 +1,16 @@
 <script lang="ts">
-  import { config } from '$lib/formStore';
+  import { config, activeBank, isMultiBankMode } from '$lib/formStore';
   import { selectedButtonIndex } from '$lib/stores';
   import { BUTTON_COLORS } from '$lib/types';
   import type { ButtonConfig } from '$lib/types';
 
-  let buttons = $derived($config.buttons);
+  // Get buttons from active bank if multi-bank mode, otherwise from top-level
+  let buttons = $derived(
+    $isMultiBankMode && $activeBank
+      ? $activeBank.buttons
+      : $config.buttons ?? []
+  );
+  
   let deviceType = $derived($config.device ?? 'std10');
   let totalSlots = $derived(deviceType === 'mini6' ? 6 : 10);
   let cols = $derived(deviceType === 'mini6' ? 3 : 5);

@@ -94,22 +94,25 @@ export const validators = {
 export function validateConfig(config: MidiCaptainConfig): ValidationResult {
   const errors = new Map<string, string>();
 
+  // Get buttons array - from banks if multi-bank mode, otherwise from top-level
+  const buttons = config.banks?.[0]?.buttons ?? config.buttons ?? [];
+
   // Device-specific validation
   if (config.device === 'mini6') {
-    if (config.buttons.length > 6) {
+    if (buttons.length > 6) {
       errors.set('device', 'Mini6 supports only 6 buttons');
     }
     if (config.encoder?.enabled) {
       errors.set('encoder.enabled', 'Mini6 does not support encoder');
     }
   } else if (config.device === 'std10') {
-    if (config.buttons.length > 10) {
+    if (buttons.length > 10) {
       errors.set('device', 'STD10 supports only 10 buttons');
     }
   }
 
   // Validate all buttons
-  config.buttons.forEach((btn, idx) => {
+  buttons.forEach((btn, idx) => {
     const labelError = validators.label(btn.label);
     if (labelError) errors.set(`buttons[${idx}].label`, labelError);
 
@@ -289,9 +292,10 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       }
     }
   });
+  
   // Cross-button validation: ensure at most one default_selected per select_group
   const groupDefaults: Record<string, number[]> = {};
-  config.buttons.forEach((btn, idx) => {
+  buttons.forEach((btn, idx) => {
     if (btn.select_group && btn.default_selected) {
       if (!groupDefaults[btn.select_group]) groupDefaults[btn.select_group] = [];
       groupDefaults[btn.select_group].push(idx);

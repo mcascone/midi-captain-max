@@ -1,16 +1,27 @@
 <script lang="ts">
   import { Tabs } from '@skeletonlabs/skeleton-svelte';
+  import BanksPanel from './BanksPanel.svelte';
   import DeviceLayout from './DeviceLayout.svelte';
   import DisplaySection from './DisplaySection.svelte';
   import SplashScreenSection from './SplashScreenSection.svelte';
   import DeviceSection from './DeviceSection.svelte';
   import EncoderSection from './EncoderSection.svelte';
   import ExpressionSection from './ExpressionSection.svelte';
+  import BankSettingsPanel from './BankSettingsPanel.svelte';
+  import { isMultiBankMode, bankCount } from '$lib/formStore';
 
   let tabsCollapsed = $state(false);
+  
+  // Show banks panel if multi-bank mode and more than 1 bank
+  $: showBanksPanel = $isMultiBankMode && $bankCount > 0;
 </script>
 
 <div class="left-panel-container">
+  <!-- Banks Panel (if multi-bank mode) -->
+  {#if showBanksPanel}
+  <BanksPanel />
+  {/if}
+  
   <!-- Device Layout (visual representation) -->
   <div class="layout-container">
     <DeviceLayout />
@@ -24,6 +35,9 @@
         <Tabs.Trigger value="display" class="tab-trigger">Display</Tabs.Trigger>
         <Tabs.Trigger value="boot" class="tab-trigger">Boot</Tabs.Trigger>
         <Tabs.Trigger value="device" class="tab-trigger">Device</Tabs.Trigger>
+        {#if showBanksPanel}
+        <Tabs.Trigger value="banks" class="tab-trigger">Banks</Tabs.Trigger>
+        {/if}
         <Tabs.Trigger value="encoder" class="tab-trigger">Encoder</Tabs.Trigger>
         <Tabs.Trigger value="expression" class="tab-trigger">Expression</Tabs.Trigger>
         <button class="tabs-collapse-toggle" onclick={() => tabsCollapsed = !tabsCollapsed} title="Collapse settings">
@@ -40,6 +54,11 @@
       <Tabs.Content value="device" class="tab-content">
         <DeviceSection />
       </Tabs.Content>
+      {#if showBanksPanel}
+      <Tabs.Content value="banks" class="tab-content">
+        <BankSettingsPanel />
+      </Tabs.Content>
+      {/if}
       <Tabs.Content value="encoder" class="tab-content">
         <EncoderSection />
       </Tabs.Content>
