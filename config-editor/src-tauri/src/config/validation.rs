@@ -26,18 +26,22 @@ impl MidiCaptainConfig {
             DeviceType::Mini6 => 6,
         };
 
-        if self.buttons.len() != expected_buttons {
-            errors.push(format!(
-                "Expected {} buttons for {:?}, found {}",
-                expected_buttons,
-                self.device,
-                self.buttons.len()
-            ));
-        }
+        // TODO: Implement full banks validation
+        // For now, validate legacy buttons array if present
+        // Banks validation will be added in Phase 1 completion
+        if let Some(ref buttons) = self.buttons {
+            if buttons.len() != expected_buttons {
+                errors.push(format!(
+                    "Expected {} buttons for {:?}, found {}",
+                    expected_buttons,
+                    self.device,
+                    buttons.len()
+                ));
+            }
 
-        // Validate CC numbers (0-127) and button-specific fields
-        for (i, button) in self.buttons.iter().enumerate() {
-            if let Some(cc) = button.cc {
+            // Validate CC numbers (0-127) and button-specific fields
+            for (i, button) in buttons.iter().enumerate() {
+                if let Some(cc) = button.cc {
                 if cc > 127 {
                     errors.push(format!("Button {} CC {} exceeds 127", i + 1, cc));
                 }
@@ -282,7 +286,9 @@ impl MidiCaptainConfig {
                 // no extra check here; normalization performed elsewhere
                 let _ = ds;
             }
-        }
+        } // end button loop
+
+        } // end if let Some(ref buttons)
 
         // Validate encoder if present
         if let Some(ref enc) = self.encoder {
