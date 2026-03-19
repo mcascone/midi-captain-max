@@ -1511,14 +1511,27 @@ def handle_switches():
                         _send_action_from_cfg(long_release_cfg, btn_num, idx, "long_release")
 
                     # Restore button LED to match its actual state
-                    # (long_press_color is temporary feedback only, not persistent state)
                     if mode == "momentary":
                         # Momentary: always turn LED off on release
                         set_button_state(btn_num, False)
                     else:
                         # Toggle/select: restore LED to match button's actual state
-                        # This preserves select button state even after long press
-                        set_button_state(btn_num, btn_state.state)
+                        persist = btn_config.get("long_press_label_persist", True)
+                        
+                        if persist and btn_state.state and "long_press_color" in btn_config:
+                            # Long press with persist=true and button is ON: keep long_press_color
+                            long_press_color_name = btn_config["long_press_color"]
+                            long_press_rgb = get_color(long_press_color_name)
+                            led_idx = switch_to_led(btn_num)
+                            if led_idx is not None:
+                                base = led_idx * 3
+                                for j in range(3):
+                                    if base + j < LED_COUNT:
+                                        pixels[base + j] = long_press_rgb
+                                pixels.show()
+                        else:
+                            # Normal case: restore to regular state color
+                            set_button_state(btn_num, btn_state.state)
                 else:
                     # Short press: handle deferred actions
                     if long_enabled:
