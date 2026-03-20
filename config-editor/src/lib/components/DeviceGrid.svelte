@@ -2,7 +2,12 @@
   import { config, activeBank, isMultiBankMode } from '$lib/formStore';
   import { selectedButtonIndex } from '$lib/stores';
   import { BUTTON_COLORS } from '$lib/types';
-  import type { ButtonConfig } from '$lib/types';
+  import type { ButtonConfig, CommandOrConditional, MidiCommand } from '$lib/types';
+
+  // Type guard to check if a command is a MIDI command (not conditional)
+  function isMidiCommand(cmd: CommandOrConditional | undefined | null): cmd is MidiCommand {
+    return cmd !== undefined && cmd !== null && cmd.type !== 'conditional';
+  }
 
   // Get buttons from active bank if multi-bank mode, otherwise from top-level
   let buttons = $derived(
@@ -27,7 +32,7 @@
         : btn.press;
 
       const firstCmd = Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
-      if (!firstCmd) return '—';
+      if (!isMidiCommand(firstCmd)) return '—';
 
       const type = firstCmd.type ?? 'cc';
       const cmdCount = pressCommands?.length ?? 0;
@@ -52,7 +57,7 @@
 
     // Extract info from first press command (multi-command mode)
     const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
-    if (!firstCmd) return '—';
+    if (!isMidiCommand(firstCmd)) return '—';
 
     const type = firstCmd.type ?? 'cc';
     const cmdCount = btn.press?.length ?? 0;
@@ -157,7 +162,7 @@
         : btn.press;
 
       const firstCmd = Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
-      if (!firstCmd) return '—';
+      if (!isMidiCommand(firstCmd)) return '—';
 
       const type = firstCmd.type ?? 'cc';
       const ch = (firstCmd.channel ?? btn.channel ?? $config.global_channel ?? 0) + 1;
@@ -177,7 +182,7 @@
     }
 
     const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
-    if (!firstCmd) return '—';
+    if (!isMidiCommand(firstCmd)) return '—';
 
     const type = firstCmd.type ?? 'cc';
     const ch = (firstCmd.channel ?? btn.channel ?? $config.global_channel ?? 0) + 1;
@@ -199,7 +204,7 @@
         : btn.release;
 
       const releaseCmd = Array.isArray(releaseCommands) && releaseCommands.length > 0 ? releaseCommands[0] : null;
-      if (releaseCmd) {
+      if (isMidiCommand(releaseCmd)) {
         const t = releaseCmd.type ?? 'cc';
         if (t === 'cc')   return `Off:${releaseCmd.value ?? 0}`;
         if (t === 'note') return `Vel:${releaseCmd.velocity ?? 0}`;
@@ -220,7 +225,7 @@
 
     // Check release command first (for momentary mode or explicit release)
     const releaseCmd = Array.isArray(btn.release) && btn.release.length > 0 ? btn.release[0] : null;
-    if (releaseCmd) {
+    if (isMidiCommand(releaseCmd)) {
       const t = releaseCmd.type ?? 'cc';
       if (t === 'cc')   return `Off:${releaseCmd.value ?? 0}`;
       if (t === 'note') return `Vel:${releaseCmd.velocity ?? 0}`;
@@ -235,7 +240,7 @@
     // For toggle/momentary without explicit release, infer from press command
     if (mode === 'toggle' || mode === 'momentary') {
       const pressCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
-      if (!pressCmd) return '';
+      if (!isMidiCommand(pressCmd)) return '';
 
       const type = pressCmd.type ?? 'cc';
       if (type === 'cc')   return 'Off:0';  // Default CC off value

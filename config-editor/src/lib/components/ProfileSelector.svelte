@@ -1,6 +1,6 @@
 <script lang="ts">
   import { profiles, getProfileActions, resolveProfileAction } from '$lib/profiles';
-  import type { ButtonConfig, MidiCommand } from '$lib/types';
+  import type { ButtonConfig, MidiCommand, CommandOrConditional } from '$lib/types';
 
   interface Props {
     button: ButtonConfig;
@@ -10,6 +10,17 @@
   }
 
   let { button, onUpdate, stateIndex, onUpdateState }: Props = $props();
+
+  // Type guard to check if a command is a MIDI command (not conditional)
+  function isMidiCommand(cmd: CommandOrConditional): cmd is MidiCommand {
+    return cmd.type !== 'conditional';
+  }
+
+  // Filter an array to only MIDI commands (exclude conditionals)
+  function filterMidiCommands(commands: CommandOrConditional[] | undefined): MidiCommand[] {
+    if (!commands) return [];
+    return commands.filter(isMidiCommand);
+  }
 
   // Selected profile and action (reactive to button changes)
   let selectedProfileId = $state('');
@@ -76,12 +87,16 @@
   );
 
   // Get the commands for the selected target event (from state or button)
+  // Returns all commands (including conditionals) for display purposes
   let targetCommands = $derived.by(() => {
     const source = stateIndex !== undefined && button.states?.[stateIndex]
       ? button.states[stateIndex]
       : button;
-    return source[targetEvent] as MidiCommand[] | undefined;
+    return source[targetEvent] as CommandOrConditional[] | undefined;
   });
+
+  // Get only MIDI commands (filter out conditionals) for profile matching
+  let targetMidiCommands = $derived(filterMidiCommands(targetCommands));
 
   // Check which events have commands assigned (from state or button)
   let eventHasCommands = $derived.by(() => {
@@ -127,14 +142,14 @@
 
   // Find which action (if any) matches the current target event commands
   let matchedActionId = $derived.by(() => {
-    if (!selectedProfileId || !targetCommands || targetCommands.length === 0) return null;
+    if (!selectedProfileId || !targetMidiCommands || targetMidiCommands.length === 0) return null;
     
     const actions = getProfileActions(selectedProfileId);
     if (!actions) return null;
 
     for (const action of actions) {
       const resolvedCommands = getCachedResolvedCommands(selectedProfileId, action.id);
-      if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
+      if (resolvedCommands && commandArraysMatch(targetMidiCommands, resolvedCommands)) {
         return action.id;
       }
     }
@@ -143,7 +158,7 @@
 
   // Auto-detect profile and action from existing commands when profile mode is enabled
   $effect(() => {
-    if (profileMode && !selectedProfileId && targetCommands && targetCommands.length > 0) {
+    if (profileMode && !selectedProfileId && targetMidiCommands && targetMidiCommands.length > 0) {
       // Try to find a matching profile and action
       for (const profile of profiles) {
         const actions = getProfileActions(profile.id);
@@ -151,7 +166,7 @@
 
         for (const action of actions) {
           const resolvedCommands = getCachedResolvedCommands(profile.id, action.id);
-          if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
+          if (resolvedCommands && commandArraysMatch(targetMidiCommands, resolvedCommands)) {
             // Found a match!
             selectedProfileId = profile.id;
             selectedActionId = action.id;
@@ -393,7 +408,7 @@
       {/if}
 
       <!-- Resolved MIDI Preview -->
-      {#if selectedProfileId && targetCommands && targetCommands.length > 0}
+      {#if selectedProfileId && targetMidiCommands && targetMidiCommands.length > 0}
         <div class="midi-preview">
           <div class="preview-header">
             <span class="preview-icon">⚡</span>
@@ -403,7 +418,7 @@
             {/if}
           </div>
           <div class="midi-commands">
-            {#each targetCommands as cmd}
+            {#each targetMidiCommands as cmd}
               <span class="midi-chip">
                 {#if cmd.type === 'cc'}
                   CC{cmd.cc}={cmd.value}
