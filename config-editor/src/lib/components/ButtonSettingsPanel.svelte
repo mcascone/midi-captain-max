@@ -426,6 +426,7 @@
               commands={state.press ?? []}
               globalChannel={globalCh}
               onUpdate={(cmds) => updateState(i, 'press', cmds.length > 0 ? cmds : undefined)}
+              buttonIndex={$selectedButtonIndex}
             />
 
             <ButtonCommandsEditor
@@ -433,6 +434,7 @@
               commands={state.release ?? []}
               globalChannel={globalCh}
               onUpdate={(cmds) => updateState(i, 'release', cmds.length > 0 ? cmds : undefined)}
+              buttonIndex={$selectedButtonIndex}
             />
 
             <ButtonCommandsEditor
@@ -440,6 +442,7 @@
               commands={state.long_press ?? []}
               globalChannel={globalCh}
               onUpdate={(cmds) => updateState(i, 'long_press', cmds.length > 0 ? cmds : undefined)}
+              buttonIndex={$selectedButtonIndex}
             />
 
             <ButtonCommandsEditor
@@ -447,6 +450,7 @@
               commands={state.long_release ?? []}
               globalChannel={globalCh}
               onUpdate={(cmds) => updateState(i, 'long_release', cmds.length > 0 ? cmds : undefined)}
+              buttonIndex={$selectedButtonIndex}
             />
             </div>
           {/if}
@@ -500,6 +504,7 @@
           commands={btn.long_press ?? []}
           globalChannel={globalCh}
           onUpdate={(cmds) => update('long_press', cmds.length > 0 ? cmds : undefined)}
+          buttonIndex={$selectedButtonIndex}
         />
 
       {:else}
@@ -512,6 +517,7 @@
           commands={btn.press ?? []}
           globalChannel={globalCh}
           onUpdate={(cmds) => update('press', cmds.length > 0 ? cmds : undefined)}
+          buttonIndex={$selectedButtonIndex}
         />
 
         {#if (btn.mode ?? 'toggle') === 'momentary' || (btn.mode ?? 'toggle') === 'toggle' || (btn.release && btn.release.length > 0)}
@@ -520,6 +526,7 @@
             commands={btn.release ?? []}
             globalChannel={globalCh}
             onUpdate={(cmds) => update('release', cmds.length > 0 ? cmds : undefined)}
+            buttonIndex={$selectedButtonIndex}
           />
         {/if}
 
@@ -535,6 +542,7 @@
           commands={btn.long_release ?? []}
           globalChannel={globalCh}
           onUpdate={(cmds) => update('long_release', cmds.length > 0 ? cmds : undefined)}
+          buttonIndex={$selectedButtonIndex}
         />
       {/if}
     </div>

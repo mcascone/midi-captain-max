@@ -1,138 +1,161 @@
 <script lang="ts">
-  import type { MidiCommand, MessageType } from '$lib/types';
+  import type { CommandOrConditional } from '$lib/types';
+  import CommandRow from './CommandRow.svelte';
   
   interface Props {
     eventLabel: string;  // "Press", "Release", "Long Press", "Long Release"
-    commands: MidiCommand[];
+    commands: CommandOrConditional[];
     globalChannel?: number;
-    onUpdate: (commands: MidiCommand[]) => void;
+    onUpdate: (commands: CommandOrConditional[]) => void;
+    buttonIndex?: number; // For conditional validation (prevent self-reference)
   }
   
-  let { eventLabel, commands = [], globalChannel = 0, onUpdate }: Props = $props();
+  let { eventLabel, commands = [], globalChannel = 0, onUpdate, buttonIndex }: Props = $props();
   
   function addCommand() {
     onUpdate([...commands, { type: 'cc', cc: 20, value: 127, channel: globalChannel }]);
+  }
+  
+  function addConditional() {
+    onUpdate([...commands, {
+      type: 'conditional',
+      command_type: 'conditional',
+      if: { type: 'button_state', button: 0, state: 'on' },
+      then: [{ type: 'cc', cc: 20, value: 127 }],
+      else: [{ type: 'cc', cc: 20, value: 0 }]
+    }]);
   }
   
   function removeCommand(index: number) {
     onUpdate(commands.filter((_, i) => i !== index));
   }
   
-  function updateCommand(index: number, field: string, value: any) {
+  function updateCommand(index: number, cmd: CommandOrConditional) {
     const updated = [...commands];
-    updated[index] = { ...updated[index], [field]: value };
+    updated[index] = cmd;
     onUpdate(updated);
-  }
-  
-  function numVal(e: Event): number | undefined {
-    const v = (e.target as HTMLInputElement).value;
-    return v === '' ? undefined : parseInt(v);
   }
 </script>
 
 <div class="commands-editor">
   <div class="editor-header">
     <span class="event-label">{eventLabel}</span>
-    <button class="add-btn" type="button" onclick={addCommand}>
-      <span class="add-icon">+</span>
-      Add Command
-    </button>
+    <div class="header-buttons">
+      <button class="add-btn" type="button" onclick={addCommand}>
+        <span class="add-icon">+</span>
+        Add Command
+      </button>
+      <button class="add-conditional-btn" type="button" onclick={addConditional} title="Add conditional logic (if/then/else)">
+        <span class="if-icon">↯</span>
+        Add If/Then
+      </button>
+    </div>
   </div>
   
   {#if commands.length === 0}
     <div class="empty-commands">
-      No commands. Click "Add Command" to create one.
+      No commands. Click "Add Command" for MIDI or "Add If/Then" for conditional logic.
     </div>
   {:else}
     <div class="commands-list">
       {#each commands as cmd, i}
-        <div class="command-row">
-          <span class="command-number">{i + 1}</span>
-          
-          <div class="command-fields">
-            <div class="field">
-              <label>Type</label>
-              <select value={cmd.type ?? 'cc'} onchange={(e) => updateCommand(i, 'type', (e.target as HTMLSelectElement).value as MessageType)}>
-                <option value="cc">CC</option>
-                <option value="note">Note</option>
-                <option value="pc">PC</option>
-                <option value="pc_inc">PC+</option>
-                <option value="pc_dec">PC-</option>
-              </select>
-            </div>
-            
-            {#if (cmd.type ?? 'cc') === 'cc'}
-              <div class="field">
-                <label>CC#</label>
-                <input type="number" min="0" max="127"
-                  value={cmd.cc ?? ''} placeholder="20"
-                  onblur={(e) => updateCommand(i, 'cc', numVal(e))} />
-              </div>
-              <div class="field">
-                <label>Value</label>
-                <input type="number" min="0" max="127"
-                  value={cmd.value ?? ''} placeholder="127"
-                  onblur={(e) => updateCommand(i, 'value', numVal(e))} />
-              </div>
-            {:else if (cmd.type ?? 'cc') === 'note'}
-              <div class="field">
-                <label>Note</label>
-                <input type="number" min="0" max="127"
-                  value={cmd.note ?? ''} placeholder="60"
-                  onblur={(e) => updateCommand(i, 'note', numVal(e))} />
-              </div>
-              <div class="field">
-                <label>Velocity</label>
-                <input type="number" min="0" max="127"
-                  value={cmd.velocity ?? ''} placeholder="127"
-                  onblur={(e) => updateCommand(i, 'velocity', numVal(e))} />
-              </div>
-            {:else if (cmd.type ?? 'cc') === 'pc'}
-              <div class="field">
-                <label>Program</label>
-                <input type="number" min="0" max="127"
-                  value={cmd.program ?? ''} placeholder="0"
-                  onblur={(e) => updateCommand(i, 'program', numVal(e))} />
-              </div>
-            {:else if (cmd.type ?? 'cc') === 'pc_inc' || (cmd.type ?? 'cc') === 'pc_dec'}
-              <div class="field">
-                <label>Step</label>
-                <input type="number" min="1" max="127"
-                  value={cmd.pc_step ?? ''} placeholder="1"
-                  onblur={(e) => updateCommand(i, 'pc_step', numVal(e))} />
-              </div>
-            {/if}
-            
-            <div class="field narrow">
-              <label>Ch</label>
-              <input type="number" min="1" max="16"
-                value={(cmd.channel ?? globalChannel) + 1}
-                onblur={(e) => {
-                  const v = numVal(e);
-                  updateCommand(i, 'channel', v !== undefined ? v - 1 : globalChannel);
-                }} />
-            </div>
-            
-            {#if eventLabel === 'Long Press'}
-              <div class="field">
-                <label>Threshold (ms)</label>
-                <input type="number" min="50" max="10000"
-                  value={cmd.threshold_ms ?? ''} placeholder="600"
-                  onblur={(e) => updateCommand(i, 'threshold_ms', numVal(e))} />
-              </div>
-            {/if}
-          </div>
-          
-          <button class="remove-btn" type="button" onclick={() => removeCommand(i)} title="Remove command">
-            ✕
-          </button>
-        </div>
+        <CommandRow
+          command={cmd}
+          index={i}
+          globalChannel={globalChannel}
+          onUpdate={(updated) => updateCommand(i, updated)}
+          onRemove={() => removeCommand(i)}
+          buttonIndex={buttonIndex}
+        />
       {/each}
     </div>
   {/if}
 </div>
 
 <style>
+  .commands-editor {
+    margin-top: 12px;
+  }
+  
+  .editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  
+  .event-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .header-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .add-btn,
+  .add-conditional-btn {
+    background: #1f1f35;
+    border: 1px solid #3a3a55;
+    border-radius: 6px;
+    color: #9ca3af;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+  }
+  
+  .add-btn:hover,
+  .add-conditional-btn:hover {
+    background: #2a2a3e;
+    color: #e5e7eb;
+    border-color: #4a4a5e;
+  }
+  
+  .add-conditional-btn {
+    background: #312e81;
+    border-color: #4338ca;
+  }
+  
+  .add-conditional-btn:hover {
+    background: #3730a3;
+    border-color: #4f46e5;
+  }
+  
+  .add-icon,
+  .if-icon {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  
+  .if-icon {
+    font-size: 16px;
+  }
+  
+  .empty-commands {
+    padding: 20px;
+    text-align: center;
+    color: #6b7280;
+    font-size: 12px;
+    background: #1a1a2e;
+    border: 1px dashed #2a2a3e;
+    border-radius: 6px;
+  }
+  
+  .commands-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+</style>
   .commands-editor {
     margin-top: 12px;
   }
