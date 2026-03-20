@@ -10,7 +10,8 @@
   $: banks = $config.banks ?? [];
   $: currentBank = banks[$activeBankIndex];
 
-  // Update carousel page when active bank changes
+  // Declare and update carousel page when active bank changes
+  let carouselPage = 0;
   $: carouselPage = $activeBankIndex;
 
   function handlePageChange(details: { page: number }) {

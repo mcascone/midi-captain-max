@@ -148,7 +148,7 @@
             id="bank-switch-prev"
             min="1"
             max={maxButton}
-            value={buttonPrev ?? (maxButton - 1)}
+            value={buttonPrev ?? (maxButton > 1 ? maxButton - 1 : 1)}
             on:input={(e) => handleButtonPrevChange(e.currentTarget.value)}
           />
           <p class="help-text">Button for previous bank (1-{maxButton})</p>

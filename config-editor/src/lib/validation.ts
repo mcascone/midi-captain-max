@@ -349,6 +349,10 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
         errors.set(`${bankPrefix}.buttons`, `Expected ${expectedButtons} buttons for ${config.device}, found ${bank.buttons.length}`);
       }
 
+      // Validate buttons for this bank
+      validateButtons(bank.buttons, `${bankPrefix}.buttons`, errors);
+    });
+
       // Validate each button in this bank
       validateButtons(bank.buttons, `${bankPrefix}.buttons`, errors);
     });

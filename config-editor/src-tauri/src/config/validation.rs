@@ -255,12 +255,6 @@ impl MidiCaptainConfig {
             String::new()
         };
 
-        let _btn_path_prefix = if let Some((bank_idx, _)) = bank_info {
-            format!("banks[{}].buttons", bank_idx)
-        } else {
-            "buttons".to_string()
-        };
-
         // Validate button count (already checked in caller, but keep for completeness)
         // Main validation loop
         for (i, button) in buttons.iter().enumerate() {

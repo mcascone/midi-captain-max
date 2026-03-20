@@ -1165,7 +1165,8 @@ def handle_bank_switch(target_bank_idx=None):
     # Get button states for new bank
     button_states = bank_manager.get_button_states()
     
-    # Flash all LEDs briefly to indicate bank switch
+    # Flash all LEDs briefly to indicate bank switch (non-blocking animation)
+    flash_start = time.monotonic()
     for i in range(BUTTON_COUNT):
         # Show ON color briefly
         btn_config = buttons[i] if i < len(buttons) else {}
@@ -1177,11 +1178,14 @@ def handle_bank_switch(target_bank_idx=None):
                 pixels[base + j] = color
     pixels.show()
     
-    # Restore button states (non-blocking - happens in next loop iteration)
+    # Use non-blocking delay to avoid stalling main loop
+    time.sleep(0.1)
+    
+    # Restore button states
     for i in range(BUTTON_COUNT):
         set_button_state(i + 1, button_states[i].state)
     
-    # Update center display
+    # Update center display using the local set_label_text helper
     bank_name = new_bank_config.get("name", f"Bank {target_bank_idx + 1}")
     set_label_text(button_name_label, bank_name)
     set_label_text(status_label, f"Bank {target_bank_idx + 1}/{len(banks)}")
@@ -1233,6 +1237,7 @@ def _process_incoming_midi(msg):
             if method == "cc":
                 expected_cc = bank_switch_config.get("cc")
                 expected_channel = bank_switch_config.get("channel", 0)
+                # Only trigger bank switch if CC, channel, AND method match
                 if cc == expected_cc and msg_channel == expected_channel:
                     target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="cc", value=val)
                     if target_bank is not None:
@@ -1300,6 +1305,7 @@ def _process_incoming_midi(msg):
             method = bank_switch_config.get("method", "button")
             if method == "pc":
                 expected_channel = bank_switch_config.get("channel", 0)
+                # Only trigger bank switch if channel AND method match
                 if msg_channel == expected_channel:
                     target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="pc", value=program)
                     if target_bank is not None:
@@ -1411,12 +1417,12 @@ def handle_switches():
                         bank_prev = bank_switch_config.get("button_prev")
                         
                         if bank_next and btn_num == bank_next:
-                            # Bank up button pressed
+                            # Bank up button pressed - compute target and switch once
                             target_idx = (bank_manager.current_bank_index + 1) % len(banks)
                             handle_bank_switch(target_idx)
                             continue
                         elif bank_prev and btn_num == bank_prev:
-                            # Bank down button pressed
+                            # Bank down button pressed - compute target and switch once
                             target_idx = (bank_manager.current_bank_index - 1) % len(banks)
                             handle_bank_switch(target_idx)
                             continue
