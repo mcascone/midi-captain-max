@@ -14,7 +14,7 @@
   let { conditional, globalChannel, onUpdate, onRemove, buttonIndex }: Props = $props();
   
   function updateCondition(newCondition: any) {
-    onUpdate({ ...conditional, condition: newCondition });
+    onUpdate({ ...conditional, if: newCondition });
   }
   
   function updateThen(commands: CommandOrConditional[]) {
@@ -70,7 +70,7 @@
   </div>
   
   <ConditionBuilder 
-    condition={conditional.condition} 
+    condition={conditional.if} 
     onUpdate={updateCondition}
     buttonIndex={buttonIndex}
   />

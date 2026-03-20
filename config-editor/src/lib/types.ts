@@ -81,11 +81,10 @@ export interface MidiCommand {
 
 // Conditional command wrapper - allows if/then/else logic
 export interface ConditionalCommand {
-  // Now supports conditional commands in addition to regular MIDI commands
-  press?: CommandOrConditional[];      // Commands dispatched on button press for this state
-  release?: CommandOrConditional[];    // Commands dispatched on button release for this state
-  long_press?: CommandOrConditional[]; // Commands dispatched on long press for this state
-  long_release?: CommandOrConditionall[];    // Optional commands to execute if condition is false
+  type: 'conditional';
+  if: Condition;                    // Condition to evaluate
+  then: CommandOrConditional[];     // Commands to execute if condition is true
+  else?: CommandOrConditional[];    // Optional commands to execute if condition is false
 }
 
 // Union type for command arrays - can be regular MIDI commands or conditional wrappers
@@ -126,12 +125,12 @@ export interface ButtonConfig {
   action_id?: string;         // Action within profile (e.g., 'scene_b', 'snapshot_3')
 
   // ===== NEW: Multi-command event arrays =====
+  // These take precedence over legacy type-based fields
   // Now supports conditional commands in addition to regular MIDI commands
   press?: CommandOrConditional[];      // Commands dispatched on button press
   release?: CommandOrConditional[];    // Commands dispatched on button release (short press)
   long_press?: CommandOrConditional[]; // Commands dispatched when hold threshold crossed
-  long_release?: CommandOrConditional; // Commands dispatched when hold threshold crossed
-  long_release?: MidiCommand[]; // Commands dispatched on release after long press
+  long_release?: CommandOrConditional[]; // Commands dispatched on release after long press
 
   // ===== LEGACY: Single-type fields (for backwards compatibility) =====
   // These are automatically migrated to event arrays by the firmware
