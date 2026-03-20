@@ -101,7 +101,35 @@ MIDI Captain MAX is a mature, well-architected programmable MIDI controller plat
 
 ---
 
-## 2. Feature Suggestions (Prioritized)
+## 2. Completed Major Features (2026)
+
+### ✅ Banks/Pages System (PR #27 - March 2026)
+**Status:** Completed and shipped  
+**Category:** Firmware + Editor  
+**User Value:** Access more than 10/6 button configs without reconnecting device — essential for complex live setups
+
+**Delivered Features:**
+- Up to 8 banks per device with full button/LED/display state per bank
+- Three switching methods: dedicated button, MIDI CC trigger, MIDI PC trigger
+- Dual-button mode for quick switching (two footswitches = instant bank access)
+- Bank Manager firmware module with state persistence
+- Banks Panel UI with tabs, add/duplicate/rename/delete operations
+- Bank switching settings with method selection and channel configuration
+- State persistence across bank switches (select groups per-bank)
+- Visual feedback on display showing current bank name
+- Comprehensive testing: 13 new bank-specific tests
+
+**Implementation:**
+- Firmware: `BankManager` class, bank switching handlers, bank-aware state management
+- Editor: `BanksPanel.svelte`, `BankSettingsPanel.svelte`, multi-bank validation
+- Config schema: `banks[]` array with per-bank button configs and switching settings
+- Documentation: User guides (English + Portuguese), CHANGELOG entry
+
+**Impact:** ⭐⭐⭐⭐⭐ **Critical** — Transforms device from 10/6-button limitation to 80/48 buttons, enabling complex performance workflows
+
+---
+
+## 3. Feature Suggestions (Prioritized)
 
 ### QUICK WINS (High Value, Low Complexity)
 
@@ -194,50 +222,7 @@ MIDI Captain MAX is a mature, well-architected programmable MIDI controller plat
 
 ### STRATEGIC INITIATIVES (High Impact, Moderate-Complex Effort)
 
-#### SI-1: Banks/Pages System
-**Category:** Firmware + Editor  
-**Priority:** Critical  
-**User Value:** Access more than 10/6 button configs without reconnecting device — essential for complex live setups  
-**Implementation Complexity:** Complex  
-**Technical Approach:**
-
-**Firmware:**
-- Array of bank configs (4-8 banks per device)
-- Bank switching via dedicated button or MIDI CC/PC
-- Display current bank number/name
-- State persistence across bank switches (select groups per-bank)
-- LED animation on bank change (optional)
-
-**Editor:**
-- Bank tabs in left panel
-- Copy/paste entire banks
-- Bank templates (preset workflows)
-- Visual indicator of active bank
-- "Duplicate Bank" button
-
-**Config schema:**
-```json
-{
-  "banks": [
-    {"name": "Live Set 1", "buttons": [...]},
-    {"name": "Studio", "buttons": [...]}
-  ],
-  "bank_switch_button": 10,
-  "bank_switch_cc": 120
-}
-```
-
-**Dependencies:** None  
-**Risks/Considerations:**
-- Flash storage limits (how many banks fit?)
-- Bank switch speed (must be instant)
-- State management complexity (which state persists across banks?)
-
-**Estimated Effort:** 1-2 weeks
-
----
-
-#### SI-2: Conditional Actions (PRD Feature 3)
+#### SI-1: Conditional Actions (PRD Feature 3)
 **Category:** Firmware + Editor  
 **Priority:** High  
 **User Value:** Smart buttons that adapt to context (e.g., "if delay ON, send CC20=0, else send CC20=127")  
@@ -284,7 +269,7 @@ MIDI Captain MAX is a mature, well-architected programmable MIDI controller plat
 
 ---
 
-#### SI-3: Setlist Mode
+#### SI-2: Setlist Mode
 **Category:** Editor + Firmware  
 **Priority:** Medium  
 **User Value:** Organize buttons by song/scene, auto-switch configs during performance  
@@ -614,11 +599,11 @@ F0 7D 00 02 01 FF 00 00 F7 // Set button 2 color to red (RGB)
 
 ## 4. Strategic Initiatives Summary
 
-1. **Banks/Pages System** — 1-2 weeks, critical for complex setups
+1. **✅ Banks/Pages System** — Completed (PR #27, March 2026)
 2. **Conditional Actions** — 2-3 weeks, PRD Feature 3, smart buttons
 3. **Setlist Mode** — 2-3 weeks, live performance tool
 
-**Total effort:** ~6-8 weeks for all 3 initiatives  
+**Remaining effort for SI-2 and SI-3:** ~5-6 weeks  
 **Impact:** Transforms device from "configurable controller" to "intelligent performance system"
 
 ---
@@ -867,12 +852,12 @@ F0 7D 00 02 01 FF 00 00 F7 // Set button 2 color to red (RGB)
    - Button templates
    - Export/import config files
 
-2. ✅ **Banks/Pages System (2 weeks)**
+2. ✅ **Banks/Pages System** — Completed (PR #27)
    - Essential for complex live setups
    - High user demand
-   - Moderate complexity
+   - ✨ **Now shipped and available!**
 
-**Rationale:** These features provide immediate user value with manageable effort. Banks/pages unlocks complex workflows currently impossible.
+**Rationale:** Quick wins provide immediate user value with manageable effort. Banks/pages (now complete) unlocked complex workflows that were previously impossible.
 
 ---
 
@@ -909,7 +894,7 @@ F0 7D 00 02 01 FF 00 00 F7 // Set button 2 color to red (RGB)
 |---------|-----------|-----------|-----------|----------|
 | Config Presets | ⭐⭐⭐⭐⭐ | 1-2d | Low | **Critical** |
 | MIDI Monitor | ⭐⭐⭐⭐⭐ | 2-3d | Low | **Critical** |
-| Banks/Pages | ⭐⭐⭐⭐⭐ | 1-2w | Med | **Critical** |
+| Banks/Pages | ✅ DONE | - | - | ✨ **Shipped** |
 | Conditional Actions | ⭐⭐⭐⭐ | 2-3w | High | **High** |
 | Setlist Mode | ⭐⭐⭐⭐ | 2-3w | Med | **High** |
 | Keyboard Nav | ⭐⭐⭐⭐ | 2-3d | Low | **High** |
@@ -947,11 +932,11 @@ MIDI Captain MAX is a **well-architected, production-ready platform** with clear
 
 **Key opportunities:**
 1. **Configuration management** (presets, templates, backup) — Low-hanging fruit
-2. **Banks/pages** — Critical missing feature for advanced users
+2. **✅ Banks/pages** — Completed (PR #27)
 3. **Conditional actions** — PRD Feature 3, completes roadmap
 4. **Rust migration** — Strategic long-term investment for features CircuitPython can't deliver
 
-**Recommendation:** Execute quick wins (2 weeks) → Banks/pages (2 weeks) → Conditional actions (3 weeks). This delivers maximum user value in 7 weeks while maintaining stability and code quality.
+**Recommendation:** Execute quick wins (2 weeks) → Conditional actions (3 weeks). This delivers maximum user value in 5 weeks while maintaining stability and code quality.
 
 ---
 
