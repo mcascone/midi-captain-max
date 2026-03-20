@@ -342,7 +342,7 @@ pub fn eject_device(path: String) -> Result<String, ConfigError> {
     #[cfg(target_os = "macos")]
     {
         let output = std::process::Command::new("diskutil")
-            .args(&["eject", &volume_path_str])
+            .args(["eject", &volume_path_str])
             .output()
             .map_err(|e| ConfigError {
                 message: format!("Failed to eject device: {}", e),

@@ -1,10 +1,16 @@
 <script lang="ts">
-  import { config, getButtonErrors } from '$lib/formStore';
+  import { config, getButtonErrors, activeBank, isMultiBankMode } from '$lib/formStore';
   import { selectedButtonIndex } from '$lib/stores';
   import { BUTTON_COLORS } from '$lib/types';
   import type { ButtonConfig } from '$lib/types';
 
-  let buttons = $derived($config.buttons);
+  // Get buttons from active bank if multi-bank mode, otherwise from top-level
+  let buttons = $derived(
+    $isMultiBankMode && $activeBank
+      ? $activeBank.buttons
+      : $config.buttons ?? []
+  );
+
   let deviceType = $derived($config.device ?? 'std10');
   let totalSlots = $derived(deviceType === 'mini6' ? 6 : 10);
 
@@ -37,7 +43,7 @@
 
   // Get LED color for button
   function getLedColor(btn: ButtonConfig | null): string {
-    if (!btn) return '#6b7280'; // Gray for empty
+    if (!btn) return '#4a4a6b'; // Subtle purple-gray for empty
     return BUTTON_COLORS[btn.color] ?? '#ffffff';
   }
 
@@ -71,15 +77,15 @@
 
   // Get mode badge color
   function getModeBadgeColor(btn: ButtonConfig | null): string {
-    if (!btn) return '#6b7280';
+    if (!btn) return '#6b6b8b';
     const mode = btn.mode || 'toggle';
     switch (mode) {
-      case 'normal': return '#6b7280'; // gray
+      case 'normal': return '#6b6b8b'; // muted purple-gray
       case 'toggle': return '#3b82f6'; // blue
       case 'momentary': return '#10b981'; // green
       case 'select': return '#f59e0b'; // amber
       case 'tap': return '#ec4899'; // pink
-      default: return '#6b7280';
+      default: return '#6b6b8b';
     }
   }
 
@@ -306,7 +312,7 @@
     justify-content: center;
     align-items: center;
     padding: 24px;
-    background: #111827;
+    background: transparent;
   }
 
   .device-svg {
@@ -320,8 +326,8 @@
   }
 
   .button-group:hover .button-rect {
-    fill: #374151;
-    stroke: #6b7280;
+    fill: #222238;
+    stroke: #8b5cf6;
   }
 
   .button-group:focus {
@@ -334,14 +340,14 @@
   }
 
   .button-rect {
-    fill: #1f2937;
-    stroke: #4b5563;
+    fill: #1a1a2e;
+    stroke: #2a2a40;
     stroke-width: 2;
     transition: all 0.2s ease;
   }
 
   .button-rect.selected {
-    fill: #2d1b4e;
+    fill: #2a2a40;
     stroke: #8b5cf6;
     stroke-width: 3;
   }

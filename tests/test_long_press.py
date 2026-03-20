@@ -45,3 +45,61 @@ def test_validate_button_long_press_note():
 def test_validate_config_preserves_global_threshold():
     cfg = validate_config({"buttons": [], "long_press_threshold_ms": 750}, button_count=2)
     assert cfg.get("long_press_threshold_ms") == 750
+
+
+def test_long_press_label_persist_defaults_to_true():
+    """long_press_label_persist should default to True for backward compatibility."""
+    btn = validate_button({
+        "label": "Test",
+        "long_press_label": "Long"
+    }, index=0)
+    
+    assert btn["long_press_label_persist"] is True
+
+
+def test_long_press_label_persist_can_be_false():
+    """long_press_label_persist can be explicitly set to False."""
+    btn = validate_button({
+        "label": "Test",
+        "long_press_label": "Long",
+        "long_press_label_persist": False
+    }, index=0)
+    
+    assert btn["long_press_label_persist"] is False
+
+
+def test_long_press_label_persist_can_be_true():
+    """long_press_label_persist can be explicitly set to True."""
+    btn = validate_button({
+        "label": "Test",
+        "long_press_label": "Long",
+        "long_press_label_persist": True
+    }, index=0)
+    
+    assert btn["long_press_label_persist"] is True
+
+
+def test_long_press_label_persist_coerces_to_bool():
+    """long_press_label_persist should be coerced to boolean."""
+    # Test truthy values
+    btn = validate_button({
+        "label": "Test",
+        "long_press_label_persist": 1
+    }, index=0)
+    assert btn["long_press_label_persist"] is True
+    
+    # Test falsy values
+    btn = validate_button({
+        "label": "Test",
+        "long_press_label_persist": 0
+    }, index=0)
+    assert btn["long_press_label_persist"] is False
+
+
+def test_long_press_label_persist_without_long_press_label():
+    """long_press_label_persist still gets default even without long_press_label."""
+    btn = validate_button({
+        "label": "Test"
+    }, index=0)
+    
+    assert btn["long_press_label_persist"] is True

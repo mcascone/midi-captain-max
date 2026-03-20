@@ -55,6 +55,7 @@ export interface ButtonConfig {
   label: string;
   long_press_label?: string;  // Optional label to display when long press triggers
   long_press_color?: ButtonColor; // Optional color to display when long press triggers
+  long_press_label_persist?: boolean; // Whether to keep long_press_label visible (default: true)
   color: ButtonColor;
 
   // ===== DEVICE PROFILE SUPPORT =====
@@ -162,6 +163,25 @@ export interface SplashScreenConfig {
 
 export type MidiTransport = 'usb' | 'trs' | 'both';
 
+// ===== BANKS/PAGES SUPPORT =====
+
+export interface BankConfig {
+  name: string;              // Bank name (e.g., "Live Set 1", "Studio")
+  buttons: ButtonConfig[];   // Button configs for this bank
+}
+
+export type BankSwitchMethod = 'button' | 'cc' | 'pc';
+
+export interface BankSwitchConfig {
+  method: BankSwitchMethod;  // How to switch banks
+  button?: number;           // [Legacy] Single button cycles through banks (1-10 for STD10, 1-6 for Mini6)
+  button_next?: number;      // Button for next bank (bank up) - if set, takes precedence over 'button'
+  button_prev?: number;      // Button for previous bank (bank down)
+  cc?: number;               // CC number (0-127) if method='cc'
+  pc_base?: number;          // Base PC number (0-127) if method='pc' (bank 0 = pc_base, bank 1 = pc_base+1, etc.)
+  channel?: number;          // MIDI channel for bank switching (0-15)
+}
+
 export interface MidiCaptainConfig {
   device?: DeviceType;
   global_channel?: number;  // Stored as 0-15, displayed as 1-16
@@ -170,7 +190,18 @@ export interface MidiCaptainConfig {
   midi_transport?: MidiTransport; // "usb" (default) | "trs" | "both"
   // Optional global default threshold for long-press in milliseconds
   long_press_threshold_ms?: number;
-  buttons: ButtonConfig[];
+  
+  // ===== MULTI-BANK SUPPORT =====
+  // If 'banks' is present, use multi-bank mode (preferred)
+  // If 'buttons' is present without 'banks', use single-bank mode (legacy, auto-wrapped)
+  banks?: BankConfig[];      // Array of banks (max 8)
+  bank_switch?: BankSwitchConfig; // Bank switching configuration
+  active_bank?: number;      // Active bank on boot (0-indexed, default: 0)
+  
+  // ===== SINGLE-BANK MODE (legacy, backward compatibility) =====
+  buttons?: ButtonConfig[];  // Legacy: single bank of buttons (auto-wrapped in banks[0] on load)
+  
+  // ===== SHARED ACROSS ALL BANKS =====
   encoder?: EncoderConfig;
   expression?: ExpressionPedals;
   display?: DisplayConfig;

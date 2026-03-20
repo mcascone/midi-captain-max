@@ -47,6 +47,107 @@ def _default_config(button_count):
     }
 
 
+def migrate_legacy_config(cfg, button_count=10):
+    """Convert legacy single-bank config to multi-bank format.
+
+    If 'banks' field exists, returns config unchanged (already multi-bank).
+    If 'buttons' field exists, wraps it in a single bank.
+    If neither exists, creates default single bank.
+
+    Args:
+        cfg: Configuration dict (may be legacy or multi-bank format)
+        button_count: Number of buttons for fallback defaults
+
+    Returns:
+        Configuration dict in multi-bank format with 'banks' array
+    """
+    # Already multi-bank format
+    if "banks" in cfg:
+        return cfg
+
+    # Legacy single-bank format
+    if "buttons" in cfg:
+        buttons = cfg["buttons"]
+        # Wrap buttons in a single bank
+        cfg["banks"] = [
+            {
+                "name": "Bank 1",
+                "buttons": buttons
+            }
+        ]
+        # Remove legacy buttons field (now in banks[0])
+        del cfg["buttons"]
+        # Set default active bank
+        if "active_bank" not in cfg:
+            cfg["active_bank"] = 0
+        return cfg
+
+    # No buttons or banks - create default single bank
+    cfg["banks"] = [
+        {
+            "name": "Bank 1",
+            "buttons": [
+                {"label": str(i + 1), "cc": 20 + i, "color": "white"}
+                for i in range(button_count)
+            ]
+        }
+    ]
+    if "active_bank" not in cfg:
+        cfg["active_bank"] = 0
+    return cfg
+
+
+def load_banks(cfg):
+    """Load banks array from config.
+
+    Args:
+        cfg: Configuration dict (migrated to multi-bank format)
+
+    Returns:
+        List of bank config dicts, each with 'name' and 'buttons' keys
+    """
+    banks = cfg.get("banks", [])
+    if not banks:
+        # No banks - return empty list (caller must handle with fallback)
+        return []
+    return banks
+
+
+def get_active_bank_config(cfg):
+    """Get the active bank's configuration.
+
+    Args:
+        cfg: Configuration dict (migrated to multi-bank format)
+
+    Returns:
+        Tuple of (bank_index, bank_config) where bank_config has 'name' and 'buttons'
+        Returns (0, None) if no banks exist
+    """
+    banks = cfg.get("banks", [])
+    if not banks:
+        return (0, None)
+
+    active_idx = cfg.get("active_bank", 0)
+    # Clamp to valid range
+    if not isinstance(active_idx, int) or active_idx < 0 or active_idx >= len(banks):
+        active_idx = 0
+
+    return (active_idx, banks[active_idx])
+
+
+def get_bank_switch_config(cfg):
+    """Get bank switching configuration.
+
+    Args:
+        cfg: Configuration dict
+
+    Returns:
+        Bank switch config dict with keys: method, button, cc, pc_base, channel
+        Returns None if bank_switch not configured
+    """
+    return cfg.get("bank_switch", None)
+
+
 _MIDI_BYTE_FIELDS = ("cc", "cc_on", "cc_off", "note", "velocity_on", "velocity_off", "program")
 
 def _clamp_state_field(field, value):
@@ -444,6 +545,15 @@ def validate_button(btn, index=0, global_channel=None):
     if long_press_color is not None and isinstance(long_press_color, str) and long_press_color:
         validated["long_press_color"] = long_press_color
 
+    # Long press label persist: whether to keep long_press_label visible indefinitely
+    # Default true for backward compatibility (select/toggle buttons keep label)
+    # Set to false to show label for 3s then return to select button
+    long_press_label_persist = btn.get("long_press_label_persist")
+    if long_press_label_persist is not None:
+        validated["long_press_label_persist"] = bool(long_press_label_persist)
+    else:
+        validated["long_press_label_persist"] = True  # Default to true
+
     return validated
 
 
@@ -457,53 +567,96 @@ def validate_config(cfg, button_count=10):
     Returns:
         Validated config with all required fields
     """
-    buttons = cfg.get("buttons", [])
-
     # Get global channel (0-15 = MIDI Ch 1-16), default to 0
     global_channel = cfg.get("global_channel", 0)
     # Clamp to valid range
     if not isinstance(global_channel, int) or global_channel < 0 or global_channel > 15:
         global_channel = 0
 
-    # Extend buttons array if needed
-    while len(buttons) < button_count:
-        buttons.append({})
-
-    # Normalize old-format configs to new event-based format, then validate
-    normalized_buttons = [
-        normalize_button_config(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
-    ]
-    validated_buttons = [
-        validate_button(btn, i, global_channel) for i, btn in enumerate(normalized_buttons)
-    ]
-
     result = {}
     for k, v in cfg.items():
         result[k] = v
-    result["buttons"] = validated_buttons
     result["global_channel"] = global_channel
+
+    # Validate banks if present (multi-bank mode)
+    if "banks" in cfg and cfg["banks"]:
+        validated_banks = []
+        for bank_idx, bank in enumerate(cfg["banks"]):
+            buttons = bank.get("buttons", [])
+            # Extend buttons array if needed
+            while len(buttons) < button_count:
+                buttons.append({})
+            # Normalize and validate
+            normalized_buttons = [
+                normalize_button_config(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
+            ]
+            validated_buttons = [
+                validate_button(btn, i, global_channel) for i, btn in enumerate(normalized_buttons)
+            ]
+            validated_bank = {"name": bank.get("name", f"Bank {bank_idx + 1}"), "buttons": validated_buttons}
+            validated_banks.append(validated_bank)
+        result["banks"] = validated_banks
+    # Validate legacy buttons if present (single-bank mode)
+    elif "buttons" in cfg:
+        buttons = cfg.get("buttons", [])
+        # Extend buttons array if needed
+        while len(buttons) < button_count:
+            buttons.append({})
+        # Normalize old-format configs to new event-based format, then validate
+        normalized_buttons = [
+            normalize_button_config(btn, i, global_channel) for i, btn in enumerate(buttons[:button_count])
+        ]
+        validated_buttons = [
+            validate_button(btn, i, global_channel) for i, btn in enumerate(normalized_buttons)
+        ]
+        result["buttons"] = validated_buttons
     # Preserve optional global long-press threshold (ms)
     if isinstance(cfg.get("long_press_threshold_ms"), int):
         result["long_press_threshold_ms"] = cfg.get("long_press_threshold_ms")
 
     # Normalize select_group default selections: ensure at most one default per group
-    groups = {}
-    for i, b in enumerate(result["buttons"]):
-        g = b.get("select_group")
-        if not g:
-            continue
-        if g not in groups:
-            groups[g] = []
-        if b.get("default_selected"):
-            groups[g].append(i)
+    # Handle both legacy (result["buttons"]) and multi-bank (result["banks"]) modes
+    if "banks" in result and result["banks"]:
+        # Multi-bank mode: normalize each bank independently
+        for bank_idx, bank in enumerate(result["banks"]):
+            groups = {}
+            buttons = bank.get("buttons", [])
+            for i, b in enumerate(buttons):
+                g = b.get("select_group")
+                if not g:
+                    continue
+                if g not in groups:
+                    groups[g] = []
+                if b.get("default_selected"):
+                    groups[g].append(i)
+            
+            for g, indices in groups.items():
+                if len(indices) > 1:
+                    # Keep the first default-selected, clear others
+                    first = indices[0]
+                    for idx in indices[1:]:
+                        result["banks"][bank_idx]["buttons"][idx].pop("default_selected", None)
+                    print(f"Warning: Bank {bank_idx+1} - multiple default_selected in group '{g}'; keeping button {first+1}")
+    elif "buttons" in result:
+        # Legacy mode: normalize single button array
+        groups = {}
+        for i, b in enumerate(result["buttons"]):
+            g = b.get("select_group")
+            if not g:
+                continue
+            if g not in groups:
+                groups[g] = []
+            if b.get("default_selected"):
+                groups[g].append(i)
 
-    for g, indices in groups.items():
-        if len(indices) > 1:
-            # Keep the first default-selected, clear others
-            first = indices[0]
-            for idx in indices[1:]:
-                result["buttons"][idx].pop("default_selected", None)
-            print(f"Warning: multiple default_selected in group '{g}'; keeping button {first+1}")
+        for g, indices in groups.items():
+            if len(indices) > 1:
+                # Keep the first default-selected, clear others
+                first = indices[0]
+                for idx in indices[1:]:
+                    result["buttons"][idx].pop("default_selected", None)
+                print(f"Warning: multiple default_selected in group '{g}'; keeping button {first+1}")
+    
     return result
 
 

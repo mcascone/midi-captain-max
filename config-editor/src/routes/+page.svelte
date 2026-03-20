@@ -3,11 +3,13 @@
   import { get } from 'svelte/store';
   import { message } from '@tauri-apps/plugin-dialog';
   import { getVersion } from '@tauri-apps/api/app';
+  import { Toast } from '@skeletonlabs/skeleton-svelte';
   import {
     devices, selectedDevice, currentConfigRaw,
     hasUnsavedChanges, validationErrors, statusMessage, isLoading, isReloadingDevice,
-    toasts, showToast, removeToast
+    showToast
   } from '$lib/stores';
+  import { toaster } from '$lib/toaster';
   import {
     scanDevices, startDeviceWatcher,
     onDeviceConnected, onDeviceDisconnected
@@ -15,7 +17,6 @@
   import type { DetectedDevice } from '$lib/types';
   import LeftPanel from '$lib/components/LeftPanel.svelte';
   import ButtonSettingsPanel from '$lib/components/ButtonSettingsPanel.svelte';
-  import Toast from '$lib/components/Toast.svelte';
   import { loadConfig, validate, normalizeConfig, config, isDirty, canUndo, canRedo, undo, redo, updateField } from '$lib/formStore';
   import * as deviceService from '$lib/services/deviceService';
 
@@ -126,13 +127,26 @@
         }
       };
       document.addEventListener('keydown', handleKeydown);
-      return () => document.removeEventListener('keydown', handleKeydown);
+      
+      // Cleanup in onDestroy instead of returning from async onMount
     } catch (e: any) {
       $statusMessage = `Error initializing: ${e.message || e}`;
     }
   });
 
   onDestroy(() => {
+    // Clean up keyboard event listener
+    const handleKeydown = (e: KeyboardEvent) => {
+      const isCmd = e.metaKey || e.ctrlKey;
+      if (isCmd && e.key === 's') {
+        e.preventDefault();
+      } else if (isCmd && e.key === 'z') {
+        e.preventDefault();
+      }
+    };
+    document.removeEventListener('keydown', handleKeydown);
+    
+    // Clean up device watchers
     unlistenConnect?.();
     unlistenDisconnect?.();
   });
@@ -154,8 +168,8 @@
   function loadDemoConfig() {
     try {
       // Load demo STD10 config
-      const demoConfig = {
-        "device": "std10",
+      const demoConfig: import('$lib/types').MidiCaptainConfig = {
+        "device": "std10" as import('$lib/types').DeviceType,
         "global_channel": 0,
         "usb_drive_name": "MIDICAPTAIN",
         "dev_mode": false,
@@ -347,14 +361,19 @@
 {/if}
 
 <!-- Toast notifications -->
-{#each $toasts as toast (toast.id)}
-  <Toast
-    message={toast.message}
-    type={toast.type}
-    duration={toast.duration}
-    onClose={() => removeToast(toast.id)}
-  />
-{/each}
+<Toast.Group {toaster}>
+  {#snippet children(toast)}
+    <Toast {toast} class={`toast-item toast-${toast.type}`}>
+      <Toast.Message class="toast-message">
+        <Toast.Title class="toast-title">{toast.title}</Toast.Title>
+        {#if toast.description}
+          <Toast.Description class="toast-description">{toast.description}</Toast.Description>
+        {/if}
+      </Toast.Message>
+      <Toast.CloseTrigger class="toast-close">✕</Toast.CloseTrigger>
+    </Toast>
+  {/snippet}
+</Toast.Group>
 
 <style>
   :global(*) { box-sizing: border-box; margin: 0; padding: 0; }
@@ -545,5 +564,69 @@
   .modal-footer {
     display: flex; justify-content: flex-end; gap: 8px;
     padding: 12px 18px; border-top: 1px solid #1e1e2e;
+  }
+
+  /* Toast Notifications */
+  :global(.toast-item) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 300px;
+    max-width: 400px;
+    background: #1f2937;
+    border: 1px solid #374151;
+  }
+
+  :global(.toast-item.toast-success) {
+    border-left: 4px solid #10b981;
+  }
+
+  :global(.toast-item.toast-error) {
+    border-left: 4px solid #ef4444;
+  }
+
+  :global(.toast-item.toast-info) {
+    border-left: 4px solid #3b82f6;
+  }
+
+  :global(.toast-message) {
+    flex: 1;
+  }
+
+  :global(.toast-title) {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f3f4f6;
+    margin: 0;
+  }
+
+  :global(.toast-description) {
+    font-size: 12px;
+    color: #d1d5db;
+    margin: 4px 0 0 0;
+  }
+
+  :global(.toast-close) {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  :global(.toast-close:hover) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f3f4f6;
   }
 </style>

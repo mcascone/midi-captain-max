@@ -1,6 +1,6 @@
 <script lang="ts">
   import { slide } from 'svelte/transition';
-  import { config, updateField, syncButtonStates, getButtonErrors } from '$lib/formStore';
+  import { config, updateField, syncButtonStates, getButtonErrors, activeBank, activeBankIndex, isMultiBankMode } from '$lib/formStore';
   import { selectedButtonIndex, buttonClipboard, showToast } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
   import ButtonCommandsEditor from './ButtonCommandsEditor.svelte';
@@ -8,9 +8,23 @@
   import type { MidiCommand, ButtonConfig } from '$lib/types';
   import { BUTTON_COLORS } from '$lib/types';
 
-  let btn    = $derived($config.buttons[$selectedButtonIndex] ?? null);
-  let buttons = $derived($config.buttons);
+  // Get buttons from active bank if multi-bank mode, otherwise from top-level
+  let buttons = $derived(
+    $isMultiBankMode && $activeBank
+      ? $activeBank.buttons
+      : $config.buttons ?? []
+  );
+
+  let btn = $derived(buttons[$selectedButtonIndex] ?? null);
   let globalCh = $derived($config.global_channel ?? 0);
+
+  // Helper to get correct button path based on mode
+  function getButtonPath(): string {
+    if ($isMultiBankMode) {
+      return `banks[${$activeBankIndex}].buttons[${$selectedButtonIndex}]`;
+    }
+    return `buttons[${$selectedButtonIndex}]`;
+  }
 
   // Get validation errors for current button
   let buttonErrors = $derived.by(() => {
@@ -117,7 +131,7 @@
   });
 
   function update(field: string, value: unknown) {
-    updateField(`buttons[${$selectedButtonIndex}].${field}`, value);
+    updateField(`${getButtonPath()}.${field}`, value);
   }
 
   function updateState(stateIndex: number, field: string, value: unknown) {
@@ -126,7 +140,7 @@
       console.warn(`updateState called with invalid state index ${stateIndex} (states length: ${btn?.states?.length ?? 0})`);
       return;
     }
-    updateField(`buttons[${$selectedButtonIndex}].states[${stateIndex}].${field}`, value);
+    updateField(`${getButtonPath()}.states[${stateIndex}].${field}`, value);
   }
 
   function numVal(e: Event): number | undefined {
@@ -153,14 +167,14 @@
     const pasted = { ...$buttonClipboard, label: targetLabel };
 
     // Replace the entire button config to clear stale fields
-    updateField(`buttons[${$selectedButtonIndex}]`, pasted);
+    updateField(getButtonPath(), pasted);
 
     showToast(`Pasted config to button "${targetLabel}"`, 'success', 2000);
   }
 
   // Helper to get error for a specific field
   function getError(fieldName: string): string | null {
-    const key = `buttons[${$selectedButtonIndex}].${fieldName}`;
+    const key = `${getButtonPath()}.${fieldName}`;
     return buttonErrors.get(key) ?? null;
   }
 </script>
@@ -236,6 +250,18 @@
           value={btn.long_press_color ?? btn.color}
           onchange={(c) => update('long_press_color', c === btn.color ? undefined : c)}
         />
+      </div>
+
+      <div class="field full" style="margin-top: 1.5rem;">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            checked={btn.long_press_label_persist ?? true}
+            onchange={(e) => update('long_press_label_persist', e.currentTarget.checked)}
+          />
+          <span>Keep long press label visible</span>
+        </label>
+        <span class="field-hint" style="display: block; margin-top: 0.5rem;">When disabled, long press label shows for 3s then returns to button label</span>
       </div>
     </div>
 

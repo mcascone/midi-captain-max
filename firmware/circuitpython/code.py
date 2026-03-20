@@ -43,8 +43,12 @@ from adafruit_midi.note_off import NoteOff
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
-from core.config import load_config as _load_config_from_file, validate_config, get_display_config, get_button_state_config
+from core.config import (
+    load_config as _load_config_from_file, validate_config, get_display_config, get_button_state_config,
+    migrate_legacy_config, load_banks, get_active_bank_config, get_bank_switch_config
+)
 from core.button import Switch, ButtonState
+from core.banks import BankManager
 from core.constants import (
     DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_CENTER_X, DISPLAY_CENTER_Y,
     DISPLAY_BACKGROUND_COLOR, DISPLAY_STATUS_TEXT_COLOR, COLOR_WHITE,
@@ -229,16 +233,28 @@ def load_config():
       2. /config-{device}.json (device-specific defaults)
       3. Built-in fallback defaults
     """
+    # Helper to check if config is valid (has buttons or banks)
+    def is_valid_config(cfg):
+        # Multi-bank format: check if banks array exists and has at least one bank with buttons
+        if "banks" in cfg and len(cfg.get("banks", [])) > 0:
+            first_bank = cfg["banks"][0]
+            if "buttons" in first_bank and len(first_bank["buttons"]) > 0:
+                return True
+        # Legacy format: check if buttons array exists
+        if "buttons" in cfg and len(cfg["buttons"]) > 0:
+            return True
+        return False
+    
     # Try user config
     cfg = _load_config_from_file("/config.json", button_count=BUTTON_COUNT)
-    if "buttons" in cfg and len(cfg["buttons"]) > 0:
+    if is_valid_config(cfg):
         print("Loaded config.json")
         return cfg
 
     # Try device-specific default
     device_config = f"/config-{DETECTED_DEVICE}.json"
     cfg = _load_config_from_file(device_config, button_count=BUTTON_COUNT)
-    if "buttons" in cfg and len(cfg["buttons"]) > 0:
+    if is_valid_config(cfg):
         print(f"Loaded {device_config}")
         return cfg
 
@@ -255,16 +271,39 @@ def load_config():
 config = load_config()
 buttons = config.get("buttons", [])
 print(f"Loaded {len(buttons)} button configs")
+
+# Migrate legacy single-bank config to multi-bank format
+config = migrate_legacy_config(config, button_count=BUTTON_COUNT)
+
 # Validate/normalize config so derived fields like `led_mode` are populated
 try:
     config = validate_config(config, button_count=BUTTON_COUNT)
-    buttons = config.get("buttons", [])
 except (ValueError, KeyError, TypeError) as e:
     # Config validation failed, but continue with raw config
     print(f"Config validation error: {e}. Using raw config.")
 except Exception as e:
     print(f"Unexpected config validation error: {e}")
+
+# Load banks from migrated config
+banks = load_banks(config)
+print(f"Loaded {len(banks)} bank(s)")
+
+# Get active bank configuration
+active_bank_idx, active_bank_config = get_active_bank_config(config)
+if active_bank_config:
+    buttons = active_bank_config.get("buttons", [])
+    print(f"Active bank {active_bank_idx + 1}: {active_bank_config.get('name', 'Unnamed')} ({len(buttons)} buttons)")
+else:
+    buttons = []
+    print("No active bank config found")
+
 print(f"Validated {len(buttons)} button configs")
+
+# Get bank switch config (for CC/PC triggering)
+bank_switch_config = get_bank_switch_config(config)
+if bank_switch_config:
+    method = bank_switch_config.get("method", "button")
+    print(f"Bank switching: {method}")
 
 # =============================================================================
 # Fonts
@@ -509,6 +548,14 @@ for i in range(BUTTON_COUNT):
     # blinking is driven by recent taps. Initialize as OFF.
     initial_on = False
     button_states.append(ButtonState(cc=cc, mode=mode, initial_state=initial_on, keytimes=keytimes))
+
+# Initialize BankManager with current button states
+bank_manager = None
+if len(banks) > 0:
+    bank_manager = BankManager(banks, button_states, active_bank=active_bank_idx)
+    print(f"BankManager initialized: {len(banks)} banks, active={active_bank_idx}")
+else:
+    print("No banks configured, BankManager disabled")
 
     # Long-press support state
     # Per-button: time when press started (monotonic), 0 if not pressed
@@ -870,12 +917,33 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
 
     # Display button name in center (large font)
     btn_config = buttons[idx] if idx < len(buttons) else {}
-    # Use long_press_label if action is long_press and label is configured
-    label_text = btn_config.get("label", str(btn_num))
-    if action_name == "long_press" and "long_press_label" in btn_config:
-        label_text = btn_config.get("long_press_label", label_text)
-    set_label_text(button_name_label, label_text)
-    arm_label_return_timeout(btn_config)
+    
+    # For long_press actions: only update label if long_press_label is configured
+    # Otherwise, keep the current display (likely showing the selected button)
+    if action_name == "long_press":
+        if "long_press_label" in btn_config:
+            # Long press label configured - show it
+            label_text = btn_config.get("long_press_label")
+            set_label_text(button_name_label, label_text)
+            
+            # Check if label should persist or timeout
+            persist = btn_config.get("long_press_label_persist", True)
+            if not persist:
+                # Override select_group logic: force timeout even for select buttons
+                global label_timeout_return_to_select
+                label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+            else:
+                # Use normal logic (select buttons stay, others timeout)
+                arm_label_return_timeout(btn_config)
+        else:
+            # No long_press_label configured - don't change the display
+            # Keep showing whatever was there (likely the selected button's label)
+            pass
+    else:
+        # Normal press/release action - always show button label
+        label_text = btn_config.get("label", str(btn_num))
+        set_label_text(button_name_label, label_text)
+        arm_label_return_timeout(btn_config)
 
     # Track if any PC command executed (for LED flash feedback)
     pc_command_sent = False
@@ -941,7 +1009,8 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
             continue
 
     # Flash LED once if any PC command was sent in this action
-    if pc_command_sent:
+    # BUT skip flash if long_press is active - preserve long_press_color instead
+    if pc_command_sent and action_name != "long_press":
         flash_pc_button(btn_num)
 
 
@@ -1063,6 +1132,71 @@ def handle_midi():
         _process_incoming_midi(msg)
 
 
+def handle_bank_switch(target_bank_idx=None):
+    """Switch to the specified bank with visual feedback.
+    
+    Args:
+        target_bank_idx: Target bank index (0-indexed), or None to use BankManager default
+    
+    Returns:
+        True if switch succeeded, False otherwise
+    """
+    global button_states, buttons
+    
+    if not bank_manager or len(banks) == 0:
+        return False
+    
+    if target_bank_idx is None:
+        return False
+    
+    # Attempt switch
+    success = bank_manager.switch_bank(target_bank_idx)
+    if not success:
+        return False
+    
+    # Get new bank config
+    new_bank_config = bank_manager.get_current_bank_config()
+    if not new_bank_config:
+        return False
+    
+    # Update global buttons array
+    buttons = new_bank_config.get("buttons", [])
+    
+    # Get button states for new bank
+    button_states = bank_manager.get_button_states()
+    
+    # Flash all LEDs briefly to indicate bank switch
+    for i in range(BUTTON_COUNT):
+        # Show ON color briefly
+        btn_config = buttons[i] if i < len(buttons) else {}
+        color = get_color(btn_config.get("color", "white"))
+        led_idx = switch_to_led(i + 1)
+        if led_idx is not None:
+            base = led_idx * 3
+            for j in range(3):
+                pixels[base + j] = color
+    pixels.show()
+    
+    # Use non-blocking delay to avoid stalling main loop
+    time.sleep(0.1)
+    
+    # Restore button states
+    for i in range(BUTTON_COUNT):
+        set_button_state(i + 1, button_states[i].state)
+    
+    # Update center display using the local set_label_text helper
+    bank_name = new_bank_config.get("name", f"Bank {target_bank_idx + 1}")
+    set_label_text(button_name_label, bank_name)
+    set_label_text(status_label, f"Bank {target_bank_idx + 1}/{len(banks)}")
+    
+    # Set timeout to return to "Ready" after 2 seconds
+    global label_timeout_return_to_select
+    label_timeout_return_to_select = time.monotonic() + 2.0
+    
+    print(f"[BANK] Switched to bank {target_bank_idx + 1}: {bank_name}")
+    return True
+
+
 def _get_button_expected_cc_value(btn_config):
     """Extract expected CC number, channel, and value from button's press action.
 
@@ -1095,6 +1229,19 @@ def _process_incoming_midi(msg):
         cc = getattr(msg, 'control')
         val = getattr(msg, 'value', 0)
         print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
+
+        # Check for bank switch trigger (CC-based)
+        if bank_manager and bank_switch_config:
+            method = bank_switch_config.get("method", "button")
+            if method == "cc":
+                expected_cc = bank_switch_config.get("cc")
+                expected_channel = bank_switch_config.get("channel", 0)
+                # Only trigger bank switch if CC, channel, AND method match
+                if cc == expected_cc and msg_channel == expected_channel:
+                    target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="cc", value=val)
+                    if target_bank is not None:
+                        handle_bank_switch(target_bank)
+                        return  # Don't process as button action
 
         # Match CC number, channel, AND value for value-based scene switching
         for i, btn_config in enumerate(buttons):
@@ -1151,6 +1298,19 @@ def _process_incoming_midi(msg):
     elif hasattr(msg, 'patch'):
         program = getattr(msg, 'patch')
         print(f"[MIDI RX] Ch{msg_channel+1} PC{program}")
+        
+        # Check for bank switch trigger (PC-based)
+        if bank_manager and bank_switch_config:
+            method = bank_switch_config.get("method", "button")
+            if method == "pc":
+                expected_channel = bank_switch_config.get("channel", 0)
+                # Only trigger bank switch if channel AND method match
+                if msg_channel == expected_channel:
+                    target_bank = bank_manager.get_bank_switch_trigger(bank_switch_config, message_type="pc", value=program)
+                    if target_bank is not None:
+                        handle_bank_switch(target_bank)
+                        return  # Don't update pc_values for bank switches
+        
         # pc_values is per-channel, so one assignment covers all pc_inc/pc_dec buttons on this channel
         pc_values[msg_channel] = program
         set_label_text(status_label, f"RX PC{program}")
@@ -1245,6 +1405,32 @@ def handle_switches():
                     long_press_triggered[idx] = False
                     short_action_executed[idx] = False
 
+                # Check for bank switching button
+                if bank_manager and bank_switch_config and len(banks) > 0:
+                    method = bank_switch_config.get("method", "button")
+                    if method == "button":
+                        # Legacy single button cycling
+                        bank_btn = bank_switch_config.get("button")
+                        # New dual button mode
+                        bank_next = bank_switch_config.get("button_next")
+                        bank_prev = bank_switch_config.get("button_prev")
+                        
+                        if bank_next and btn_num == bank_next:
+                            # Bank up button pressed - compute target and switch once
+                            target_idx = (bank_manager.current_bank_index + 1) % len(banks)
+                            handle_bank_switch(target_idx)
+                            continue
+                        elif bank_prev and btn_num == bank_prev:
+                            # Bank down button pressed - compute target and switch once
+                            target_idx = (bank_manager.current_bank_index - 1) % len(banks)
+                            handle_bank_switch(target_idx)
+                            continue
+                        elif bank_btn and btn_num == bank_btn and not bank_next and not bank_prev:
+                            # Legacy mode: single button cycles forward
+                            target_idx = (bank_manager.current_bank_index + 1) % len(banks)
+                            handle_bank_switch(target_idx)
+                            continue
+
                 # Handle tap tempo recording
                 if mode == "tap":
                     record_tap_tempo(idx, now)
@@ -1329,20 +1515,28 @@ def handle_switches():
                     if long_release_cfg:
                         _send_action_from_cfg(long_release_cfg, btn_num, idx, "long_release")
 
-                    # For momentary mode: always turn LED off after long press
+                    # Restore button LED to match its actual state
                     if mode == "momentary":
+                        # Momentary: always turn LED off on release
                         set_button_state(btn_num, False)
                     else:
-                        # For toggle/select modes: keep long_press_color if button is ON, restore original color if OFF
-                        if btn_state.state:
-                            # Button is ON: keep the long_press_color (if configured) or restore normal ON color
-                            if "long_press_color" not in btn_config:
-                                # No long_press_color configured, restore normal ON state color
-                                set_button_state(btn_num, True)
-                            # else: keep the long_press_color that's currently displayed
+                        # Toggle/select: restore LED to match button's actual state
+                        persist = btn_config.get("long_press_label_persist", True)
+                        
+                        if persist and btn_state.state and "long_press_color" in btn_config:
+                            # Long press with persist=true and button is ON: keep long_press_color
+                            long_press_color_name = btn_config["long_press_color"]
+                            long_press_rgb = get_color(long_press_color_name)
+                            led_idx = switch_to_led(btn_num)
+                            if led_idx is not None:
+                                base = led_idx * 3
+                                for j in range(3):
+                                    if base + j < LED_COUNT:
+                                        pixels[base + j] = long_press_rgb
+                                pixels.show()
                         else:
-                            # Button is OFF: restore dim/off LED state
-                            set_button_state(btn_num, False)
+                            # Normal case: restore to regular state color
+                            set_button_state(btn_num, btn_state.state)
                 else:
                     # Short press: handle deferred actions
                     if long_enabled:
@@ -1415,51 +1609,49 @@ def handle_switches():
                 # Trigger long-press action
                 long_press_triggered[idx] = True
 
-                # Apply long_press_color if configured
-                if "long_press_color" in btn_config:
-                    # Temporarily override LED color for long press visual feedback
-                    # NOTE: Writing directly to pixels[] instead of using set_button_state()
-                    # to preserve exact color during threshold crossing without triggering
-                    # display updates or tap-mode blink bookkeeping. State restoration
-                    # happens on button release via set_button_state().
-                    long_press_color_name = btn_config["long_press_color"]
-                    long_press_rgb = get_color(long_press_color_name)
-                    led_idx = switch_to_led(btn_num)
-                    if led_idx is not None:
-                        base = led_idx * 3
-                        for j in range(3):
-                            if base + j < LED_COUNT:
-                                pixels[base + j] = long_press_rgb
-                        pixels.show()
-
-                # For toggle/normal/select modes: update button state and LED before sending MIDI
-                if mode in ("toggle", "normal", "select") and not short_action_executed[idx]:
-                    btn_state.advance_keytime()
-                    # For buttons with select_group: pressing when already ON keeps it ON (radio button behavior)
-                    # For toggle/normal mode without select_group: flip state
-                    # For select mode: always turns ON
-                    if btn_state.keytimes > 1:
-                        new_state = True
-                    elif mode == "select":
-                        new_state = True
-                    elif btn_config.get("select_group") and btn_state.state:
-                        # Radio button behavior: if already selected, stay selected
-                        new_state = True
-                    elif mode in ("toggle", "normal"):
-                        new_state = not btn_state.state
+                # Check if long_press_label_persist means this acts like a state change
+                persist = btn_config.get("long_press_label_persist", True)
+                
+                if persist and mode in ("toggle", "normal", "select"):
+                    # Long press with persist acts like a button press - update state
+                    # Turn this button ON and deselect others in same select_group
+                    btn_state.state = True
+                    
+                    # Apply long_press_color if configured, otherwise use normal ON color
+                    if "long_press_color" in btn_config:
+                        # Use long_press_color during hold
+                        long_press_color_name = btn_config["long_press_color"]
+                        long_press_rgb = get_color(long_press_color_name)
+                        led_idx = switch_to_led(btn_num)
+                        if led_idx is not None:
+                            base = led_idx * 3
+                            for j in range(3):
+                                if base + j < LED_COUNT:
+                                    pixels[base + j] = long_press_rgb
+                            pixels.show()
                     else:
-                        new_state = True
+                        # No long_press_color - use normal ON state
+                        set_button_state(btn_num, True)
+                    
+                    # Handle select_group exclusivity
+                    sg = btn_config.get("select_group")
+                    if sg:
+                        _deselect_group(sg, idx)
+                else:
+                    # Long press without persist - alternate action, no state change
+                    # Apply long_press_color if configured (temporary visual feedback only)
+                    if "long_press_color" in btn_config:
+                        long_press_color_name = btn_config["long_press_color"]
+                        long_press_rgb = get_color(long_press_color_name)
+                        led_idx = switch_to_led(btn_num)
+                        if led_idx is not None:
+                            base = led_idx * 3
+                            for j in range(3):
+                                if base + j < LED_COUNT:
+                                    pixels[base + j] = long_press_rgb
+                            pixels.show()
 
-                    btn_state.state = new_state
-                    # Skip set_button_state if long_press_color is active (manual LED update above)
-                    if "long_press_color" not in btn_config:
-                        set_button_state(btn_num, new_state)
-                    # Handle select_group exclusivity (applies to both toggle and select modes)
-                    if new_state:
-                        sg = btn_config.get("select_group")
-                        if sg:
-                            _deselect_group(sg, idx)
-                    short_action_executed[idx] = True
+                short_action_executed[idx] = True
 
                 # Send long_press MIDI action
                 if effective_long_press:
@@ -1472,6 +1664,37 @@ def handle_encoder_button():
     Delegates to handlers.encoder module for actual implementation.
     """
     global encoder_push_state
+    
+    # Check for bank switching first (button 11 = encoder push)
+    if bank_manager and bank_switch_config and len(banks) > 0:
+        method = bank_switch_config.get("method", "button")
+        if method == "button":
+            bank_btn = bank_switch_config.get("button")
+            bank_next = bank_switch_config.get("button_next")
+            bank_prev = bank_switch_config.get("button_prev")
+            
+            # Check if encoder push is configured for bank switching (button 11)
+            sw = switches[0]
+            changed, pressed = sw.changed()
+            
+            if changed and pressed:
+                if bank_next == 11:
+                    target_idx = (bank_manager.current_bank_index + 1) % len(banks)
+                    handle_bank_switch(target_idx)
+                    reset_activity_timer()
+                    return
+                elif bank_prev == 11:
+                    target_idx = (bank_manager.current_bank_index - 1) % len(banks)
+                    handle_bank_switch(target_idx)
+                    reset_activity_timer()
+                    return
+                elif bank_btn == 11 and not bank_next and not bank_prev:
+                    target_idx = (bank_manager.current_bank_index + 1) % len(banks)
+                    handle_bank_switch(target_idx)
+                    reset_activity_timer()
+                    return
+    
+    # Normal encoder push button handling
     old_state = encoder_push_state
     encoder_push_state = encoder_handlers.handle_encoder_button(
         switches,

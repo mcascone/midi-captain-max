@@ -1,15 +1,27 @@
 <script lang="ts">
   import Accordion from './Accordion.svelte';
   import ButtonRow from './ButtonRow.svelte';
-  import { config, updateField } from '$lib/formStore';
+  import { config, updateField, activeBank, activeBankIndex, isMultiBankMode } from '$lib/formStore';
   
   let deviceType = $derived($config.device);
-  let buttons = $derived($config.buttons);
+  
+  // Get buttons from active bank if multi-bank mode, otherwise from top-level
+  let buttons = $derived(
+    $isMultiBankMode && $activeBank
+      ? $activeBank.buttons
+      : $config.buttons ?? []
+  );
+  
   let globalChannel = $derived($config.global_channel ?? 0);
   let visibleCount = $derived(buttons.length);
   
   function handleButtonUpdate(index: number, field: string, value: any) {
-    updateField(`buttons[${index}].${field}`, value);
+    // Update path based on mode
+    if ($isMultiBankMode) {
+      updateField(`banks[${$activeBankIndex}].buttons[${index}].${field}`, value);
+    } else {
+      updateField(`buttons[${index}].${field}`, value);
+    }
   }
 </script>
 

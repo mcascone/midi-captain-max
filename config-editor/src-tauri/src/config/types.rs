@@ -75,3 +75,13 @@ pub enum DeviceType {
     Std10,
     Mini6,
 }
+
+/// Bank switching method
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum BankSwitchMethod {
+    #[default]
+    Button,
+    Cc,
+    Pc,
+}

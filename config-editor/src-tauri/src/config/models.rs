@@ -5,6 +5,11 @@
 use super::types::*;
 use serde::{Deserialize, Serialize};
 
+// Default value functions for serde
+fn default_bank_switch_method() -> BankSwitchMethod {
+    BankSwitchMethod::Button
+}
+
 /// Per-state overrides for keytimes cycling
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StateOverride {
@@ -135,6 +140,10 @@ pub struct ButtonConfig {
     pub long_press_label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub long_press_color: Option<ButtonColor>,
+    /// Whether to keep long_press_label visible indefinitely (default: true)
+    /// When false, label shows for 3s then returns to selected button
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_press_label_persist: Option<bool>,
     pub color: ButtonColor,
 
     // ===== DEVICE PROFILE SUPPORT =====
@@ -334,6 +343,35 @@ pub struct SplashScreenConfig {
     pub idle_timeout_seconds: Option<u32>,
 }
 
+/// Bank configuration for multi-bank mode
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BankConfig {
+    pub name: String,
+    pub buttons: Vec<ButtonConfig>,
+}
+
+/// Bank switching configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BankSwitchConfig {
+    #[serde(default = "default_bank_switch_method")]
+    pub method: BankSwitchMethod,
+    /// [Legacy] Single button cycles through banks
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button: Option<u8>,
+    /// Button for next bank (bank up) - takes precedence over 'button'
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button_next: Option<u8>,
+    /// Button for previous bank (bank down)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub button_prev: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cc: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pc_base: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<u8>,
+}
+
 /// Complete MIDI Captain configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MidiCaptainConfig {
@@ -355,7 +393,24 @@ pub struct MidiCaptainConfig {
     /// "both" — send to USB and TRS simultaneously
     #[serde(skip_serializing_if = "Option::is_none")]
     pub midi_transport: Option<String>,
-    pub buttons: Vec<ButtonConfig>,
+    
+    // ===== MULTI-BANK SUPPORT =====
+    /// Array of banks (max 8 recommended for Flash storage)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub banks: Option<Vec<BankConfig>>,
+    /// Bank switching configuration (method, button/CC/PC, channel)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bank_switch: Option<BankSwitchConfig>,
+    /// Active bank on boot (0-indexed, default: 0)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_bank: Option<u8>,
+    
+    // ===== SINGLE-BANK MODE (legacy, backward compatibility) =====
+    /// Legacy: single bank of buttons (auto-wrapped in banks[0] on load if banks not present)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buttons: Option<Vec<ButtonConfig>>,
+    
+    // ===== SHARED ACROSS ALL BANKS =====
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoder: Option<EncoderConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -366,4 +421,29 @@ pub struct MidiCaptainConfig {
     pub splash_screen: Option<SplashScreenConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub long_press_threshold_ms: Option<u32>,
+}
+
+impl MidiCaptainConfig {
+    /// Helper for tests: Get buttons from either banks[0] or legacy buttons field
+    /// Returns reference to first bank's buttons if banks exist, otherwise legacy buttons
+    #[cfg(test)]
+    pub fn get_buttons(&self) -> &[ButtonConfig] {
+        if let Some(ref banks) = self.banks {
+            if !banks.is_empty() {
+                return &banks[0].buttons;
+            }
+        }
+        self.buttons.as_ref().map(|b| b.as_slice()).unwrap_or(&[])
+    }
+
+    /// Helper for tests: Mutable access to buttons
+    #[cfg(test)]
+    pub fn get_buttons_mut(&mut self) -> &mut Vec<ButtonConfig> {
+        if let Some(ref mut banks) = self.banks {
+            if !banks.is_empty() {
+                return &mut banks[0].buttons;
+            }
+        }
+        self.buttons.as_mut().unwrap()
+    }
 }

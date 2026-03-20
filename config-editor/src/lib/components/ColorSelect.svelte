@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
   import { BUTTON_COLORS, type ButtonColor } from '$lib/types';
 
   interface Props {
@@ -20,71 +21,42 @@
     onchange(color);
     isOpen = false;
   }
-
-  function toggleOpen() {
-    isOpen = !isOpen;
-  }
-
-  function handleClickOutside(event: MouseEvent) {
-    const target = event.target;
-    if (!(target instanceof Element)) {
-      return;
-    }
-    if (!target.closest('.color-select-container')) {
-      isOpen = false;
-    }
-  }
-
-  $effect(() => {
-    if (isOpen) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  });
 </script>
 
-<div class="color-select-container">
-  <button
-    class="color-select-trigger"
-    class:open={isOpen}
-    onclick={toggleOpen}
-    type="button"
-    aria-label="Select color"
-  >
+<Popover open={isOpen} onOpenChange={(details) => isOpen = details.open} positioning={{ placement: 'bottom-start' }}>
+  <Popover.Trigger class="color-select-trigger" aria-label="Select color">
     <span class="selected-color" style="background-color: {BUTTON_COLORS[value]}"></span>
     <span class="color-label">{value}</span>
     <span class="chevron">{isOpen ? '▲' : '▼'}</span>
-  </button>
+  </Popover.Trigger>
 
-  {#if isOpen}
-    <div class="color-picker-popover">
-      <div class="color-picker-grid">
-        {#each colors as color}
-          <button
-            class="color-circle"
-            class:selected={color === value}
-            onclick={() => select(color)}
-            type="button"
-            title={color}
-            aria-label={`Select ${color} color`}
-          >
-            <span class="color-inner" style="background-color: {BUTTON_COLORS[color]}"></span>
-            {#if color === value}
-              <span class="checkmark">✓</span>
-            {/if}
-          </button>
-        {/each}
-      </div>
-    </div>
-  {/if}
-</div>
+  <Portal>
+    <Popover.Positioner class="color-popover-positioner">
+      <Popover.Content class="color-picker-popover">
+        <div class="color-picker-grid">
+          {#each colors as color}
+            <button
+              class="color-circle"
+              class:selected={color === value}
+              onclick={() => select(color)}
+              type="button"
+              title={color}
+              aria-label={`Select ${color} color`}
+            >
+              <span class="color-inner" style="background-color: {BUTTON_COLORS[color]}"></span>
+              {#if color === value}
+                <span class="checkmark">✓</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      </Popover.Content>
+    </Popover.Positioner>
+  </Portal>
+</Popover>
 
 <style>
-  .color-select-container {
-    position: relative;
-  }
-
-  .color-select-trigger {
+  :global(.color-select-trigger) {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -98,11 +70,11 @@
     transition: all 0.2s ease;
   }
 
-  .color-select-trigger:hover {
+  :global(.color-select-trigger:hover) {
     border-color: #3a3a55;
   }
 
-  .color-select-trigger.open {
+  :global(.color-select-trigger[data-state="open"]) {
     border-color: #6366f1;
   }
 
@@ -125,11 +97,11 @@
     color: #9ca3af;
   }
 
-  .color-picker-popover {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
+  :global(.color-popover-positioner) {
     z-index: 100;
+  }
+
+  :global(.color-picker-popover) {
     background: #1a1a2e;
     border: 1px solid #2a2a40;
     border-radius: 8px;
