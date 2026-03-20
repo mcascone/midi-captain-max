@@ -11,6 +11,56 @@ export type MessageType = 'cc' | 'note' | 'pc' | 'pc_inc' | 'pc_dec';
 export type Polarity = 'normal' | 'inverted';
 export type DeviceType = 'std10' | 'mini6';
 
+// ===== CONDITIONAL ACTIONS SUPPORT =====
+
+export type ConditionOperator = '==' | '!=' | '>' | '<' | '>=' | '<=';
+
+// Button state condition - checks if a button is ON or OFF
+export interface ButtonStateCondition {
+  type: 'button_state';
+  button: number;      // Button index (0-based)
+  state: 'on' | 'off';
+}
+
+// Button keytime condition - checks which keytime state a button is in
+export interface ButtonKeytimeCondition {
+  type: 'button_keytime';
+  button: number;      // Button index (0-based)
+  keytime: number;     // Keytime index (0-based)
+}
+
+// Received MIDI condition - checks last received CC value from host
+export interface ReceivedMidiCondition {
+  type: 'received_midi';
+  cc: number;          // CC number (0-127)
+  channel: number;     // MIDI channel (0-15)
+  operator: ConditionOperator;
+  value: number;       // Value to compare (0-127)
+}
+
+// Expression pedal condition - checks pedal position
+export interface ExpressionCondition {
+  type: 'expression';
+  pedal: 1 | 2;        // Expression pedal 1 or 2
+  operator: ConditionOperator;
+  value: number;       // Value to compare (0-127)
+}
+
+// Encoder condition - checks encoder position
+export interface EncoderCondition {
+  type: 'encoder';
+  operator: ConditionOperator;
+  value: number;       // Value to compare (0-127)
+}
+
+// Union of all condition types
+export type Condition = 
+  | ButtonStateCondition 
+  | ButtonKeytimeCondition 
+  | ReceivedMidiCondition
+  | ExpressionCondition
+  | EncoderCondition;
+
 // Multi-command per action support
 export interface MidiCommand {
   type: MessageType;
@@ -28,6 +78,18 @@ export interface MidiCommand {
   // Optional threshold for long-press detection (on first command only)
   threshold_ms?: number;
 }
+
+// Conditional command wrapper - allows if/then/else logic
+export interface ConditionalCommand {
+  // Now supports conditional commands in addition to regular MIDI commands
+  press?: CommandOrConditional[];      // Commands dispatched on button press for this state
+  release?: CommandOrConditional[];    // Commands dispatched on button release for this state
+  long_press?: CommandOrConditional[]; // Commands dispatched on long press for this state
+  long_release?: CommandOrConditionall[];    // Optional commands to execute if condition is false
+}
+
+// Union type for command arrays - can be regular MIDI commands or conditional wrappers
+export type CommandOrConditional = MidiCommand | ConditionalCommand;
 
 export interface StateOverride {
   // ===== Multi-command event arrays (per-state actions) =====
@@ -64,10 +126,11 @@ export interface ButtonConfig {
   action_id?: string;         // Action within profile (e.g., 'scene_b', 'snapshot_3')
 
   // ===== NEW: Multi-command event arrays =====
-  // These take precedence over legacy type-based fields
-  press?: MidiCommand[];      // Commands dispatched on button press
-  release?: MidiCommand[];    // Commands dispatched on button release (short press)
-  long_press?: MidiCommand[]; // Commands dispatched when hold threshold crossed
+  // Now supports conditional commands in addition to regular MIDI commands
+  press?: CommandOrConditional[];      // Commands dispatched on button press
+  release?: CommandOrConditional[];    // Commands dispatched on button release (short press)
+  long_press?: CommandOrConditional[]; // Commands dispatched when hold threshold crossed
+  long_release?: CommandOrConditional; // Commands dispatched when hold threshold crossed
   long_release?: MidiCommand[]; // Commands dispatched on release after long press
 
   // ===== LEGACY: Single-type fields (for backwards compatibility) =====

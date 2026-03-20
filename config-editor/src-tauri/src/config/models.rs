@@ -14,30 +14,31 @@ fn default_bank_switch_method() -> BankSwitchMethod {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StateOverride {
     // Multi-command event arrays (per-state actions)
+    // Now supports conditional commands in addition to regular MIDI commands
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_one_or_many"
     )]
-    pub press: Option<Vec<MidiCommand>>,
+    pub press: Option<Vec<CommandOrConditional>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_one_or_many"
     )]
-    pub release: Option<Vec<MidiCommand>>,
+    pub release: Option<Vec<CommandOrConditional>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_one_or_many"
     )]
-    pub long_press: Option<Vec<MidiCommand>>,
+    pub long_press: Option<Vec<CommandOrConditional>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_one_or_many"
     )]
-    pub long_release: Option<Vec<MidiCommand>>,
+    pub long_release: Option<Vec<CommandOrConditional>>,
 
     // Legacy single-type field overrides
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -92,17 +93,46 @@ pub struct MidiCommand {
     pub threshold_ms: Option<u32>,
 }
 
-/// Helper type to deserialize either a single MidiCommand object or an array
+/// Conditional command wrapper for if/then/else logic
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConditionalCommand {
+    #[serde(rename = "type")]
+    pub command_type: String, // Always "conditional"
+    #[serde(rename = "if")]
+    pub condition: Condition,
+    pub then: Vec<CommandOrConditional>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "else")]
+    pub else_branch: Option<Vec<CommandOrConditional>>,
+}
+
+/// Union type for command arrays - can be regular MIDI commands or conditional wrappers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CommandOrConditional {
+    Midi(MidiCommand),
+    Conditional(ConditionalCommand),
+}
+
+impl Default for CommandOrConditional {
+    fn default() -> Self {
+        CommandOrConditional::Midi(MidiCommand::default())
+    }
+}
+
+
+/// Helper type to deserialize either a single command object or an array
 /// Supports backward compatibility with legacy configs that use single objects
+/// Now supports both MidiCommand and ConditionalCommand
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 enum OneOrMany {
-    One(MidiCommand),
-    Many(Vec<MidiCommand>),
+    One(CommandOrConditional),
+    Many(Vec<CommandOrConditional>),
 }
 
 impl OneOrMany {
-    fn into_vec(self) -> Vec<MidiCommand> {
+    fn into_vec(self) -> Vec<CommandOrConditional> {
         match self {
             OneOrMany::One(cmd) => vec![cmd],
             OneOrMany::Many(cmds) => cmds,
@@ -124,7 +154,9 @@ impl Serialize for OneOrMany {
 }
 
 /// Custom deserializer for backward compatibility: accepts single object or array
-fn deserialize_one_or_many<'de, D>(deserializer: D) -> Result<Option<Vec<MidiCommand>>, D::Error>
+fn deserialize_one_or_many<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<CommandOrConditional>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -156,30 +188,31 @@ pub struct ButtonConfig {
     pub action_id: Option<String>,
 
     // ===== NEW: Multi-command event arrays =====
+    // Now supports conditional commands in addition to regular MIDI commands
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_one_or_many"
     )]
-    pub press: Option<Vec<MidiCommand>>,
+    pub press: Option<Vec<CommandOrConditional>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_one_or_many"
     )]
-    pub release: Option<Vec<MidiCommand>>,
+    pub release: Option<Vec<CommandOrConditional>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_one_or_many"
     )]
-    pub long_press: Option<Vec<MidiCommand>>,
+    pub long_press: Option<Vec<CommandOrConditional>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_one_or_many"
     )]
-    pub long_release: Option<Vec<MidiCommand>>,
+    pub long_release: Option<Vec<CommandOrConditional>>,
 
     // ===== LEGACY: Single-type fields (for backwards compatibility) =====
     #[serde(
