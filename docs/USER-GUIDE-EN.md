@@ -11,15 +11,16 @@
 2. [Getting Started](#getting-started)
 3. [Main Interface](#main-interface)
 4. [Device Settings](#device-settings)
-5. [Button Configuration](#button-configuration)
-6. [Device Profiles](#device-profiles)
-7. [Multi-State Buttons (Keytimes)](#multi-state-buttons-keytimes)
-8. [Encoder Configuration](#encoder-configuration)
-9. [Expression Pedals](#expression-pedals)
-10. [Display Settings](#display-settings)
-11. [Keyboard Shortcuts](#keyboard-shortcuts)
-12. [Tips and Best Practices](#tips-and-best-practices)
-13. [Troubleshooting](#troubleshooting)
+5. [Banks/Pages System](#banksPages-system)
+6. [Button Configuration](#button-configuration)
+7. [Device Profiles](#device-profiles)
+8. [Multi-State Buttons (Keytimes)](#multi-state-buttons-keytimes)
+9. [Encoder Configuration](#encoder-configuration)
+10. [Expression Pedals](#expression-pedals)
+11. [Display Settings](#display-settings)
+12. [Keyboard Shortcuts](#keyboard-shortcuts)
+13. [Tips and Best Practices](#tips-and-best-practices)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -126,6 +127,172 @@ Customize the volume name when USB drive mode is enabled:
 
 - **OFF** (Performance Mode): USB drive hidden by default. Hold Switch 1 during power-on to enable temporarily.
 - **ON** (Dev Mode): USB drive always mounts automatically. Useful during configuration but may impact boot time.
+
+---
+
+## Banks/Pages System
+
+The **Banks/Pages System** allows you to store up to 8 complete button configurations and switch between them instantly on your device. This is essential for complex live setups requiring access to 40-80 button configurations across multiple songs or scenes.
+
+### Overview
+
+**What are Banks?**
+- Each bank is a complete set of button configurations (labels, colors, MIDI commands)
+- Your device can store up to 8 banks
+- Switch between banks without reconnecting to your computer
+- Each bank maintains its own button states independently
+
+**Common Use Cases:**
+- **Song Sections**: Bank 1 = Intro, Bank 2 = Verse, Bank 3 = Chorus, etc.
+- **Multiple Songs**: Each bank represents a different song
+- **Preset Layers**: Bank 1 = Rhythm tones, Bank 2 = Lead tones, Bank 3 = Effects
+- **Different Devices**: Bank 1 = Amp control, Bank 2 = Effects control, Bank 3 = DAW control
+
+### Managing Banks
+
+The **Banks Panel** (in the Buttons tab) provides tabbed access to all your banks:
+
+#### Adding a Bank
+1. Click the **+ Add Bank** button
+2. A new bank appears with default button configurations
+3. Bank is automatically named "Bank N" (customizable)
+4. Maximum 8 banks per device
+
+#### Duplicating a Bank
+1. Select the bank you want to copy
+2. Click the **Duplicate** button
+3. A copy is created with " (Copy)" appended to the name
+4. Useful for creating variations of existing setups
+
+#### Renaming a Bank
+1. Click the bank name to edit
+2. Enter new name (max 20 characters)
+3. Press Enter or click away to save
+4. Names appear on device display during bank switch
+
+#### Deleting a Bank
+1. Click the **Delete** button on the bank tab
+2. Confirm deletion
+3. Cannot delete if only one bank remains
+4. Deleted bank configurations are not recoverable
+
+#### Editing Bank Buttons
+1. Click a bank tab to make it active
+2. All button editing applies to the active bank
+3. Device layout shows active bank's button configuration
+4. Switch between banks while editing to configure each one
+
+### Bank Switching Methods
+
+Choose how to switch between banks on your device:
+
+#### Method 1: Button Switching
+
+**Single Button (Cycling)**
+- Press one button to cycle through banks in order
+- Wraps around: Bank 8 → Bank 1
+- Simple and intuitive for sequential navigation
+
+**Configuration:**
+1. Select "Button" as switching method
+2. Choose button number (1-10 for footswitches, 11 for encoder push on STD10)
+3. Each press advances to next bank
+
+**Dual Button (Up/Down)**
+- Use two buttons: one for next bank, one for previous
+- More control for non-sequential navigation
+- Recommended for setups with 4+ banks
+
+**Configuration:**
+1. Select "Button" as switching method
+2. Click "Switch to Two Buttons (Up/Down)"
+3. Set Bank Up button (e.g., button 10)
+4. Set Bank Down button (e.g., button 9)
+
+**Important:** Buttons assigned to bank switching cannot be used for regular MIDI commands.
+
+#### Method 2: MIDI CC Switching
+
+Switch banks via incoming MIDI Control Change messages:
+- External controller sends CC message
+- CC value maps directly to bank index
+- Value 0 → Bank 1, Value 1 → Bank 2, etc.
+
+**Configuration:**
+1. Select "CC" as switching method
+2. Set CC number (0-127)
+3. Set MIDI channel (0-15 in config, displayed as 1-16)
+
+**Example:**  
+Configure CC 80 on Channel 1. When your DAW or controller sends `CC 80 = 2` on Channel 1, device switches to Bank 3.
+
+#### Method 3: MIDI PC Switching
+
+Switch banks via incoming MIDI Program Change messages:
+- Similar to CC but uses Program Change messages
+- Configure base PC number (e.g., PC 0)
+- PC values offset from base map to banks
+
+**Configuration:**
+1. Select "PC" as switching method
+2. Set base PC number (0-127)
+3. Set MIDI channel (0-15 in config, displayed as 1-16)
+
+**Example:**  
+Base PC = 10. PC messages map as follows:
+- PC 10 → Bank 1
+- PC 11 → Bank 2
+- PC 12 → Bank 3
+
+### Bank Switching Behavior
+
+**Visual Feedback:**
+- All button LEDs flash briefly in their configured colors
+- Bank name appears on center display
+- Status shows "Bank N/Total" (e.g., "Bank 2/4")
+
+**State Persistence:**
+- Each bank remembers its button states independently
+- Switching away and back preserves state
+- Useful for maintaining separate scenes
+
+**Cooldown Protection:**
+- 200ms minimum delay between bank switches
+- Prevents accidental rapid switching
+- Ensures clean state transitions
+
+**Instant Transition:**
+- Switching completes in under 100ms
+- No interruption to performance
+- New bank buttons immediately responsive
+
+### Migration from Single-Bank Configs
+
+Existing configurations automatically migrate to the Banks system:
+- Your current buttons become "Bank 1"
+- No manual migration required
+- Original config preserved and functional
+- Add more banks when ready
+
+### Example Setups
+
+**Live Band Setup (4 Banks):**
+- Bank 1: Song A (verse, chorus, bridge scenes)
+- Bank 2: Song B
+- Bank 3: Song C
+- Bank 4: Song D
+- Use dual buttons (9 = prev, 10 = next) to navigate
+
+**Studio Recording Setup (3 Banks):**
+- Bank 1: Track arming and input monitoring
+- Bank 2: Transport control and markers
+- Bank 3: Mix automation and effects
+- Use MIDI CC from DAW to switch banks automatically
+
+**Multi-Device Setup (2 Banks):**
+- Bank 1: Amp channel switching and reverb
+- Bank 2: Stomp pedals on/off and delay time
+- Use single button cycling to toggle between devices
 
 ---
 

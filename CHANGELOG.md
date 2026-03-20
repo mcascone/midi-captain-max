@@ -2,6 +2,74 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Banks/Pages System] - 2026-03-20
+
+### Added
+- **Banks/Pages System** (SI-1 from Feature Analysis): Multi-bank button configurations for complex live setups
+  - **Up to 8 banks per device**: Switch between complete button configurations without reconnecting
+  - **Three switching methods**:
+    - **Button**: Assign one button for cycling or two buttons for up/down
+    - **MIDI CC**: Switch banks via incoming Control Change messages
+    - **MIDI PC**: Switch banks via Program Change (with configurable base number)
+  - **State persistence**: Button states saved independently per bank
+  - **Instant switching**: Sub-100ms transitions with 200ms cooldown protection
+  - **Visual feedback**: LED flash animation and bank name displayed on switch
+  - **Dual-button mode**: Separate Bank Up and Bank Down buttons (or legacy single-button cycling)
+  - **Encoder push support**: Button 11 (encoder push) can trigger bank switching on STD10
+  - **Backward compatible**: Existing single-bank configs auto-migrate to multi-bank format
+  
+- **BankManager Class** (firmware): Core bank switching engine
+  - Per-bank ButtonState storage for instant state restoration
+  - Cooldown timer prevents rapid accidental switches
+  - CC/PC trigger mapping with value-to-bank-index translation
+  - Wrap-around navigation (bank 8 → bank 1, bank 1 → bank 8)
+  
+- **Banks Editor UI** (config-editor): Full bank management interface
+  - BanksPanel: Tabbed interface with add/duplicate/delete/rename operations
+  - BankSettingsPanel: Configure switching method and trigger assignments
+  - Bank-aware button editing with active bank selector
+  - Visual device layout updates to show active bank buttons
+  - Per-bank validation with error path prefixes (`banks[N].buttons[M]`)
+  
+- **Config Schema Extensions**:
+  - `banks[]`: Array of `BankConfig` objects (name + buttons array)
+  - `bank_switch`: Switching configuration (method, button, cc, pc_base, channel)
+  - `active_bank`: Initial bank index on boot (0-indexed)
+  - Legacy `buttons` field now optional (migrated to `banks` automatically)
+
+### Fixed
+- **Bank switching critical bugs** (PR #27 review fixes):
+  - Fixed `switch_to_led()` called as array instead of function
+  - Fixed double-switching bug in button-triggered switching
+  - Added channel checks for CC/PC-triggered bank switching
+  - Removed blocking `time.sleep()` busy-wait during LED flash
+- **Editor TypeScript compilation**: Fixed `carouselPage` undeclared variable
+- **Default button values**: Fixed Mini6 compatibility with safe defaults (`maxButton - 1`)
+- **Multi-bank validation**: `validateConfig()` now validates ALL banks with proper error paths
+- **Config migration**: `validate_config()` properly normalizes bank button arrays
+- **Rust unused variables**: Removed unused `_btn_path_prefix` and `flash_start`
+
+### Tests & CI
+- **234 total tests passing** (221 existing + 13 new bank-related tests)
+  - `test_banks_config.py`: Config migration, validation, and bank helper tests (12 tests)
+  - `test_bank_manager.py`: BankManager state management and switching logic (29 tests)
+  - `test_bank_buttons.py`: Single/dual button mode configuration (8 tests)
+- **53 Rust tests passing**: All config validation and device detection tests
+- All CI checks passing: Lint, Rust tests, firmware zip, macOS/Windows builds
+
+### Documentation
+- Implementation plan: `docs/plans/2026-03-19-banks-pages-implementation.md`
+- Feature analysis: `docs/FEATURE-ANALYSIS-REPORT.md` (SI-1 requirement)
+- Hardware reference: Updated `docs/hardware-reference.md` with bank switching pins
+
+### Deployment
+- Branch: `feature/banks-pages-system`
+- PR: https://github.com/guisperandio/midi-captain-max/pull/27
+- Commits: 28 total (schema, firmware, UI, fixes)
+- Merged: 2026-03-20
+
+---
+
 ## [Unreleased] - 2026-03-18
 
 ### Added
