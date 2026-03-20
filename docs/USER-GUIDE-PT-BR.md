@@ -11,15 +11,16 @@
 2. [Primeiros Passos](#primeiros-passos)
 3. [Interface Principal](#interface-principal)
 4. [Configurações do Dispositivo](#configurações-do-dispositivo)
-5. [Configuração de Botões](#configuração-de-botões)
-6. [Perfis de Dispositivos](#perfis-de-dispositivos)
-7. [Botões Multi-Estado (Keytimes)](#botões-multi-estado-keytimes)
-8. [Configuração do Encoder](#configuração-do-encoder)
-9. [Pedais de Expressão](#pedais-de-expressão)
-10. [Configurações de Display](#configurações-de-display)
-11. [Atalhos de Teclado](#atalhos-de-teclado)
-12. [Dicas e Melhores Práticas](#dicas-e-melhores-práticas)
-13. [Solução de Problemas](#solução-de-problemas)
+5. [Sistema de Bancos/Páginas](#sistema-de-bancospáginas)
+6. [Configuração de Botões](#configuração-de-botões)
+7. [Perfis de Dispositivos](#perfis-de-dispositivos)
+8. [Botões Multi-Estado (Keytimes)](#botões-multi-estado-keytimes)
+9. [Configuração do Encoder](#configuração-do-encoder)
+10. [Pedais de Expressão](#pedais-de-expressão)
+11. [Configurações de Display](#configurações-de-display)
+12. [Atalhos de Teclado](#atalhos-de-teclado)
+13. [Dicas e Melhores Práticas](#dicas-e-melhores-práticas)
+14. [Solução de Problemas](#solução-de-problemas)
 
 ---
 
@@ -126,6 +127,172 @@ Personalize o nome do volume quando o modo USB drive estiver habilitado:
 
 - **DESLIGADO** (Modo Performance): Drive USB oculto por padrão. Segure Switch 1 durante o boot para habilitar temporariamente.
 - **LIGADO** (Modo Dev): Drive USB sempre monta automaticamente. Útil durante configuração, mas pode impactar tempo de boot.
+
+---
+
+## Sistema de Bancos/Páginas
+
+O **Sistema de Bancos/Páginas** permite armazenar até 8 configurações completas de botões e alternar entre elas instantaneamente no seu dispositivo. Isso é essencial para configurações complexas ao vivo que requerem acesso a 40-80 configurações de botões em múltiplas músicas ou cenas.
+
+### Visão Geral
+
+**O que são Bancos?**
+- Cada banco é um conjunto completo de configurações de botões (rótulos, cores, comandos MIDI)
+- Seu dispositivo pode armazenar até 8 bancos
+- Alterne entre bancos sem reconectar ao computador
+- Cada banco mantém seus próprios estados de botão independentemente
+
+**Casos de Uso Comuns:**
+- **Seções de Música**: Banco 1 = Intro, Banco 2 = Verso, Banco 3 = Refrão, etc.
+- **Múltiplas Músicas**: Cada banco representa uma música diferente
+- **Camadas de Presets**: Banco 1 = Timbres de ritmo, Banco 2 = Timbres de solo, Banco 3 = Efeitos
+- **Diferentes Dispositivos**: Banco 1 = Controle de amp, Banco 2 = Controle de efeitos, Banco 3 = Controle de DAW
+
+### Gerenciando Bancos
+
+O **Painel de Bancos** (na aba Botões) fornece acesso em abas para todos os seus bancos:
+
+#### Adicionando um Banco
+1. Clique no botão **+ Adicionar Banco**
+2. Um novo banco aparece com configurações padrão de botões
+3. O banco é automaticamente nomeado "Bank N" (personalizável)
+4. Máximo de 8 bancos por dispositivo
+
+#### Duplicando um Banco
+1. Selecione o banco que deseja copiar
+2. Clique no botão **Duplicar**
+3. Uma cópia é criada com " (Cópia)" anexado ao nome
+4. Útil para criar variações de configurações existentes
+
+#### Renomeando um Banco
+1. Clique no nome do banco para editar
+2. Digite o novo nome (máximo 20 caracteres)
+3. Pressione Enter ou clique fora para salvar
+4. Os nomes aparecem no display do dispositivo durante a troca de banco
+
+#### Deletando um Banco
+1. Clique no botão **Deletar** na aba do banco
+2. Confirme a exclusão
+3. Não é possível deletar se restar apenas um banco
+4. Configurações de bancos deletados não são recuperáveis
+
+#### Editando Botões do Banco
+1. Clique em uma aba de banco para torná-lo ativo
+2. Toda edição de botão aplica-se ao banco ativo
+3. O layout do dispositivo mostra a configuração de botões do banco ativo
+4. Alterne entre bancos enquanto edita para configurar cada um
+
+### Métodos de Troca de Banco
+
+Escolha como alternar entre bancos no seu dispositivo:
+
+#### Método 1: Troca por Botão
+
+**Botão Único (Ciclando)**
+- Pressione um botão para circular pelos bancos em ordem
+- Retorna ao início: Banco 8 → Banco 1
+- Simples e intuitivo para navegação sequencial
+
+**Configuração:**
+1. Selecione "Botão" como método de troca
+2. Escolha o número do botão (1-10 para footswitches, 11 para encoder push no STD10)
+3. Cada pressão avança para o próximo banco
+
+**Botão Duplo (Acima/Abaixo)**
+- Use dois botões: um para próximo banco, um para anterior
+- Mais controle para navegação não-sequencial
+- Recomendado para configurações com 4+ bancos
+
+**Configuração:**
+1. Selecione "Botão" como método de troca
+2. Clique em "Alternar para Dois Botões (Acima/Abaixo)"
+3. Defina o botão Banco Acima (ex: botão 10)
+4. Defina o botão Banco Abaixo (ex: botão 9)
+
+**Importante:** Botões atribuídos para troca de banco não podem ser usados para comandos MIDI regulares.
+
+#### Método 2: Troca por MIDI CC
+
+Troque bancos via mensagens MIDI Control Change recebidas:
+- Controlador externo envia mensagem CC
+- O valor CC mapeia diretamente para o índice do banco
+- Valor 0 → Banco 1, Valor 1 → Banco 2, etc.
+
+**Configuração:**
+1. Selecione "CC" como método de troca
+2. Defina o número CC (0-127)
+3. Defina o canal MIDI (0-15 na config, exibido como 1-16)
+
+**Exemplo:**  
+Configure CC 80 no Canal 1. Quando sua DAW ou controlador envia `CC 80 = 2` no Canal 1, o dispositivo muda para o Banco 3.
+
+#### Método 3: Troca por MIDI PC
+
+Troque bancos via mensagens MIDI Program Change recebidas:
+- Similar ao CC mas usa mensagens Program Change
+- Configure o número PC base (ex: PC 0)
+- Valores PC offset da base mapeiam para bancos
+
+**Configuração:**
+1. Selecione "PC" como método de troca
+2. Defina o número PC base (0-127)
+3. Defina o canal MIDI (0-15 na config, exibido como 1-16)
+
+**Exemplo:**  
+PC base = 10. Mensagens PC mapeiam da seguinte forma:
+- PC 10 → Banco 1
+- PC 11 → Banco 2
+- PC 12 → Banco 3
+
+### Comportamento da Troca de Banco
+
+**Feedback Visual:**
+- Todos os LEDs dos botões piscam brevemente em suas cores configuradas
+- O nome do banco aparece no display central
+- Status mostra "Bank N/Total" (ex: "Bank 2/4")
+
+**Persistência de Estado:**
+- Cada banco lembra seus estados de botão independentemente
+- Trocar para outro banco e voltar preserva o estado
+- Útil para manter cenas separadas
+
+**Proteção de Cooldown:**
+- Atraso mínimo de 200ms entre trocas de banco
+- Previne trocas rápidas acidentais
+- Garante transições de estado limpas
+
+**Transição Instantânea:**
+- Troca completa em menos de 100ms
+- Sem interrupção da performance
+- Botões do novo banco imediatamente responsivos
+
+### Migração de Configurações de Banco Único
+
+Configurações existentes migram automaticamente para o sistema de Bancos:
+- Seus botões atuais se tornam "Banco 1"
+- Nenhuma migração manual necessária
+- Configuração original preservada e funcional
+- Adicione mais bancos quando estiver pronto
+
+### Exemplos de Configuração
+
+**Setup de Banda ao Vivo (4 Bancos):**
+- Banco 1: Música A (cenas de verso, refrão, ponte)
+- Banco 2: Música B
+- Banco 3: Música C
+- Banco 4: Música D
+- Use botões duplos (9 = anterior, 10 = próximo) para navegar
+
+**Setup de Estúdio de Gravação (3 Bancos):**
+- Banco 1: Armar trilhas e monitoração de entrada
+- Banco 2: Controle de transporte e marcadores
+- Banco 3: Automação de mix e efeitos
+- Use MIDI CC da DAW para trocar bancos automaticamente
+
+**Setup Multi-Dispositivo (2 Bancos):**
+- Banco 1: Troca de canal de amp e reverb
+- Banco 2: Pedais de stomp on/off e tempo de delay
+- Use botão único ciclando para alternar entre dispositivos
 
 ---
 
