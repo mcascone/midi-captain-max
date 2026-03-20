@@ -353,10 +353,6 @@ export function validateConfig(config: MidiCaptainConfig): ValidationResult {
       validateButtons(bank.buttons, `${bankPrefix}.buttons`, errors);
     });
 
-      // Validate each button in this bank
-      validateButtons(bank.buttons, `${bankPrefix}.buttons`, errors);
-    });
-
     // Validate bank_switch config if present
     if (config.bank_switch) {
       const bs = config.bank_switch;
