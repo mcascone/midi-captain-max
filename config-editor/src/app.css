@@ -15,20 +15,30 @@
   --text-primary: #ffffff;
   --text-secondary: #888888;
   --text-tertiary: #555555;
-  
+
   /* Shadows & Glow Effects */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
   --glow-cyan: 0 0 8px rgba(0, 212, 170, 0.4), 0 0 16px rgba(0, 212, 170, 0.2);
   --glow-cyan-sm: 0 0 4px rgba(0, 212, 170, 0.3);
-  
+
   /* Spacing scale */
   --spacing-xs: 8px;
   --spacing-sm: 12px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
+
+  /* Typography scale */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 24px;
 }
 
 * {
@@ -37,18 +47,26 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
+  font-family: var(--font-family);
+  font-size: var(--text-base);
   line-height: 1.5;
   color: var(--text-primary);
   background: var(--bg-dark);
+  font-feature-settings: 'cv11' on; /* Inter stylistic alternates */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
   font-weight: 600;
+  letter-spacing: -0.02em;
 }
+
+h1 { font-size: var(--text-3xl); font-weight: 700; }
+h2 { font-size: var(--text-2xl); font-weight: 600; }
+h3 { font-size: var(--text-xl); font-weight: 600; }
+h4 { font-size: var(--text-lg); font-weight: 600; }
 
 button {
   font-family: inherit;
@@ -64,19 +82,31 @@ input[type="text"]:focus,
 input[type="number"]:focus,
 select:focus,
 textarea:focus {
-  box-shadow: var(--glow-cyan-sm);
+  border-color: var(--accent-primary);
+  box-shadow: var(--glow-cyan-sm), 0 0 0 3px var(--accent-primary-dim);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 /* Enhanced button hover states */
 button:not(:disabled):hover {
-  box-shadow: var(--glow-cyan-sm);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm), var(--glow-cyan-sm);
   transition: all 0.2s ease;
 }
 
 button:focus-visible {
   outline: none;
-  box-shadow: var(--glow-cyan);
+  box-shadow: var(--glow-cyan), 0 0 0 3px var(--accent-primary-dim);
+}
+
+/* Section headers */
+.section-header {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
 }
 
 /* Legacy button row styles (kept for compatibility) */

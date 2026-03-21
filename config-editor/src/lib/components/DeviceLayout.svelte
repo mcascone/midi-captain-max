@@ -43,7 +43,7 @@
 
   // Get LED color for button
   function getLedColor(btn: ButtonConfig | null): string {
-    if (!btn) return '#4a4a6b'; // Subtle purple-gray for empty
+    if (!btn) return '#555555'; // Neutral gray for empty
     return BUTTON_COLORS[btn.color] ?? '#ffffff';
   }
 
@@ -77,15 +77,15 @@
 
   // Get mode badge color
   function getModeBadgeColor(btn: ButtonConfig | null): string {
-    if (!btn) return '#6b6b8b';
+    if (!btn) return '#6b6b6b';
     const mode = btn.mode || 'toggle';
     switch (mode) {
-      case 'normal': return '#6b6b8b'; // muted purple-gray
+      case 'normal': return '#6b6b6b'; // neutral gray
       case 'toggle': return '#3b82f6'; // blue
       case 'momentary': return '#10b981'; // green
       case 'select': return '#f59e0b'; // amber
-      case 'tap': return '#ec4899'; // pink
-      default: return '#6b6b8b';
+      case 'tap': return '#f97316'; // orange
+      default: return '#6b6b6b';
     }
   }
 

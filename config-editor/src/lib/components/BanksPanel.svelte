@@ -74,7 +74,7 @@
     <div class="carousel-layout">
       <Carousel.Control>
         <Carousel.PrevTrigger class="carousel-nav-btn">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </Carousel.PrevTrigger>
@@ -110,7 +110,7 @@
 
       <Carousel.Control>
         <Carousel.NextTrigger class="carousel-nav-btn">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </Carousel.NextTrigger>
@@ -125,7 +125,7 @@
           title="Add new bank"
           aria-label="Add new bank"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
@@ -138,7 +138,7 @@
           title="Duplicate bank"
           aria-label="Duplicate bank"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="4" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
             <path d="M6 12H12V6" stroke="currentColor" stroke-width="1.5"/>
           </svg>
@@ -152,7 +152,7 @@
             title="Delete bank"
             aria-label="Delete bank"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M3 5L13 5M6 5V4a1 1 0 011-1h2a1 1 0 011 1v1M7 7v5M9 7v5M5 5v8a1 1 0 001 1h4a1 1 0 001-1V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
           </button>
@@ -185,15 +185,15 @@
 
 <style>
   .banks-panel {
-    padding: 1rem;
-    background: var(--bg-input);
-    border-bottom: 1px solid var(--border-default);
+    padding: 1.5rem 2rem;
+    background: var(--bg-dark);
+    border-bottom: 2px solid var(--border-default);
   }
 
   .carousel-layout {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1.25rem;
   }
 
   /* Carousel navigation buttons - uses Skeleton's Control wrapper */
@@ -201,22 +201,25 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
     padding: 0;
-    background: var(--bg-input);
-    border: 1px solid var(--border-default);
-    border-radius: 0.375rem;
+    background: var(--bg-card);
+    border: 2px solid var(--border-default);
+    border-radius: 8px;
     cursor: pointer;
     color: #e2e8f0;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     flex-shrink: 0;
+    box-shadow: var(--shadow-sm);
   }
 
   .banks-panel :global(.carousel-nav-btn:hover:not(:disabled)) {
     border-color: var(--accent-primary);
     background: var(--bg-input);
     color: var(--accent-primary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md), var(--glow-cyan-sm);
   }
 
   .banks-panel :global(.carousel-nav-btn:disabled) {
@@ -244,58 +247,69 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.5rem 1rem;
+    gap: 0.5rem;
+    padding: 1.5rem 2rem;
     cursor: pointer;
-    border-radius: 0.375rem;
-    transition: background 0.15s ease;
+    border-radius: 12px;
+    transition: all 0.2s ease;
     width: 100%;
-    max-width: 280px;
+    max-width: 380px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-default);
+    box-shadow: var(--shadow-sm);
   }
 
   .bank-display:hover {
-    background: var(--accent-primary-dim);
+    background: var(--bg-input);
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md), var(--glow-cyan-sm);
   }
 
   .bank-name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #e2e8f0;
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    color: var(--text-primary);
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
+    letter-spacing: -0.01em;
   }
 
   .bank-counter {
-    font-size: 0.75rem;
-    color: #9ca3af;
-    font-weight: 500;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .bank-rename-input {
     width: 100%;
-    max-width: 280px;
-    padding: 0.5rem 1rem;
+    max-width: 380px;
+    padding: 1.5rem 2rem;
     border: 2px solid var(--accent-primary);
-    border-radius: 0.375rem;
-    font-size: 1rem;
-    font-weight: 600;
-    background: var(--bg-input);
-    color: #e2e8f0;
+    border-radius: 12px;
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    background: var(--bg-card);
+    color: var(--text-primary);
     text-align: center;
+    letter-spacing: -0.01em;
+    box-shadow: var(--shadow-md), var(--glow-cyan);
   }
 
   .bank-rename-input:focus {
     outline: none;
-    box-shadow: 0 0 0 3px var(--accent-primary-dim);
+    box-shadow: var(--shadow-lg), var(--glow-cyan), 0 0 0 4px var(--accent-primary-dim);
   }
 
   /* Action buttons */
   .action-buttons {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
     flex-shrink: 0;
   }
 
@@ -303,27 +317,31 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
     padding: 0;
-    background: var(--bg-input);
-    border: 1px solid var(--border-default);
-    border-radius: 0.375rem;
+    background: var(--bg-card);
+    border: 2px solid var(--border-default);
+    border-radius: 8px;
     cursor: pointer;
-    color: #9ca3af;
-    transition: all 0.15s ease;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
   }
 
   .action-btn:hover:not(:disabled) {
     border-color: var(--accent-primary);
     color: var(--accent-primary);
     background: var(--bg-input);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md), var(--glow-cyan-sm);
   }
 
   .action-btn.delete:hover:not(:disabled) {
     border-color: #ef4444;
     color: #ef4444;
     background: rgba(239, 68, 68, 0.1);
+    box-shadow: var(--shadow-md), 0 0 8px rgba(239, 68, 68, 0.3);
   }
 
   .action-btn:disabled {
@@ -349,25 +367,28 @@
   }
 
   :global(.delete-modal-content) {
-    background: #1f2937;
-    border: 1px solid #374151;
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    max-width: 400px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-default);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 440px;
     width: 90%;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-lg);
   }
 
   :global(.delete-modal-title) {
     margin: 0 0 1rem 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: #f3f4f6;
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
   }
 
   :global(.delete-modal-description) {
     margin: 0.5rem 0;
-    color: #d1d5db;
+    color: var(--text-secondary);
+    font-size: var(--text-base);
+    line-height: 1.6;
   }
 
   .warning-text {
@@ -384,31 +405,38 @@
   }
 
   .btn {
-    padding: 0.5rem 1rem;
-    border-radius: 0.375rem;
-    font-weight: 500;
+    padding: 0.625rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     border: none;
-    font-size: 0.875rem;
+    font-size: var(--text-sm);
   }
 
   .btn-secondary {
-    background: #374151;
-    color: #f3f4f6;
-    border: 1px solid #4b5563;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 2px solid var(--border-default);
   }
 
   .btn-secondary:hover {
-    background: #4b5563;
+    background: var(--bg-card);
+    border-color: var(--accent-primary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
   }
 
   .btn-danger {
     background: #ef4444;
     color: white;
+    border: 2px solid #ef4444;
   }
 
   .btn-danger:hover {
     background: #dc2626;
+    border-color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
   }
 </style>

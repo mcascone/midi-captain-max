@@ -76,8 +76,8 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    border-top: 1px solid #374151;
-    background: #111827;
+    border-top: 1px solid #333333;
+    background: #121212;
     overflow: hidden;
   }
 
@@ -161,13 +161,13 @@
   .tabs-container :global(.tab-content) :global(select),
   .tabs-container :global(.tab-content) :global(input[type="text"]),
   .tabs-container :global(.tab-content) :global(input[type="number"]) {
-    background: #374151;
-    border: 1px solid #4b5563;
+    background: #333333;
+    border: 1px solid #444444;
   }
 
   .tabs-container :global(.tab-content) :global(select:hover),
   .tabs-container :global(.tab-content) :global(input[type="text"]:hover),
   .tabs-container :global(.tab-content) :global(input[type="number"]:hover) {
-    background: #4b5563;
+    background: #444444;
   }
 </style>

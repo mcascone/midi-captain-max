@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { CommandOrConditional, MidiCommand, MessageType } from '$lib/types';
   import ConditionalCommandBlock from './ConditionalCommandBlock.svelte';
-  
+
   interface Props {
     command: CommandOrConditional;
     index: number;
@@ -10,22 +10,22 @@
     onRemove: () => void;
     buttonIndex?: number;
   }
-  
+
   let { command, index, globalChannel, onUpdate, onRemove, buttonIndex }: Props = $props();
-  
+
   // Check if this is a conditional command
   let isConditional = $derived(
-    typeof command === 'object' && 
-    'type' in command && 
+    typeof command === 'object' &&
+    'type' in command &&
     command.type === 'conditional'
   );
-  
+
   function updateMidiField(field: string, value: any) {
     if (!isConditional) {
       onUpdate({ ...command as MidiCommand, [field]: value });
     }
   }
-  
+
   function numVal(e: Event): number | undefined {
     const v = (e.target as HTMLInputElement).value;
     return v === '' ? undefined : parseInt(v);
@@ -45,19 +45,19 @@
   <!-- Base case: Regular MIDI command -->
   <div class="command-row">
     <span class="command-number">{index + 1}</span>
-    
+
     <div class="command-fields">
       <div class="field">
         <label>Type</label>
         <select value={(command as MidiCommand).type ?? 'cc'} onchange={(e) => updateMidiField('type', (e.target as HTMLSelectElement).value as MessageType)}>
-          <option value="cc">CC</option>
-          <option value="note">Note</option>
-          <option value="pc">PC</option>
-          <option value="pc_inc">PC+</option>
-          <option value="pc_dec">PC-</option>
+          <option value="cc">🎛️ CC</option>
+          <option value="note">🎹 Note</option>
+          <option value="pc">📋 PC</option>
+          <option value="pc_inc">⬆️ PC+</option>
+          <option value="pc_dec">⬇️ PC-</option>
         </select>
       </div>
-      
+
       {#if ((command as MidiCommand).type ?? 'cc') === 'cc'}
         <div class="field">
           <label>CC#</label>
@@ -99,7 +99,7 @@
             onblur={(e) => updateMidiField('pc_step', numVal(e))} />
         </div>
       {/if}
-      
+
       <div class="field">
         <label>Channel</label>
         <input type="number" min="1" max="16"
@@ -111,7 +111,7 @@
           }} />
       </div>
     </div>
-    
+
     <button class="remove-btn" type="button" onclick={onRemove} title="Remove command">×</button>
   </div>
 {/if}
@@ -126,27 +126,31 @@
     border: 1px solid var(--border-default);
     border-radius: 6px;
   }
-  
+
   .command-number {
-    font-weight: 600;
-    color: var(--text-secondary);
-    min-width: 20px;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--accent-primary);
+    min-width: 24px;
     text-align: center;
+    background: var(--accent-primary-dim);
+    border-radius: 4px;
+    padding: 4px 0;
   }
-  
+
   .command-fields {
     flex: 1;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
     gap: 8px;
   }
-  
+
   .field {
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
-  
+
   .field label {
     font-size: 10px;
     font-weight: 500;
@@ -154,7 +158,7 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  
+
   .field select,
   .field input {
     width: 100%;
@@ -168,14 +172,14 @@
     color: var(--text-primary);
     transition: all 0.2s;
   }
-  
+
   .field select:focus,
   .field input:focus {
     outline: none;
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 2px var(--accent-primary-dim);
   }
-  
+
   .remove-btn {
     background: #ef4444;
     color: white;
@@ -192,7 +196,7 @@
     flex-shrink: 0;
     transition: background 0.2s;
   }
-  
+
   .remove-btn:hover {
     background: #dc2626;
   }

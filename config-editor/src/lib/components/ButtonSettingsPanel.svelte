@@ -47,13 +47,13 @@
   // Color palette for state tabs - cycling through for visual distinction
   const STATE_COLORS = [
     '#00d4aa', // cyan (primary accent)
-    '#8b5cf6', // violet
-    '#ec4899', // pink
+    '#10b981', // emerald green
+    '#3b82f6', // blue
     '#f59e0b', // amber
-    '#10b981', // emerald
-    '#06b6d4', // cyan
+    '#06b6d4', // light cyan
+    '#14b8a6', // teal
     '#f97316', // orange
-    '#a855f7', // purple
+    '#22c55e', // green
   ];
 
   // Get color for active state
@@ -653,15 +653,17 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border-default);
   }
 
   .section-title {
-    font-size: 12px;
+    font-size: var(--text-lg);
     font-weight: 700;
     color: var(--text-primary);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.05em;
     flex: 1;
   }
 

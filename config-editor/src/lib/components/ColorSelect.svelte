@@ -131,7 +131,7 @@
   }
 
   .color-circle:hover {
-    border-color: #4b5563;
+    border-color: #444444;
     transform: scale(1.1);
   }
 

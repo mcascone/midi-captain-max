@@ -36,7 +36,7 @@
 
   // Memoization cache for resolved profile actions to avoid re-resolving on every reactive update
   const resolvedCommandsCache = new Map<string, MidiCommand[] | undefined>();
-  
+
   function getCachedResolvedCommands(profileId: string, actionId: string): MidiCommand[] | undefined {
     const cacheKey = `${profileId}:${actionId}`;
     if (!resolvedCommandsCache.has(cacheKey)) {
@@ -44,7 +44,7 @@
     }
     return resolvedCommandsCache.get(cacheKey);
   }
-  
+
   // Clear cache when profile changes
   $effect(() => {
     resolvedCommandsCache.clear();
@@ -54,12 +54,12 @@
   // Initialize from button props and clear selection when switching states
   $effect(() => {
     selectedProfileId = button.profile_id || '';
-    
+
     // Only set profileMode to true if we have profile data from config
     if (button.profile_id) {
       profileMode = true;
     }
-    
+
     // Handle selectedActionId based on context:
     // - Single state (stateIndex undefined): use button.action_id
     // - Multi-state: clear selection when switching states
@@ -120,7 +120,7 @@
       }
       return cmd.pc_step;
     };
-    
+
     return (
       cmd1.type === cmd2.type &&
       cmd1.channel === cmd2.channel &&
@@ -143,7 +143,7 @@
   // Find which action (if any) matches the current target event commands
   let matchedActionId = $derived.by(() => {
     if (!selectedProfileId || !targetMidiCommands || targetMidiCommands.length === 0) return null;
-    
+
     const actions = getProfileActions(selectedProfileId);
     if (!actions) return null;
 
@@ -192,7 +192,7 @@
 
   function handleActionChange(actionId: string) {
     selectedActionId = actionId;
-    
+
     // Update profile metadata - only on button level in single-state mode
     // In multi-state mode, action_id is state-specific (not persisted to config)
     if (stateIndex === undefined) {
@@ -212,7 +212,7 @@
         if (channelOverride !== undefined) {
           commands = commands.map(cmd => ({ ...cmd, channel: channelOverride }));
         }
-        
+
         // Update commands - use state-specific or button-level depending on context
         if (stateIndex !== undefined && onUpdateState) {
           // Updating a specific state (keytimes > 1)
@@ -230,7 +230,7 @@
     selectedActionId = '';
     onUpdate('profile_id', undefined);
     onUpdate('action_id', undefined);
-    
+
     // Clear all event commands
     // In multi-state mode, clear commands from ALL states to match UI labeling
     if (stateIndex !== undefined && onUpdateState && button.states) {
@@ -515,7 +515,7 @@
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.875rem;
-    background: #13131f;
+    background: #131313;
     border: 2px solid var(--border-default);
     border-radius: 6px;
     cursor: pointer;
@@ -599,7 +599,7 @@
   .channel-override input {
     width: 80px;
     padding: 0.5rem;
-    background: #13131f;
+    background: #131313;
     border: 1px solid var(--border-default);
     border-radius: 4px;
     color: #e5e7eb;
@@ -636,7 +636,7 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 0.625rem 0.75rem;
-    background: #13131f;
+    background: #131313;
     border: 1px solid var(--border-default);
     border-radius: 4px;
     color: #d1d5db;
@@ -696,7 +696,7 @@
 
   .action-button {
     padding: 0.625rem 0.75rem;
-    background: #13131f;
+    background: #131313;
     border: 1px solid var(--border-default);
     border-radius: 4px;
     color: #d1d5db;
@@ -723,7 +723,7 @@
   /* MIDI Preview */
   .midi-preview {
     padding: 0.875rem;
-    background: #13131f;
+    background: #131313;
     border: 1px solid var(--border-default);
     border-radius: 6px;
   }

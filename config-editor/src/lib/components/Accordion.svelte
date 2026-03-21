@@ -43,7 +43,7 @@
   }
 
   :global(.accordion-item) {
-    border: 1px solid #374151;
+    border: 1px solid #333333;
     border-radius: 4px;
     background: #1f2937;
   }
@@ -51,7 +51,7 @@
   :global(.accordion-header) {
     width: 100%;
     padding: 0.75rem 1rem;
-    background: #374151;
+    background: #333333;
     border: none;
     border-radius: 4px 4px 0 0;
     cursor: pointer;
@@ -66,7 +66,7 @@
   }
   
   :global(.accordion-header:hover) {
-    background: #4b5563;
+    background: #444444;
   }
   
   :global(.accordion-header:disabled) {
@@ -75,7 +75,7 @@
   }
   
   :global(.accordion-header:disabled:hover) {
-    background: #374151;
+    background: #333333;
   }
   
   .indicator {

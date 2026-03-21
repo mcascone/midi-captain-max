@@ -15,7 +15,7 @@
       ? $activeBank.buttons
       : $config.buttons ?? []
   );
-  
+
   let deviceType = $derived($config.device ?? 'std10');
   let totalSlots = $derived(deviceType === 'mini6' ? 6 : 10);
   let cols = $derived(deviceType === 'mini6' ? 3 : 5);
@@ -328,11 +328,11 @@
   }
 
   .panel-title {
-    font-size: 11px;
+    font-size: var(--text-sm);
     font-weight: 700;
     text-transform: uppercase;
-    color: #9ca3af; /* zinc-400 */
-    letter-spacing: 0.15em;
+    color: var(--text-secondary);
+    letter-spacing: 0.1em;
   }
 
   .dots-btn {
@@ -349,8 +349,8 @@
   .buttons-grid {
     display: grid;
     grid-template-columns: repeat(var(--cols, 5), 1fr);
-    gap: 16px;
-    padding: 16px 24px 24px;
+    gap: 20px;
+    padding: 20px 28px 28px;
   }
 
   .btn-card {
@@ -359,7 +359,7 @@
     flex-direction: column;
     align-items: flex-start;
     padding: 16px 14px 12px;
-    background: #18182a;
+    background: #181818;
     border: 1px solid var(--border-default);
     border-radius: 12px;
     cursor: pointer;
@@ -403,11 +403,11 @@
   .btn-card.empty {
     align-items: center;
     justify-content: center;
-    background: #111120;
+    background: #111111;
     border-style: dashed;
     border-color: var(--border-default);
     cursor: default;
-    color: #374151;
+    color: #333333;
   }
 
   .btn-led {
@@ -420,10 +420,11 @@
   }
 
   .btn-label {
-    font-size: 13px;
+    font-size: var(--text-sm);
     font-weight: 700;
-    color: #f3f4f6;
+    color: var(--text-primary);
     text-transform: uppercase;
+    letter-spacing: 0.02em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -431,9 +432,10 @@
   }
 
   .btn-type {
-    font-size: 11px;
-    color: #9ca3af;
-    font-family: monospace;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    font-family: var(--font-family);
+    font-weight: 500;
   }
 
   .btn-vals {
@@ -473,7 +475,7 @@
 
   .empty-plus {
     font-size: 20px;
-    color: #374151;
+    color: #333333;
     margin-bottom: 12px;
   }
 </style>
