@@ -122,11 +122,11 @@
 
 <style>
   .conditional-block {
-    border: 2px solid #6366f1;
+    border: 2px solid #4f46e5;
     border-radius: 8px;
     padding: 16px;
     margin: 12px 0;
-    background: linear-gradient(135deg, #f0f0ff 0%, #fafafa 100%);
+    background: #1e1b3a;
   }
   
   .condition-header {
@@ -138,7 +138,7 @@
   
   .if-label {
     font-weight: 700;
-    color: #6366f1;
+    color: #818cf8;
     font-size: 14px;
     letter-spacing: 0.5px;
   }
@@ -170,12 +170,12 @@
   }
   
   .then-branch {
-    background: #f0fff4;
+    background: rgba(16, 185, 129, 0.08);
     border-left-color: #10b981;
   }
   
   .else-branch {
-    background: #fef3f2;
+    background: rgba(239, 68, 68, 0.08);
     border-left-color: #ef4444;
   }
   
@@ -193,26 +193,28 @@
   }
   
   .then-branch .branch-label {
-    color: #10b981;
+    color: #34d399;
   }
   
   .else-branch .branch-label {
-    color: #ef4444;
+    color: #f87171;
   }
   
   .add-command-btn {
-    background: white;
-    border: 1px solid #d1d5db;
+    background: #2a2a3e;
+    border: 1px solid #3a3a55;
     border-radius: 4px;
     padding: 4px 8px;
     font-size: 12px;
+    color: #9ca3af;
     cursor: pointer;
     transition: all 0.2s;
   }
   
   .add-command-btn:hover {
-    background: #f3f4f6;
-    border-color: #6366f1;
+    background: #35354e;
+    border-color: #4f46e5;
+    color: #e5e7eb;
   }
   
   .branch-commands {

@@ -122,14 +122,14 @@
     align-items: center;
     gap: 12px;
     padding: 12px;
-    background: white;
-    border: 1px solid #e5e7eb;
+    background: #2a2a3e;
+    border: 1px solid #3a3a55;
     border-radius: 6px;
   }
   
   .command-number {
     font-weight: 600;
-    color: #6b7280;
+    color: #9ca3af;
     min-width: 20px;
     text-align: center;
   }
@@ -150,22 +150,25 @@
   .field label {
     font-size: 11px;
     font-weight: 500;
-    color: #6b7280;
+    color: #9ca3af;
   }
   
   .field select,
   .field input {
     width: 100%;
     padding: 6px 8px;
-    border: 1px solid #d1d5db;
+    border: 1px solid #3a3a55;
     border-radius: 4px;
     font-size: 13px;
+    background: #1f1f35;
+    color: #e5e7eb;
   }
   
   .field select:focus,
   .field input:focus {
     outline: none;
     border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
   }
   
   .remove-btn {
