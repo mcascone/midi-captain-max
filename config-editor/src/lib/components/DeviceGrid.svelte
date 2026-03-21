@@ -349,8 +349,8 @@
   .buttons-grid {
     display: grid;
     grid-template-columns: repeat(var(--cols, 5), 1fr);
-    gap: 10px;
-    padding: 8px 16px 20px;
+    gap: 16px;
+    padding: 16px 24px 24px;
   }
 
   .btn-card {
@@ -358,42 +358,46 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    padding: 12px 10px 8px;
+    padding: 16px 14px 12px;
     background: #18182a;
-    border: 1px solid #2a2a3e;
-    border-radius: 10px;
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
     cursor: pointer;
     text-align: left;
-    height: 135px;
-    transition: border-color 0.15s, background 0.15s;
+    height: 165px;
+    transition: all 0.2s ease;
     color: #e5e7eb;
-    gap: 2px;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
   .btn-card:hover {
-    border-color: #4b5563;
-    background: #1f1f35;
+    border-color: var(--accent-primary);
+    background: var(--bg-input);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), var(--glow-cyan-sm);
+    transform: translateY(-2px);
   }
 
   .btn-card.selected {
-    border-color: #6366f1;
-    background: #1e1e38;
+    border-color: var(--accent-primary);
+    background: #1e1e1e;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), var(--glow-cyan);
   }
 
   .btn-card.multi-command {
     border-color: #d97706;
-    background: linear-gradient(135deg, #1a1a2e 0%, #1e1d2a 100%);
+    background: linear-gradient(135deg, var(--bg-card) 0%, #1c1c1c 100%);
     box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.15);
   }
 
   .btn-card.multi-command:hover {
     border-color: #f59e0b;
-    background: linear-gradient(135deg, #1e1e38 0%, #222238 100%);
+    background: linear-gradient(135deg, #1e1e1e 0%, #252525 100%);
   }
 
   .btn-card.multi-command.selected {
-    border-color: #6366f1;
-    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.4), 0 0 12px rgba(99, 102, 241, 0.3);
+    border-color: var(--accent-primary);
+    box-shadow: inset 0 0 0 1px rgba(0, 212, 170, 0.4), 0 0 12px rgba(0, 212, 170, 0.3);
   }
 
   .btn-card.empty {
@@ -401,7 +405,7 @@
     justify-content: center;
     background: #111120;
     border-style: dashed;
-    border-color: #2a2a3e;
+    border-color: var(--border-default);
     cursor: default;
     color: #374151;
   }

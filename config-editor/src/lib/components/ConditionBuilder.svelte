@@ -166,42 +166,45 @@
   .condition-builder {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 10px;
-    padding: 10px;
-    background: #2a2745;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-input);
     border-radius: 6px;
-    border: 1px solid #3a3a55;
+    border: 1px solid var(--border-default);
   }
   
   .field {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
   }
   
   .field label {
     font-size: 11px;
     font-weight: 500;
-    color: #9ca3af;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
   
   .field select,
   .field input {
     width: 100%;
-    padding: 4px 8px;
-    border: 1px solid #3a3a55;
+    padding: 6px 10px;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
     font-size: 13px;
     line-height: 1.5;
     height: 32px;
-    background: #1f1f35;
-    color: #e5e7eb;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    transition: all 0.2s;
   }
   
   .field select:focus,
   .field input:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-primary-dim);
   }
 </style>

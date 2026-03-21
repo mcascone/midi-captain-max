@@ -326,8 +326,8 @@
   }
 
   .button-group:hover .button-rect {
-    fill: #222238;
-    stroke: #8b5cf6;
+    fill: #1e1e1e;
+    stroke: var(--accent-primary);
   }
 
   .button-group:focus {
@@ -335,20 +335,20 @@
   }
 
   .button-group:focus .button-rect {
-    stroke: #8b5cf6;
+    stroke: var(--accent-primary);
     stroke-width: 3;
   }
 
   .button-rect {
-    fill: #1a1a2e;
-    stroke: #2a2a40;
+    fill: var(--bg-card);
+    stroke: var(--border-default);
     stroke-width: 2;
     transition: all 0.2s ease;
   }
 
   .button-rect.selected {
-    fill: #2a2a40;
-    stroke: #8b5cf6;
+    fill: var(--bg-input);
+    stroke: var(--accent-primary);
     stroke-width: 3;
   }
 
@@ -369,7 +369,7 @@
   }
 
   .badge-bg {
-    fill: #8b5cf6;
+    fill: var(--accent-primary);
   }
 
   .badge-text {
@@ -405,9 +405,9 @@
 
   /* Keyboard accessibility */
   .button-group:focus-visible .button-rect {
-    stroke: #8b5cf6;
+    stroke: var(--accent-primary);
     stroke-width: 3;
-    outline: 2px solid #8b5cf6;
+    outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
   }
 </style>

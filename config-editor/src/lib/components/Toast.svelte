@@ -48,8 +48,8 @@
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    background: #1a1a2e;
-    border: 1px solid #2a2a40;
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     min-width: 280px;
@@ -121,6 +121,6 @@
   
   .toast-close:hover {
     color: #e5e7eb;
-    background: #2a2a3e;
+    background: var(--bg-input);
   }
 </style>

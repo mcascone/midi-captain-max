@@ -186,8 +186,8 @@
 <style>
   .banks-panel {
     padding: 1rem;
-    background: #1a1f2e;
-    border-bottom: 1px solid #374151;
+    background: var(--bg-input);
+    border-bottom: 1px solid var(--border-default);
   }
 
   .carousel-layout {
@@ -204,8 +204,8 @@
     width: 36px;
     height: 36px;
     padding: 0;
-    background: #2d3748;
-    border: 1px solid #4a5568;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 0.375rem;
     cursor: pointer;
     color: #e2e8f0;
@@ -214,9 +214,9 @@
   }
 
   .banks-panel :global(.carousel-nav-btn:hover:not(:disabled)) {
-    border-color: #8b5cf6;
-    background: #374151;
-    color: #8b5cf6;
+    border-color: var(--accent-primary);
+    background: var(--bg-input);
+    color: var(--accent-primary);
   }
 
   .banks-panel :global(.carousel-nav-btn:disabled) {
@@ -278,18 +278,18 @@
     width: 100%;
     max-width: 280px;
     padding: 0.5rem 1rem;
-    border: 2px solid #8b5cf6;
+    border: 2px solid var(--accent-primary);
     border-radius: 0.375rem;
     font-size: 1rem;
     font-weight: 600;
-    background: #1a1f2e;
+    background: var(--bg-input);
     color: #e2e8f0;
     text-align: center;
   }
 
   .bank-rename-input:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    box-shadow: 0 0 0 3px var(--accent-primary-dim);
   }
 
   /* Action buttons */
@@ -306,8 +306,8 @@
     width: 36px;
     height: 36px;
     padding: 0;
-    background: #2d3748;
-    border: 1px solid #4a5568;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 0.375rem;
     cursor: pointer;
     color: #9ca3af;
@@ -315,9 +315,9 @@
   }
 
   .action-btn:hover:not(:disabled) {
-    border-color: #8b5cf6;
-    color: #8b5cf6;
-    background: #374151;
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    background: var(--bg-input);
   }
 
   .action-btn.delete:hover:not(:disabled) {

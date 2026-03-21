@@ -85,7 +85,7 @@
   .event-label {
     font-size: 12px;
     font-weight: 600;
-    color: #9ca3af;
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -97,13 +97,13 @@
   
   .add-btn,
   .add-conditional-btn {
-    background: #1f1f35;
-    border: 1px solid #3a3a55;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
-    color: #9ca3af;
+    color: var(--text-secondary);
     font-size: 12px;
     font-weight: 500;
-    padding: 5px 10px;
+    padding: 6px 12px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -113,19 +113,21 @@
   
   .add-btn:hover,
   .add-conditional-btn:hover {
-    background: #2a2a3e;
-    color: #e5e7eb;
-    border-color: #4a4a5e;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-accent);
   }
   
   .add-conditional-btn {
-    background: #312e81;
-    border-color: #4338ca;
+    background: var(--accent-primary-dim);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
   }
   
   .add-conditional-btn:hover {
-    background: #3730a3;
-    border-color: #4f46e5;
+    background: var(--accent-primary);
+    color: var(--bg-dark);
+    border-color: var(--accent-primary-hover);
   }
   
   .add-icon {
@@ -136,10 +138,10 @@
   .empty-commands {
     padding: 20px;
     text-align: center;
-    color: #6b7280;
+    color: var(--text-tertiary);
     font-size: 12px;
-    background: #1a1a2e;
-    border: 1px dashed #2a2a3e;
+    background: var(--bg-input);
+    border: 1px dashed var(--border-default);
     border-radius: 6px;
   }
   

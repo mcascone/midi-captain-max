@@ -2,6 +2,35 @@
 @import '@skeletonlabs/skeleton';
 @import '@skeletonlabs/skeleton/themes/modern';
 
+:root {
+  /* Quad Cortex inspired color scheme */
+  --accent-primary: #00d4aa; /* Bright cyan */
+  --accent-primary-hover: #00ffcc;
+  --accent-primary-dim: rgba(0, 212, 170, 0.15);
+  --bg-dark: #0a0a0a;
+  --bg-card: #1a1a1a;
+  --bg-input: #141414;
+  --border-default: #2a2a2a;
+  --border-accent: #00d4aa;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --text-tertiary: #555555;
+  
+  /* Shadows & Glow Effects */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --glow-cyan: 0 0 8px rgba(0, 212, 170, 0.4), 0 0 16px rgba(0, 212, 170, 0.2);
+  --glow-cyan-sm: 0 0 4px rgba(0, 212, 170, 0.3);
+  
+  /* Spacing scale */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -12,8 +41,8 @@ body {
     'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
-  color: #e5e7eb;
-  background: #0f0f1a;
+  color: var(--text-primary);
+  background: var(--bg-dark);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -30,23 +59,43 @@ input, select, textarea {
   font-size: inherit;
 }
 
-/* Button row tweaks */
+/* Enhanced input styling with glow effects */
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+  box-shadow: var(--glow-cyan-sm);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* Enhanced button hover states */
+button:not(:disabled):hover {
+  box-shadow: var(--glow-cyan-sm);
+  transition: all 0.2s ease;
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-cyan);
+}
+
+/* Legacy button row styles (kept for compatibility) */
 .button-row {
   display: grid;
   grid-template-columns: 160px 1fr;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-default);
   border-radius: 6px;
-  background: #fafafa;
+  background: var(--bg-card);
   margin-bottom: 10px;
 }
 .button-row .field { display: inline-flex; align-items: center; gap:8px; margin:4px 8px; }
-.button-row .field .field-label { min-width:88px; color:#555; font-size:13px }
+.button-row .field .field-label { min-width:88px; color: var(--text-secondary); font-size:13px }
 .input-cc, .input-channel, .input-cc-value { width:80px }
 .input-label { width:120px }
-.long-section { margin-top:8px; border-top:1px solid #eee; padding-top:8px }
+.long-section { margin-top:8px; border-top:1px solid var(--border-default); padding-top:8px }
 .long-fields { display:flex; gap:10px; align-items:center }
 .long-fields input[type='number'] { width:80px }
-.long-toggle { font-size:13px; color:#444 }
-.checkbox-inline { display:inline-flex; align-items:center; gap:8px; color:#333 }
+.long-toggle { font-size:13px; color: var(--text-secondary) }
+.checkbox-inline { display:inline-flex; align-items:center; gap:8px; color: var(--text-primary) }

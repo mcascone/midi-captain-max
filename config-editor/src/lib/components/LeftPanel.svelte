@@ -90,8 +90,8 @@
   .tabs-container :global(.tabs-list) {
     display: flex;
     gap: 0;
-    border-bottom: 1px solid #374151;
-    background: #0f0f1a;
+    border-bottom: 1px solid var(--border-default);
+    background: var(--bg-dark);
     align-items: center;
   }
 
@@ -110,21 +110,21 @@
 
   .tabs-container :global(.tab-trigger:hover) {
     color: #e5e7eb;
-    background: #374151;
+    background: var(--bg-input);
   }
 
   .tabs-container :global(.tab-trigger[data-state="active"]),
   .tabs-container :global(.tab-trigger[aria-selected="true"]) {
-    color: #8b5cf6;
-    border-bottom-color: #8b5cf6;
-    background: #0f0f1a;
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+    background: var(--bg-dark);
   }
 
   .tabs-container :global(.tab-content) {
     padding: 16px;
     flex: 1;
     overflow-y: auto;
-    background: #0f0f1a;
+    background: var(--bg-dark);
     color: #e5e7eb;
   }
 
@@ -139,8 +139,8 @@
   .banks-panel-section {
     flex-shrink: 0;
     padding: 16px;
-    background: #1a1f2e;
-    border-bottom: 1px solid #374151;
+    background: var(--bg-input);
+    border-bottom: 1px solid var(--border-default);
   }
 
   .device-layout-section {

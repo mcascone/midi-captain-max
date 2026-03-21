@@ -104,7 +104,7 @@
     flex-direction: column;
     gap: 0.25rem;
     padding-bottom: 1rem;
-    border-bottom: 2px solid #8b5cf6;
+    border-bottom: 2px solid var(--accent-primary);
   }
 
   .header-text {
@@ -137,7 +137,7 @@
     width: 20px;
     height: 20px;
     cursor: pointer;
-    accent-color: #8b5cf6;
+    accent-color: var(--accent-primary);
   }
 
   .field-label-left {
@@ -182,7 +182,7 @@
   }
 
   .splash-section input[type="number"]:focus {
-    outline: 2px solid #8b5cf6;
+    outline: 2px solid var(--accent-primary);
     outline-offset: 1px;
   }
 
@@ -190,7 +190,7 @@
     padding: 1.25rem;
     background: #1e293b;
     border-radius: 8px;
-    border-left: 4px solid #8b5cf6;
+    border-left: 4px solid var(--accent-primary);
   }
 
   .info-header {

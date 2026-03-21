@@ -122,25 +122,26 @@
 
 <style>
   .conditional-block {
-    border: 2px solid #4f46e5;
+    border: 2px solid var(--accent-primary);
     border-radius: 8px;
-    padding: 12px;
+    padding: 16px;
     margin: 10px 0;
-    background: #1e1b3a;
+    background: var(--bg-card);
   }
   
   .condition-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
   
   .if-label {
     font-weight: 700;
-    color: #818cf8;
+    color: var(--accent-primary);
     font-size: 14px;
     letter-spacing: 0.5px;
+    text-transform: uppercase;
   }
   
   .remove-conditional {
@@ -156,6 +157,7 @@
     cursor: pointer;
     font-size: 16px;
     line-height: 1;
+    transition: background 0.2s;
   }
   
   .remove-conditional:hover {
@@ -163,8 +165,8 @@
   }
   
   .branch-container {
-    margin-top: 10px;
-    padding: 10px;
+    margin-top: 12px;
+    padding: 12px;
     border-radius: 6px;
     border-left: 3px solid;
   }
@@ -190,6 +192,7 @@
     font-weight: 600;
     font-size: 12px;
     letter-spacing: 0.5px;
+    text-transform: uppercase;
   }
   
   .then-branch .branch-label {
@@ -201,20 +204,20 @@
   }
   
   .add-command-btn {
-    background: #2a2a3e;
-    border: 1px solid #3a3a55;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 4px 10px;
     font-size: 12px;
-    color: #9ca3af;
+    color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s;
   }
   
   .add-command-btn:hover {
-    background: #35354e;
-    border-color: #4f46e5;
-    color: #e5e7eb;
+    background: var(--bg-card);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
   }
   
   .branch-commands {
@@ -226,7 +229,7 @@
   .empty-branch {
     padding: 12px;
     text-align: center;
-    color: #9ca3af;
+    color: var(--text-secondary);
     font-size: 13px;
     font-style: italic;
   }

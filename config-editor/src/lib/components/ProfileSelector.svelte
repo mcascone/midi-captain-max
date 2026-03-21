@@ -446,8 +446,8 @@
   .profile-selector {
     margin-bottom: 1rem;
     padding: 1rem;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
   }
 
@@ -516,7 +516,7 @@
     gap: 0.5rem;
     padding: 0.875rem;
     background: #13131f;
-    border: 2px solid #2a2a3e;
+    border: 2px solid var(--border-default);
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -525,12 +525,12 @@
 
   .profile-card:hover {
     border-color: #3a3a4e;
-    background: #1a1a2e;
+    background: var(--bg-input);
   }
 
   .profile-card.active {
-    border-color: #6366f1;
-    background: rgba(99, 102, 241, 0.1);
+    border-color: var(--accent-primary);
+    background: var(--accent-primary-dim);
   }
 
   .profile-card-header {
@@ -553,7 +553,7 @@
     font-weight: 600;
     padding: 2px 6px;
     border-radius: 3px;
-    background: #2a2a3e;
+    background: var(--bg-input);
     color: #9ca3af;
     text-transform: uppercase;
   }
@@ -600,7 +600,7 @@
     width: 80px;
     padding: 0.5rem;
     background: #13131f;
-    border: 1px solid #2a2a3e;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
     color: #e5e7eb;
     font-size: 13px;
@@ -609,8 +609,8 @@
 
   .channel-override input:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-primary-dim);
   }
 
   .channel-override input::placeholder {
@@ -637,7 +637,7 @@
     gap: 0.5rem;
     padding: 0.625rem 0.75rem;
     background: #13131f;
-    border: 1px solid #2a2a3e;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
     color: #d1d5db;
     font-size: 12px;
@@ -649,12 +649,12 @@
 
   .event-button:hover {
     border-color: #3a3a4e;
-    background: #1a1a2e;
+    background: var(--bg-input);
     color: #e5e7eb;
   }
 
   .event-button.has-commands {
-    border-color: #3a3a55;
+    border-color: var(--border-accent);
   }
 
   .event-button.active {
@@ -675,11 +675,11 @@
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    background: rgba(99, 102, 241, 0.25);
+    background: var(--accent-primary-dim);
     border-radius: 9px;
     font-size: 10px;
     font-weight: 700;
-    color: #a5b4fc;
+    color: var(--accent-primary);
   }
 
   .event-button.active .event-badge {
@@ -697,7 +697,7 @@
   .action-button {
     padding: 0.625rem 0.75rem;
     background: #13131f;
-    border: 1px solid #2a2a3e;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
     color: #d1d5db;
     font-size: 12px;
@@ -709,14 +709,14 @@
 
   .action-button:hover {
     border-color: #3a3a4e;
-    background: #1a1a2e;
+    background: var(--bg-input);
     color: #e5e7eb;
   }
 
   .action-button.active {
-    background: rgba(99, 102, 241, 0.15);
-    border-color: #6366f1;
-    color: #818cf8;
+    background: var(--accent-primary-dim);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
     font-weight: 600;
   }
 
@@ -724,7 +724,7 @@
   .midi-preview {
     padding: 0.875rem;
     background: #13131f;
-    border: 1px solid #2a2a3e;
+    border: 1px solid var(--border-default);
     border-radius: 6px;
   }
 
@@ -738,7 +738,7 @@
   .preview-header strong {
     font-size: 11px;
     font-weight: 700;
-    color: #818cf8;
+    color: var(--accent-primary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     flex: 1;
@@ -766,20 +766,20 @@
     align-items: center;
     gap: 0.375rem;
     padding: 0.375rem 0.625rem;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 4px;
     font-family: 'Courier New', monospace;
     font-size: 12px;
     font-weight: 600;
-    color: #a5b4fc;
+    color: var(--accent-primary);
   }
 
   .midi-channel {
     padding: 0.125rem 0.375rem;
-    background: rgba(99, 102, 241, 0.2);
+    background: var(--accent-primary-dim);
     border-radius: 3px;
     font-size: 10px;
-    color: #c7d2fe;
+    color: var(--accent-primary);
   }
 </style>

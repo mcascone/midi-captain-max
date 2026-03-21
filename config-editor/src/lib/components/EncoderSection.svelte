@@ -336,7 +336,7 @@
   
   .encoder-fields input:focus,
   .encoder-fields select:focus {
-    outline: 2px solid #8b5cf6;
+    outline: 2px solid var(--accent-primary);
     outline-offset: 1px;
   }
   

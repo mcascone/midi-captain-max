@@ -100,7 +100,7 @@
   }
 
   .display-section select:focus {
-    outline: 2px solid #8b5cf6;
+    outline: 2px solid var(--accent-primary);
     outline-offset: 1px;
   }
 </style>
