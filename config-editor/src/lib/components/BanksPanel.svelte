@@ -188,12 +188,14 @@
     padding: 1.5rem 1.5rem 1.25rem;
     background: var(--bg-dark);
     border-bottom: 2px solid var(--border-default);
+    overflow: visible;
   }
 
   .carousel-layout {
     display: flex;
     align-items: center;
     gap: 1rem;
+    overflow: visible;
   }
 
   /* Carousel navigation buttons - uses Skeleton's Control wrapper */
