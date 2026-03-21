@@ -124,8 +124,8 @@
   .conditional-block {
     border: 2px solid #4f46e5;
     border-radius: 8px;
-    padding: 16px;
-    margin: 12px 0;
+    padding: 12px;
+    margin: 10px 0;
     background: #1e1b3a;
   }
   
@@ -133,7 +133,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
   
   .if-label {
@@ -163,8 +163,8 @@
   }
   
   .branch-container {
-    margin-top: 12px;
-    padding: 12px;
+    margin-top: 10px;
+    padding: 10px;
     border-radius: 6px;
     border-left: 3px solid;
   }

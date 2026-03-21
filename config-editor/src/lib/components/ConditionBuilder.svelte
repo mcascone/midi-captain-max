@@ -166,8 +166,8 @@
   .condition-builder {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 12px;
-    padding: 12px;
+    gap: 10px;
+    padding: 10px;
     background: #2a2745;
     border-radius: 6px;
     border: 1px solid #3a3a55;
@@ -176,11 +176,11 @@
   .field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
   
   .field label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     color: #9ca3af;
   }
@@ -188,10 +188,12 @@
   .field select,
   .field input {
     width: 100%;
-    padding: 6px 8px;
+    padding: 4px 8px;
     border: 1px solid #3a3a55;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    height: 32px;
     background: #1f1f35;
     color: #e5e7eb;
   }
