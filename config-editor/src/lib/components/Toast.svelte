@@ -74,7 +74,7 @@
   }
   
   .toast.info {
-    border-left: 3px solid #3b82f6;
+    border-left: 3px solid var(--accent-primary);
   }
   
   .toast-icon {
@@ -97,7 +97,7 @@
   }
   
   .toast.info .toast-icon {
-    color: #3b82f6;
+    color: var(--accent-primary);
   }
   
   .toast-message {
