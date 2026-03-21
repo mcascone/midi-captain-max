@@ -139,8 +139,8 @@
           aria-label="Duplicate bank"
         >
           <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M6 12H12V6" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="3" y="5" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M6 5V4a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-1" stroke="currentColor" stroke-width="1.5"/>
           </svg>
         </button>
 
@@ -185,7 +185,7 @@
 
 <style>
   .banks-panel {
-    padding: 1.5rem 1.5rem 1.25rem;
+    padding: 2rem 1.5rem 1.25rem;
     background: var(--bg-dark);
     border-bottom: 2px solid var(--border-default);
     overflow: visible;
@@ -264,7 +264,6 @@
   .bank-display:hover {
     background: var(--bg-input);
     border-color: var(--accent-primary);
-    transform: translateY(-2px);
     box-shadow: var(--shadow-md), var(--glow-cyan-sm);
   }
 

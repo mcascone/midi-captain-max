@@ -134,13 +134,15 @@
     flex-direction: column;
     padding: 0;
     gap: 0;
+    overflow-y: auto;
+    overflow-x: visible;
   }
 
   .banks-panel-section {
     flex-shrink: 0;
-    padding: 16px;
     background: var(--bg-input);
     border-bottom: 1px solid var(--border-default);
+    overflow: visible;
   }
 
   .device-layout-section {
