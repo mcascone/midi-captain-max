@@ -254,7 +254,7 @@
   }
 
   .bank-display:hover {
-    background: rgba(139, 92, 246, 0.1);
+    background: var(--accent-primary-dim);
   }
 
   .bank-name {
