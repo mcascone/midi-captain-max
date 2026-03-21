@@ -185,7 +185,7 @@
 
 <style>
   .banks-panel {
-    padding: 1.5rem 2rem;
+    padding: 1.25rem 1.5rem;
     background: var(--bg-dark);
     border-bottom: 2px solid var(--border-default);
   }
@@ -193,7 +193,7 @@
   .carousel-layout {
     display: flex;
     align-items: center;
-    gap: 1.25rem;
+    gap: 1rem;
   }
 
   /* Carousel navigation buttons - uses Skeleton's Control wrapper */
@@ -247,13 +247,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    padding: 1.5rem 2rem;
+    gap: 0.375rem;
+    padding: 1rem 1.5rem;
     cursor: pointer;
-    border-radius: 12px;
+    border-radius: 10px;
     transition: all 0.2s ease;
     width: 100%;
-    max-width: 380px;
+    max-width: 280px;
     background: var(--bg-card);
     border: 2px solid var(--border-default);
     box-shadow: var(--shadow-sm);
@@ -267,7 +267,7 @@
   }
 
   .bank-name {
-    font-size: var(--text-2xl);
+    font-size: var(--text-xl);
     font-weight: 700;
     color: var(--text-primary);
     text-align: center;
@@ -288,11 +288,11 @@
 
   .bank-rename-input {
     width: 100%;
-    max-width: 380px;
-    padding: 1.5rem 2rem;
+    max-width: 280px;
+    padding: 1rem 1.5rem;
     border: 2px solid var(--accent-primary);
-    border-radius: 12px;
-    font-size: var(--text-2xl);
+    border-radius: 10px;
+    font-size: var(--text-xl);
     font-weight: 700;
     background: var(--bg-card);
     color: var(--text-primary);

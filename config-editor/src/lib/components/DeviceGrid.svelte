@@ -281,6 +281,10 @@
       >
         <div class="btn-led" style="background: {colorHex(btn)}"></div>
 
+        {#if isMultiCommand(btn)}
+          <div class="multi-badge">×{(btn.press?.length ?? 0) || (btn.keytimes ?? 1)}</div>
+        {/if}
+
         <div class="btn-label">{btn.label}</div>
         <div class="btn-type">{typeLabel(btn)}</div>
 
@@ -294,6 +298,18 @@
             {#if offValues(btn)}
               <span class="val-pill">{offValues(btn)}</span>
             {/if}
+          {/if}
+        </div>
+
+        <div class="mode-badge" class:mode-toggle={btn.mode === 'toggle' || !btn.mode} class:mode-momentary={btn.mode === 'momentary'} class:mode-select={btn.mode === 'select'} class:mode-tap={btn.mode === 'tap'}>
+          {#if btn.mode === 'momentary'}
+            M
+          {:else if btn.mode === 'select'}
+            S
+          {:else if btn.mode === 'tap'}
+            TAP
+          {:else}
+            N
           {/if}
         </div>
 
@@ -358,46 +374,50 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    padding: 16px 14px 12px;
+    padding: 18px 16px 14px;
     background: #181818;
-    border: 1px solid var(--border-default);
-    border-radius: 12px;
+    border: 2px solid var(--border-default);
+    border-radius: 14px;
     cursor: pointer;
     text-align: left;
-    height: 165px;
+    height: 175px;
     transition: all 0.2s ease;
     color: #e5e7eb;
-    gap: 6px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    gap: 8px;
+    box-shadow: var(--shadow-md);
   }
 
   .btn-card:hover {
     border-color: var(--accent-primary);
     background: var(--bg-input);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), var(--glow-cyan-sm);
-    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg), var(--glow-cyan-sm);
+    transform: translateY(-3px);
   }
 
   .btn-card.selected {
     border-color: var(--accent-primary);
+    border-width: 3px;
     background: #1e1e1e;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), var(--glow-cyan);
+    box-shadow: var(--shadow-lg), var(--glow-cyan), inset 0 0 20px rgba(0, 212, 170, 0.1);
+    padding: 17px 15px 13px;
   }
 
   .btn-card.multi-command {
     border-color: #d97706;
     background: linear-gradient(135deg, var(--bg-card) 0%, #1c1c1c 100%);
-    box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.15);
+    box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.2), var(--shadow-md);
   }
 
   .btn-card.multi-command:hover {
     border-color: #f59e0b;
     background: linear-gradient(135deg, #1e1e1e 0%, #252525 100%);
+    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.3), var(--shadow-lg), 0 0 16px rgba(245, 158, 11, 0.2);
   }
 
   .btn-card.multi-command.selected {
     border-color: var(--accent-primary);
-    box-shadow: inset 0 0 0 1px rgba(0, 212, 170, 0.4), 0 0 12px rgba(0, 212, 170, 0.3);
+    border-width: 3px;
+    box-shadow: inset 0 0 0 1px rgba(0, 212, 170, 0.4), var(--shadow-lg), var(--glow-cyan);
   }
 
   .btn-card.empty {
@@ -411,20 +431,20 @@
   }
 
   .btn-led {
-    width: 10px;
-    height: 10px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     flex-shrink: 0;
-    box-shadow: 0 0 6px currentColor;
-    margin-bottom: 6px;
+    box-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+    margin-bottom: 4px;
   }
 
   .btn-label {
-    font-size: var(--text-sm);
-    font-weight: 700;
+    font-size: var(--text-lg);
+    font-weight: 800;
     color: var(--text-primary);
     text-transform: uppercase;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.05em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -461,16 +481,65 @@
 
   .btn-num {
     position: absolute;
-    bottom: 8px;
+    bottom: 10px;
     left: 50%;
     transform: translateX(-50%);
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .multi-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--accent-primary);
+    color: var(--bg-dark);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 212, 170, 0.4);
+  }
+
+  .mode-badge {
+    position: absolute;
+    bottom: 36px;
+    left: 14px;
     font-size: 10px;
-    color: #9ca3af;
-    font-weight: 500;
-    background: rgba(0, 0, 0, 0.35);
-    padding: 2px 8px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .mode-toggle {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+  }
+
+  .mode-momentary {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+  }
+
+  .mode-select {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+  }
+
+  .mode-tap {
+    background: rgba(249, 115, 22, 0.2);
+    color: #fb923c;
+    border: 1px solid rgba(249, 115, 22, 0.4);
   }
 
   .empty-plus {
