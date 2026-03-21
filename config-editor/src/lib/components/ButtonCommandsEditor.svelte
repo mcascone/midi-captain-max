@@ -45,7 +45,6 @@
         Add Command
       </button>
       <button class="add-conditional-btn" type="button" onclick={addConditional} title="Add conditional logic (if/then/else)">
-        <span class="if-icon">↯</span>
         Add If/Then
       </button>
     </div>
@@ -129,14 +128,9 @@
     border-color: #4f46e5;
   }
   
-  .add-icon,
-  .if-icon {
+  .add-icon {
     font-size: 14px;
     font-weight: 600;
-  }
-  
-  .if-icon {
-    font-size: 16px;
   }
   
   .empty-commands {

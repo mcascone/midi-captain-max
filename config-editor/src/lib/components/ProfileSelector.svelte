@@ -411,7 +411,6 @@
       {#if selectedProfileId && targetMidiCommands && targetMidiCommands.length > 0}
         <div class="midi-preview">
           <div class="preview-header">
-            <span class="preview-icon">⚡</span>
             <strong>Resolved MIDI ({targetEvent.replace('_', ' ')})</strong>
             {#if matchedActionId && !button.action_id}
               <span class="auto-detected-badge" title="Action auto-detected from MIDI commands">Auto</span>
@@ -734,10 +733,6 @@
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.625rem;
-  }
-
-  .preview-icon {
-    font-size: 16px;
   }
 
   .preview-header strong {

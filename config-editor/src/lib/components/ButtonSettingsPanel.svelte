@@ -184,14 +184,14 @@
   <div class="panel-header">
     <span class="panel-title">Button Settings</span>
     {#if hasErrors}
-      <span class="error-badge" title="{buttonErrors.size} validation error(s)">⚠ {buttonErrors.size}</span>
+      <span class="error-badge" title="{buttonErrors.size} validation error(s)">{buttonErrors.size}</span>
     {/if}
     <div class="header-actions">
       <button class="action-btn" onclick={copyButton} title="Copy button config">
-        📋 Copy
+        Copy
       </button>
       <button class="action-btn" onclick={pasteButton} disabled={!$buttonClipboard} title="Paste button config">
-        📄 Paste
+        Paste
       </button>
       <button class="dots-btn">•••</button>
     </div>
@@ -214,7 +214,6 @@
     <!-- ── ID Section ─────────────────────────── -->
     <div class="section">
       <div class="section-header">
-        <span class="section-icon">#️⃣</span>
         <span class="section-title">ID</span>
       </div>
       <div class="section-sublabel">Label{hasMultipleStates ? ' (Base)' : ''}. <em>{btn.label}</em></div>
@@ -268,7 +267,6 @@
     <!-- ── Behavior Section ──────────────────── -->
     <div class="section">
       <div class="section-header">
-        <span class="section-icon">🎛️</span>
         <span class="section-title">Behavior</span>
       </div>
 
@@ -359,7 +357,6 @@
     <!-- ── Actions Section ───────────────────── -->
     <div class="section">
       <div class="section-header">
-        <span class="section-icon">⚡</span>
         <span class="section-title">Actions</span>
         {#if hasMultipleStates}
           <div class="header-state-tabs">
@@ -657,11 +654,6 @@
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
-  }
-
-  .section-icon {
-    font-size: 14px;
-    color: #9ca3af;
   }
 
   .section-title {
