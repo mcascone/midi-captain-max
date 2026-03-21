@@ -1,5 +1,6 @@
 <script lang="ts">
   import { profiles, getProfileActions, resolveProfileAction } from '$lib/profiles';
+  import Toggle from './Toggle.svelte';
   import type { ButtonConfig, MidiCommand, CommandOrConditional } from '$lib/types';
 
   interface Props {
@@ -252,14 +253,11 @@
 
 <div class="profile-selector">
   <div class="profile-mode-toggle">
-    <label>
-      <input
-        type="checkbox"
-        checked={profileMode}
-        onchange={handleProfileModeToggle}
-      />
-      Use Device Profile
-    </label>
+    <Toggle
+      checked={profileMode}
+      label="Use Device Profile"
+      onchange={handleProfileModeToggle}
+    />
     {#if profileMode && (selectedProfileId || button.profile_id)}
       <button
         type="button"

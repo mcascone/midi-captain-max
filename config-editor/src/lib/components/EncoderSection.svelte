@@ -1,6 +1,8 @@
 <script lang="ts">
   import { config, updateField } from '$lib/formStore';
   import { validationErrors } from '$lib/formStore';
+  import Knob from './Knob.svelte';
+  import Toggle from './Toggle.svelte';
 
   let deviceType = $derived($config.device);
   let encoder = $derived($config.encoder);
@@ -57,15 +59,12 @@
 
 {#if encoder}
   <div class="encoder-section">
-    <label class="checkbox-label">
-      <input
-        type="checkbox"
-        checked={encoder.enabled || false}
-        onchange={(e) => handleField('enabled', e)}
-        disabled={isDisabled}
-      />
-      <span>Enabled</span>
-    </label>
+    <Toggle
+      checked={encoder.enabled || false}
+      label="Enabled"
+      disabled={isDisabled}
+      onchange={(checked) => updateField('encoder.enabled', checked)}
+    />
 
     {#if encoder.enabled}
       <div class="encoder-fields">
@@ -110,54 +109,44 @@
           {/if}
         </label>
 
-        <label>
-          <span class="field-label">Min:</span>
-          <input
-            type="number"
-            value={encoder.min ?? 0}
-            onblur={(e) => handleField('min', e)}
-            min="0"
-            max="127"
+        <div class="knobs-row">
+          <Knob
+            bind:value={encoder.min}
+            min={0}
+            max={127}
+            label="MIN"
             disabled={isDisabled}
+            onchange={(val) => updateField('encoder.min', val)}
           />
-        </label>
 
-        <label>
-          <span class="field-label">Max:</span>
-          <input
-            type="number"
-            value={encoder.max ?? 127}
-            onblur={(e) => handleField('max', e)}
-            min="0"
-            max="127"
+          <Knob
+            bind:value={encoder.max}
+            min={0}
+            max={127}
+            label="MAX"
             disabled={isDisabled}
+            onchange={(val) => updateField('encoder.max', val)}
           />
-        </label>
 
-        <label>
-          <span class="field-label">Initial:</span>
-          <input
-            type="number"
-            value={encoder.initial ?? 64}
-            onblur={(e) => handleField('initial', e)}
-            min="0"
-            max="127"
+          <Knob
+            bind:value={encoder.initial}
+            min={0}
+            max={127}
+            label="INITIAL"
             disabled={isDisabled}
+            onchange={(val) => updateField('encoder.initial', val)}
           />
-        </label>
+        </div>
       </div>
 
       <h4 class="section-heading">Encoder Push Button</h4>
 
-      <label class="checkbox-label">
-        <input
-          type="checkbox"
-          checked={encoder.push?.enabled || false}
-          onchange={(e) => handleField('push.enabled', e)}
-          disabled={isDisabled}
-        />
-        <span>Enabled</span>
-      </label>
+      <Toggle
+        checked={encoder.push?.enabled || false}
+        label="Enabled"
+        disabled={isDisabled}
+        onchange={(checked) => updateField('encoder.push.enabled', checked)}
+      />
 
       {#if encoder.push?.enabled}
         <div class="encoder-fields">
@@ -364,6 +353,17 @@
   select:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .knobs-row {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 0;
+    background: var(--bg-card);
+    border-radius: 8px;
+    border: 1px solid var(--border-default);
   }
 
   .empty-state {

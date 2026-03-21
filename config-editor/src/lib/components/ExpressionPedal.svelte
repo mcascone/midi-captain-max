@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { ExpressionConfig } from '$lib/types';
   import { config } from '$lib/formStore';
+  import Knob from './Knob.svelte';
+  import Toggle from './Toggle.svelte';
 
   interface Props {
     pedal: ExpressionConfig;
@@ -50,14 +52,11 @@
 
 <div class="pedal-config">
   <div class="pedal-header">
-    <label class="pedal-name">
-      <input
-        type="checkbox"
-        checked={pedal.enabled}
-        on:change={handleCheckbox}
-      />
-      <span>{name}</span>
-    </label>
+    <Toggle
+      checked={pedal.enabled}
+      label={name}
+      onchange={(checked) => onUpdate('enabled', checked)}
+    />
   </div>
 
   {#if pedal.enabled}
@@ -107,29 +106,23 @@
         </select>
       </label>
 
-      <label>
-        <span class="field-label">Min:</span>
-        <input
-          type="number"
-          value={pedal.min ?? 0}
-          min="0"
-          max="127"
-          placeholder="0"
-          on:blur={(e) => handleNumberInput('min', e)}
+      <div class="knobs-row">
+        <Knob
+          bind:value={pedal.min}
+          min={0}
+          max={127}
+          label="MIN"
+          onchange={(val) => onUpdate('min', val)}
         />
-      </label>
 
-      <label>
-        <span class="field-label">Max:</span>
-        <input
-          type="number"
-          value={pedal.max ?? 127}
-          min="0"
-          max="127"
-          placeholder="127"
-          on:blur={(e) => handleNumberInput('max', e)}
+        <Knob
+          bind:value={pedal.max}
+          min={0}
+          max={127}
+          label="MAX"
+          onchange={(val) => onUpdate('max', val)}
         />
-      </label>
+      </div>
 
       <label>
         <span class="field-label">Threshold:</span>
@@ -230,5 +223,17 @@
   select:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .knobs-row {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: var(--bg-dark);
+    border-radius: 8px;
+    border: 1px solid var(--border-default);
   }
 </style>

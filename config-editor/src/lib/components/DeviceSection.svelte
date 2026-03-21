@@ -1,5 +1,6 @@
 <script lang="ts">
   import { config, setDevice, updateField } from '$lib/formStore';
+  import Toggle from './Toggle.svelte';
   import type { DeviceType, MidiTransport } from '$lib/types';
 
   function handleDeviceChange(e: Event) {
@@ -104,15 +105,11 @@
     </div>
 
     <div class="field-with-help full-width">
-      <label class="checkbox-label">
-        <input
-          id="dev-mode"
-          type="checkbox"
-          checked={devMode}
-          onchange={handleDevModeChange}
-        />
-        <span>Development Mode</span>
-      </label>
+      <Toggle
+        checked={devMode}
+        label="Development Mode"
+        onchange={(checked) => updateField('dev_mode', checked)}
+      />
       <p class="help-text">
         {#if devMode}
           <strong>Dev mode:</strong> USB drive always mounts on boot. Convenient for iterating on firmware, but not recommended for live use.

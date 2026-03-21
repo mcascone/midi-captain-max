@@ -5,6 +5,8 @@
   import ColorSelect from './ColorSelect.svelte';
   import ButtonCommandsEditor from './ButtonCommandsEditor.svelte';
   import ProfileSelector from './ProfileSelector.svelte';
+  import MidiFlowDiagram from './MidiFlowDiagram.svelte';
+  import Toggle from './Toggle.svelte';
   import type { MidiCommand, ButtonConfig } from '$lib/types';
   import { BUTTON_COLORS } from '$lib/types';
 
@@ -252,14 +254,11 @@
       </div>
 
       <div class="field full" style="margin-top: 1.5rem;">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            checked={btn.long_press_label_persist ?? true}
-            onchange={(e) => update('long_press_label_persist', e.currentTarget.checked)}
-          />
-          <span>Keep long press label visible</span>
-        </label>
+        <Toggle
+          checked={btn.long_press_label_persist ?? true}
+          label="Keep long press label visible"
+          onchange={(checked) => update('long_press_label_persist', checked)}
+        />
         <span class="field-hint" style="display: block; margin-top: 0.5rem;">When disabled, long press label shows for 3s then returns to button label</span>
       </div>
     </div>
@@ -489,12 +488,11 @@
                 onblur={(e) => { const v = numVal(e); update('value_off', v ?? 0); }} />
             </div>
           </div>
-          <label class="inline-checkbox">
-            <input type="checkbox"
-              checked={btn.default_on ?? false}
-              onchange={(e) => update('default_on', (e.target as HTMLInputElement).checked)} />
-            <span>Boot in ON state (sends Value ON at startup)</span>
-          </label>
+          <Toggle
+            checked={btn.default_on ?? false}
+            label="Boot in ON state (sends Value ON at startup)"
+            onchange={(checked) => update('default_on', checked)}
+          />
         </div>
         <ButtonCommandsEditor
           eventLabel="Long Press"
@@ -543,6 +541,9 @@
         />
       {/if}
     </div>
+
+    <!-- MIDI Flow Diagram -->
+    <MidiFlowDiagram button={btn} buttonIndex={$selectedButtonIndex} />
 
   {:else}
     <div class="empty-state">Select a button to edit settings</div>
@@ -627,26 +628,43 @@
 
   /* Button selector */
   .selector-row {
-    padding: 4px 16px 12px;
+    padding: 12px 16px;
+    margin-bottom: 4px;
   }
 
   .btn-selector {
     width: 100%;
-    padding: 8px 12px;
-    background: var(--bg-input);
-    border: 1px solid var(--border-default);
-    border-radius: 8px;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-default);
+    border-radius: 10px;
     color: var(--text-primary);
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     appearance: auto;
+    transition: all 0.2s ease;
+  }
+
+  .btn-selector:hover {
+    border-color: var(--accent-primary);
+    box-shadow: var(--glow-cyan-sm);
+  }
+
+  .btn-selector:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: var(--glow-cyan);
   }
 
   /* Sections */
   .section {
     padding: 20px 24px;
-    border-top: 1px solid var(--border-default);
+    margin: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
   }
 
   .section-header {
@@ -655,7 +673,7 @@
     gap: 12px;
     margin-bottom: 20px;
     padding-bottom: 12px;
-    border-bottom: 2px solid var(--border-default);
+    border-bottom: 2px solid #2a2a2a;
   }
 
   .section-title {

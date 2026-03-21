@@ -1,5 +1,6 @@
 <script lang="ts">
   import { config, updateField } from '$lib/formStore';
+  import Toggle from './Toggle.svelte';
 
   let splashScreen = $derived($config.splash_screen);
 
@@ -35,14 +36,11 @@
     <span class="header-description">Display a custom image during device startup</span>
   </div>
 
-  <label class="checkbox-label">
-    <input
-      type="checkbox"
-      checked={splashScreen?.enabled ?? true}
-      onchange={handleSplashEnabled}
-    />
-    <span class="field-label-left">Show splash on boot</span>
-  </label>
+  <Toggle
+    checked={splashScreen?.enabled ?? true}
+    label="Show splash on boot"
+    onchange={(checked) => updateField('splash_screen.enabled', checked)}
+  />
 
   <label>
     <span class="field-label">Splash duration (ms):</span>

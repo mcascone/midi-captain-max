@@ -62,6 +62,11 @@
   function cancelDelete() {
     showDeleteConfirm = false;
   }
+
+  // Convert bank index to letter (A, B, C...)
+  function getBankLetter(index: number): string {
+    return String.fromCharCode(65 + index); // 65 = 'A'
+  }
 </script>
 
 <div class="banks-panel">
@@ -100,8 +105,8 @@
                 role="button"
                 tabindex="0"
               >
+                <div class="bank-letter">{getBankLetter(i)}</div>
                 <span class="bank-name">{bank.name}</span>
-                <span class="bank-counter">{i + 1} / {banks.length}</span>
               </div>
             {/if}
           </Carousel.Item>
@@ -267,24 +272,31 @@
     box-shadow: var(--shadow-md), var(--glow-cyan-sm);
   }
 
+  .bank-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background: var(--accent-primary);
+    color: var(--bg-dark);
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    box-shadow: 0 0 12px rgba(0, 212, 170, 0.4);
+  }
+
   .bank-name {
-    font-size: var(--text-xl);
-    font-weight: 700;
+    font-size: var(--text-base);
+    font-weight: 600;
     color: var(--text-primary);
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
-    letter-spacing: -0.01em;
-  }
-
-  .bank-counter {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.01em;
   }
 
   .bank-rename-input {
