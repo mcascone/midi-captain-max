@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Condition, ConditionOperator } from '$lib/types';
-  import { config } from '$lib/formStore';
+  import { config, activeBank, isMultiBankMode } from '$lib/formStore';
   
   interface Props {
     condition: Condition;
@@ -11,8 +11,11 @@
   let { condition, onUpdate, buttonIndex }: Props = $props();
   
   // Get button labels for dropdown (exclude current button if provided)
+  // Use activeBank buttons if multi-bank mode, otherwise use top-level buttons
   let buttonLabels = $derived(
-    ($config.buttons ?? [])
+    ($isMultiBankMode && $activeBank 
+      ? $activeBank.buttons 
+      : $config.buttons ?? [])
       .map((btn, i) => ({ 
         index: i, 
         label: btn.label || `Button ${i + 1}` 
@@ -35,7 +38,7 @@
     } else if (newType === 'received_midi') {
       onUpdate({ type: 'received_midi', cc: 20, channel: 0, operator: '==', value: 127 });
     } else if (newType === 'expression') {
-      onUpdate({ type: 'expression', pedal: 1, operator: '>', value: 64 });
+      onUpdate({ type: 'expression', pedal: 'exp1', operator: '>', value: 64 });
     } else if (newType === 'encoder') {
       onUpdate({ type: 'encoder', operator: '>', value: 64 });
     }
@@ -118,9 +121,9 @@
   {:else if condition.type === 'expression'}
     <div class="field">
       <label>Pedal</label>
-      <select value={condition.pedal} onchange={(e) => updateField('pedal', parseInt((e.target as HTMLSelectElement).value) as 1 | 2)}>
-        <option value="1">Expression 1</option>
-        <option value="2">Expression 2</option>
+      <select value={condition.pedal} onchange={(e) => updateField('pedal', (e.target as HTMLSelectElement).value)}>
+        <option value="exp1">Expression 1</option>
+        <option value="exp2">Expression 2</option>
       </select>
     </div>
     <div class="field">

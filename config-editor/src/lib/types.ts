@@ -41,7 +41,7 @@ export interface ReceivedMidiCondition {
 // Expression pedal condition - checks pedal position
 export interface ExpressionCondition {
   type: 'expression';
-  pedal: 1 | 2;        // Expression pedal 1 or 2
+  pedal: 'exp1' | 'exp2';  // Expression pedal 1 or 2
   operator: ConditionOperator;
   value: number;       // Value to compare (0-127)
 }
