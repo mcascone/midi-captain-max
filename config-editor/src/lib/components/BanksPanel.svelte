@@ -185,7 +185,7 @@
 
 <style>
   .banks-panel {
-    padding: 1.25rem 1.5rem;
+    padding: 1.5rem 1.5rem 1.25rem;
     background: var(--bg-dark);
     border-bottom: 2px solid var(--border-default);
   }
@@ -231,7 +231,7 @@
   .banks-panel :global(.carousel-items) {
     flex: 1;
     display: flex;
-    overflow: hidden;
+    overflow: visible;
     min-width: 0;
   }
 
