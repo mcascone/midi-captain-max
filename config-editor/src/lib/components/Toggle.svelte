@@ -45,9 +45,9 @@
 
 <style>
   .toggle-container {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     cursor: pointer;
     user-select: none;
   }
@@ -72,51 +72,52 @@
 
   .toggle-track {
     position: relative;
-    width: 48px;
-    height: 26px;
+    width: 52px;
+    height: 28px;
     background: #1a1a1a;
     border: 2px solid #333333;
-    border-radius: 13px;
+    border-radius: 14px;
     cursor: pointer;
     transition: all 0.2s ease;
   }
 
   .toggle-track:hover:not(.disabled) {
     border-color: #444444;
+    background: #222222;
   }
 
   .toggle-track.checked {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
-    box-shadow: 0 0 12px rgba(0, 212, 170, 0.4);
+    box-shadow: 0 0 8px rgba(0, 212, 170, 0.3);
   }
 
-  .toggle-track:focus-visible {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
+  .toggle-input:focus-visible + .toggle-track {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
   }
 
   .toggle-thumb {
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     background: #666666;
     border-radius: 50%;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   }
 
   .toggle-thumb.checked {
-    transform: translateX(22px);
-    background: var(--bg-dark);
+    transform: translateX(24px);
+    background: #0a0a0a;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
   }
 
   .toggle-label {
-    font-size: 14px;
-    color: var(--text-primary);
+    font-size: 15px;
+    color: #e5e7eb;
     font-weight: 500;
   }
 

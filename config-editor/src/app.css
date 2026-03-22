@@ -77,13 +77,44 @@ input, select, textarea {
   font-size: inherit;
 }
 
+/* Standardized form control styling */
+select,
+input[type="text"],
+input[type="number"] {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #444444;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  background: #1a1a1a;
+  color: #e5e7eb;
+  transition: all 0.15s ease;
+}
+
+select:hover,
+input[type="text"]:hover,
+input[type="number"]:hover {
+  border-color: #555555;
+  background: #222222;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888888' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.5rem;
+}
+
 /* Enhanced input styling with glow effects */
 input[type="text"]:focus,
 input[type="number"]:focus,
 select:focus,
 textarea:focus {
+  outline: none;
   border-color: var(--accent-primary);
-  box-shadow: var(--glow-cyan-sm), 0 0 0 3px var(--accent-primary-dim);
+  box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
