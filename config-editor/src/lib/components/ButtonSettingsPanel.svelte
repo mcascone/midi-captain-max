@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { slide } from 'svelte/transition';
   import { config, updateField, syncButtonStates, getButtonErrors, activeBank, activeBankIndex, isMultiBankMode } from '$lib/formStore';
   import { selectedButtonIndex, buttonClipboard, showToast } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
@@ -181,8 +180,7 @@
   }
 </script>
 
-{#key $selectedButtonIndex}
-<div class="settings-panel" transition:slide={{ duration: 200 }}>
+<div class="settings-panel">
   <!-- Panel header -->
   <div class="panel-header">
     <span class="panel-title">Button Settings</span>
@@ -552,7 +550,6 @@
     <div class="empty-state">Select a button to edit settings</div>
   {/if}
 </div>
-{/key}
 
 <style>
   .settings-panel {
