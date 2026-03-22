@@ -181,12 +181,15 @@
   }
 </script>
 
-<div class="settings-panel">
+{#key $selectedButtonIndex}
+<div class="settings-panel" transition:slide={{ duration: 200 }}>
   <!-- Panel header -->
   <div class="panel-header">
     <span class="panel-title">Button Settings</span>
     {#if hasErrors}
-      <span class="error-badge" title="{buttonErrors.size} validation error(s)">{buttonErrors.size}</span>
+      <span class="error-badge" title="{buttonErrors.size} validation error(s)">
+        {buttonErrors.size} error{buttonErrors.size !== 1 ? 's' : ''}
+      </span>
     {/if}
     <div class="header-actions">
       <button class="action-btn" onclick={copyButton} title="Copy button config">
@@ -549,6 +552,7 @@
     <div class="empty-state">Select a button to edit settings</div>
   {/if}
 </div>
+{/key}
 
 <style>
   .settings-panel {

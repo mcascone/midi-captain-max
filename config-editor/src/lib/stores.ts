@@ -46,3 +46,8 @@ export const canEdit = derived(
   [selectedDevice, currentConfigRaw],
   ([$device, $configRaw]) => $device !== null && $configRaw !== ''
 );
+
+// Status bar enhancements
+export const lastSavedTimestamp = writable<Date | null>(null);
+export const firmwareVersion = writable<string>('');
+export const saveFeedback = writable<'idle' | 'saving' | 'success' | 'error'>('idle');

@@ -118,6 +118,21 @@ textarea:focus {
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
+/* Error state highlighting */
+input.error,
+select.error,
+textarea.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+input.error:focus,
+select.error:focus,
+textarea.error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
 /* Enhanced button hover states */
 button:not(:disabled):hover {
   transform: translateY(-1px);

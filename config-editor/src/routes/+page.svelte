@@ -7,7 +7,7 @@
   import {
     devices, selectedDevice, currentConfigRaw,
     hasUnsavedChanges, validationErrors, statusMessage, isLoading, isReloadingDevice,
-    showToast
+    showToast, lastSavedTimestamp, firmwareVersion, saveFeedback
   } from '$lib/stores';
   import { toaster } from '$lib/toaster';
   import {
@@ -37,6 +37,35 @@
     : $statusMessage.toLowerCase().includes('saved') || $statusMessage.toLowerCase().includes('success') ? 'success'
     : 'idle'
   );
+
+  // Config complexity metrics
+  let configStats = $derived.by(() => {
+    const buttons = $config.buttons?.length ?? 0;
+    const configured = $config.buttons?.filter(b => 
+      (b.press && b.press.length > 0) || 
+      (b.release && b.release.length > 0)
+    ).length ?? 0;
+    const totalCommands = $config.buttons?.reduce((sum, b) => {
+      return sum + 
+        (b.press?.length ?? 0) + 
+        (b.release?.length ?? 0) + 
+        (b.long_press?.length ?? 0) + 
+        (b.long_release?.length ?? 0);
+    }, 0) ?? 0;
+    return { buttons, configured, totalCommands };
+  });
+
+  // Format last saved time
+  let lastSavedText = $derived.by(() => {
+    if (!$lastSavedTimestamp) return 'Never';
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - $lastSavedTimestamp.getTime()) / 1000);
+    
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return $lastSavedTimestamp.toLocaleDateString();
+  });
 
   function startResize(e: MouseEvent) {
     isResizing = true;
@@ -293,9 +322,21 @@
     </div>
     <div class="toolbar-right">
       <button class="tool-btn secondary" onclick={viewJson}>View JSON</button>
-      <button class="tool-btn primary" onclick={saveToDevice}
+      <button 
+        class="tool-btn primary save-btn" 
+        class:saving={$saveFeedback === 'saving'}
+        class:success={$saveFeedback === 'success'}
+        onclick={saveToDevice}
         disabled={!$selectedDevice || $isLoading || hasErrors}>
-        Save to Device <span class="arrow">▾</span>
+        {#if $saveFeedback === 'saving'}
+          <span class="btn-spinner"></span>
+          Saving…
+        {:else if $saveFeedback === 'success'}
+          <span class="checkmark">✓</span>
+          Saved!
+        {:else}
+          Save to Device <span class="arrow">▾</span>
+        {/if}
       </button>
     </div>
   </div>
@@ -314,7 +355,12 @@
       {/if}
       <div class="right-panel"><ButtonSettingsPanel /></div>
     {:else if $isLoading}
-      <div class="center-state"><div class="spinner"></div><span>Loading…</span></div>
+      <div class="center-state">
+        <div class="loading-container">
+          <div class="spinner-modern"></div>
+          <div class="loading-text">Loading configuration…</div>
+        </div>
+      </div>
     {:else}
       <div class="center-state">
         <p class="center-title">No device selected</p>
@@ -331,8 +377,25 @@
     <div class="status-left">
       <span class="dot {statusDot}"></span>
       <span class="status-text">{$statusMessage}</span>
+      {#if $selectedDevice && configStats.buttons > 0}
+        <span class="status-divider">•</span>
+        <span class="status-stat" title="Configured buttons / Total buttons">
+          {configStats.configured}/{configStats.buttons} buttons
+        </span>
+        <span class="status-stat" title="Total MIDI commands across all buttons">
+          {configStats.totalCommands} commands
+        </span>
+      {/if}
     </div>
     <div class="status-right">
+      {#if $lastSavedTimestamp}
+        <span class="status-info" title="Last saved: {$lastSavedTimestamp.toLocaleString()}">
+          Saved {lastSavedText}
+        </span>
+      {/if}
+      {#if $firmwareVersion}
+        <span class="status-info" title="Application version">v{$firmwareVersion}</span>
+      {/if}
       <button class="ghost-btn" onclick={reloadFromDevice} disabled={!$selectedDevice || $isLoading}>Reload</button>
       <button class="ghost-btn" onclick={resetDevice} disabled={!$selectedDevice || $isLoading}>Reset Device</button>
     </div>
@@ -435,6 +498,42 @@
   .dev-label { font-size: 13px; color: #d1d5db; cursor: pointer; user-select: none; }
   .dev-hint { font-size: 11px; color: #6b7280; }
 
+  /* Save button animations */
+  .save-btn {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .save-btn.saving {
+    pointer-events: none;
+  }
+
+  .save-btn.success {
+    background: #10b981;
+    border-color: #10b981;
+  }
+
+  .btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    border-top-color: var(--bg-dark);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  .checkmark {
+    font-size: 16px;
+    animation: checkmark-pop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  @keyframes checkmark-pop {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
   /* Main */
   .main { display: flex; flex: 1; overflow: hidden; }
   .left-panel {
@@ -513,6 +612,36 @@
   .center-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; }
   .center-title { font-size: 15px; font-weight: 500; color: #6b7280; }
   .center-sub { font-size: 13px; color: #444444; }
+  
+  /* Enhanced loading state */
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .spinner-modern {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #1a1a1a;
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+    filter: drop-shadow(0 0 8px rgba(0, 212, 170, 0.3));
+  }
+
+  .loading-text {
+    font-size: 14px;
+    color: #6b7280;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
   .spinner {
     width: 28px; height: 28px; border: 3px solid var(--border-default);
     border-top-color: var(--accent-primary); border-radius: 50%;
@@ -526,13 +655,29 @@
     padding: 8px 16px; background: #0d0d0d;
     border-top: 1px solid var(--border-default); flex-shrink: 0; min-height: 40px;
   }
-  .status-left { display: flex; align-items: center; gap: 7px; }
+  .status-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .dot.success { background: #22c55e; }
-  .dot.error { background: #ef4444; }
+  .dot.success { background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.4); }
+  .dot.error { background: #ef4444; box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); }
   .dot.idle { background: #333333; }
   .status-text { font-size: 12px; color: #6b7280; }
-  .status-right { display: flex; gap: 8px; }
+  .status-divider { color: #333333; font-size: 10px; }
+  .status-stat { 
+    font-size: 11px; 
+    color: #6b7280; 
+    background: #1a1a1a; 
+    padding: 2px 8px; 
+    border-radius: 4px;
+    border: 1px solid #2a2a2a;
+  }
+  .status-right { display: flex; gap: 12px; align-items: center; }
+  .status-info { 
+    font-size: 11px; 
+    color: #6b7280; 
+    padding: 2px 8px; 
+    background: #1a1a1a; 
+    border-radius: 4px; 
+  }
   .ghost-btn {
     background: transparent; border: 1px solid var(--border-default); border-radius: 6px;
     color: #9ca3af; padding: 4px 12px; font-size: 12px; cursor: pointer;

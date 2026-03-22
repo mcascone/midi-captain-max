@@ -9,7 +9,8 @@ import { get } from 'svelte/store';
 import { message } from '@tauri-apps/plugin-dialog';
 import {
   selectedDevice, currentConfigRaw, hasUnsavedChanges,
-  validationErrors, statusMessage, isLoading, devices, showToast, isReloadingDevice
+  validationErrors, statusMessage, isLoading, devices, showToast, isReloadingDevice,
+  lastSavedTimestamp, saveFeedback
 } from '$lib/stores';
 import {
   readConfigRaw, writeConfigRaw, ejectDevice, triggerDeviceReload
@@ -74,6 +75,7 @@ export async function saveToDevice(): Promise<boolean> {
   }
 
   isLoading.set(true);
+  saveFeedback.set('saving');
   let saveSucceeded = false;
 
   try {
@@ -85,6 +87,8 @@ export async function saveToDevice(): Promise<boolean> {
     const configJson = JSON.stringify(configObj, null, 2);
     await writeConfigRaw(device.config_path, configJson);
     currentConfigRaw.set(configJson);
+    lastSavedTimestamp.set(new Date());
+    saveFeedback.set('success');
     hasUnsavedChanges.set(false);
     saveSucceeded = true;
 
@@ -125,8 +129,11 @@ export async function saveToDevice(): Promise<boolean> {
     const errorMsg = `Error saving config: ${e.message || e}`;
     statusMessage.set(errorMsg);
     showToast(errorMsg, 'error', 5000);
+    saveFeedback.set('error');
   } finally {
     isLoading.set(false);
+    // Reset feedback after animation
+    setTimeout(() => saveFeedback.set('idle'), 2000);
   }
 
   return saveSucceeded;
