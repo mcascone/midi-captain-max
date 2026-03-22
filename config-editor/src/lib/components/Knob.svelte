@@ -59,6 +59,27 @@
     return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
   });
 
+  // Calculate track arc path (full 270° range from -135° to +135°)
+  let trackPath = $derived.by(() => {
+    const radius = 40;
+    const cx = 50;
+    const cy = 50;
+
+    const toCartesian = (deg: number) => {
+      const rad = deg * Math.PI / 180;
+      return {
+        x: cx + radius * Math.sin(rad),
+        y: cy - radius * Math.cos(rad)
+      };
+    };
+
+    const start = toCartesian(-135);
+    const end = toCartesian(135);
+
+    // 270° arc, so large arc flag = 1
+    return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius} ${radius} 0 1 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+  });
+
   // Format display value
   let displayValue = $derived(`${value}${unit}`);
 
@@ -153,7 +174,7 @@
 
       <!-- Track arc -->
       <path
-        d="M 15.85 84.15 A 40 40 0 1 1 84.15 84.15"
+        d={trackPath}
         fill="none"
         stroke="#333333"
         stroke-width="3"
@@ -162,7 +183,7 @@
 
       <!-- Value arc -->
       <path
-        d="M 15.85 84.15 A 40 40 0 {angle > 0 ? '1' : '0'} 1 {50 + 40 * Math.cos((angle + 90) * Math.PI / 180)} {50 + 40 * Math.sin((angle + 90) * Math.PI / 180)}"
+        d={arcPath}
         fill="none"
         stroke="var(--accent-primary)"
         stroke-width="3"
