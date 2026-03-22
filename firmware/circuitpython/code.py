@@ -49,6 +49,7 @@ from core.config import (
 )
 from core.button import Switch, ButtonState
 from core.banks import BankManager
+from core.condition_evaluator import ConditionEvaluator
 from core.constants import (
     DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_CENTER_X, DISPLAY_CENTER_Y,
     DISPLAY_BACKGROUND_COLOR, DISPLAY_STATUS_TEXT_COLOR, COLOR_WHITE,
@@ -564,6 +565,10 @@ press_start_times = [0.0] * BUTTON_COUNT
 long_press_triggered = [False] * BUTTON_COUNT
 # Guard to avoid executing the short-press action more than once per press/release
 short_action_executed = [False] * BUTTON_COUNT
+# Snapshot of all button states at the moment a button is pressed down.
+# Used by conditional evaluator so it checks pre-press state, not state
+# modified by the press/long-press handler itself.
+state_at_press = [[False] * BUTTON_COUNT for _ in range(BUTTON_COUNT)]
 # Default threshold (ms) if not provided per-button; can be overridden in config
 LONG_PRESS_THRESHOLD_MS = config.get("long_press_threshold_ms", DEFAULT_LONG_PRESS_MS)
 
@@ -887,6 +892,20 @@ def _has_long_press_actions(btn_config):
     return False
 
 
+class _SnapState:
+    """Lightweight stand-in for ButtonState used by conditional evaluation.
+
+    Holds a snapshot of a button's on/off state captured at press-down time
+    so the conditional evaluator sees pre-press state.
+    """
+    __slots__ = ('state', 'current_keytime')
+    def __init__(self, st=False):
+        self.state = st
+        self.current_keytime = 1
+    def get_keytime(self):
+        return self.current_keytime
+
+
 def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
     """Send MIDI from action config (single dict or list of dicts).
 
@@ -961,6 +980,85 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
 
         msg_type = cmd.get("type", "cc")
         channel = cmd.get("channel", 0)
+        
+        # DEBUG: Print what we're processing
+        print(f"[DEBUG] Processing command: type={msg_type}, cmd_keys={list(cmd.keys())}")
+
+        # Handle conditional commands (if/then/else logic)
+        if msg_type == "conditional":
+            condition = cmd.get("if")
+            then_commands = cmd.get("then", [])
+            else_commands = cmd.get("else", [])
+            
+            if not condition:
+                print(f"[WARN] Conditional command missing 'if' condition (button {btn_num})")
+                continue
+            
+            # Debug: print the condition
+            print(f"[CONDITIONAL] Evaluating condition for button {btn_num}:")
+            print(f"[CONDITIONAL]   Condition: {condition}")
+            
+            # Create evaluator with current device state
+            # Get expression values (convert to format expected by evaluator)
+            exp_vals = {}
+            if HAS_EXPRESSION:
+                exp_vals['exp1'] = exp1_last
+                exp_vals['exp2'] = exp2_last
+            else:
+                exp_vals['exp1'] = 0
+                exp_vals['exp2'] = 0
+            
+            # Get encoder value
+            enc_val = encoder_value if HAS_ENCODER else 64
+            
+            # For button_state conditions, use the state snapshot captured at
+            # press-down time so the conditional sees the state *before* the
+            # press/long-press handler modified it.
+            use_snapshot = (condition.get('type') == 'button_state'
+                           and 0 <= idx < len(state_at_press))
+            
+            if use_snapshot:
+                # Build lightweight state wrappers from the snapshot
+                snap_states = []
+                for si in range(len(button_states)):
+                    s = _SnapState(state_at_press[idx][si])
+                    # Preserve keytime from live state
+                    s.current_keytime = button_states[si].current_keytime
+                    snap_states.append(s)
+                
+                check_btn_idx = condition.get('button', 0)
+                expected_state = condition.get('state', 'on')
+                if check_btn_idx < len(snap_states):
+                    print(f"[CONDITIONAL]   Checking button {check_btn_idx}: snapshot_state={snap_states[check_btn_idx].state}, live_state={button_states[check_btn_idx].state} (expecting '{expected_state}')")
+            else:
+                snap_states = button_states
+                if condition.get('type') == 'button_state':
+                    check_btn_idx = condition.get('button', 0)
+                    expected_state = condition.get('state', 'on')
+                    if check_btn_idx < len(button_states):
+                        print(f"[CONDITIONAL]   Checking button {check_btn_idx}: state={button_states[check_btn_idx].state} (expecting '{expected_state}')")
+            
+            # Create evaluator with snapshot (or live) states
+            evaluator = ConditionEvaluator(
+                button_states=snap_states,
+                received_cc_values=received_cc_values,
+                encoder_value=enc_val,
+                expression_values=exp_vals
+            )
+            
+            # Evaluate condition
+            condition_result = evaluator.evaluate(condition)
+            
+            # Execute appropriate branch
+            if condition_result:
+                print(f"[CONDITIONAL] Condition TRUE (button {btn_num}), executing THEN branch with {len(then_commands)} command(s)")
+                _send_action_from_cfg(then_commands, btn_num, idx, action_name)
+            else:
+                print(f"[CONDITIONAL] Condition FALSE (button {btn_num}), executing ELSE branch with {len(else_commands)} command(s)")
+                _send_action_from_cfg(else_commands, btn_num, idx, action_name)
+            
+            # Skip normal MIDI command processing for conditionals
+            continue
 
         try:
             if msg_type == "cc":
@@ -1404,6 +1502,10 @@ def handle_switches():
                     press_start_times[idx] = now
                     long_press_triggered[idx] = False
                     short_action_executed[idx] = False
+                    # Capture all button states at press-down for conditional evaluation
+                    for si in range(len(button_states)):
+                        state_at_press[idx][si] = button_states[si].state
+                    print(f"[PRESS START] Button {btn_num}: state={btn_state.state}, mode={mode}, long_enabled={long_enabled}")
 
                 # Check for bank switching button
                 if bank_manager and bank_switch_config and len(banks) > 0:
@@ -1593,7 +1695,12 @@ def handle_switches():
         # --- Handle held buttons for long-press threshold crossing ---
         if pressed and long_enabled and not long_press_triggered[idx] and press_start_times[idx]:
             # Get effective long_press config for current keytime (may be per-state override)
-            effective_long_press = _get_effective_action_cfg(btn_config, "long_press", btn_state.get_keytime())
+            current_keytime = btn_state.get_keytime()
+            effective_long_press = _get_effective_action_cfg(btn_config, "long_press", current_keytime)
+            
+            print(f"[LONG PRESS] Button {btn_num}: keytime={current_keytime}, state={btn_state.state}, has_effective={effective_long_press is not None}")
+            if effective_long_press:
+                print(f"[LONG PRESS] effective_long_press type: {type(effective_long_press).__name__}, content: {effective_long_press}")
 
             # Determine threshold (ms) from effective config
             threshold_ms = LONG_PRESS_THRESHOLD_MS

@@ -169,9 +169,33 @@ function validateButtons(
         return;
       }
       const aType = action.type ?? 'cc';
-      if (!['cc', 'note', 'pc'].includes(aType)) {
-        errors.set(`${pathBase}.type`, 'Action type must be cc, note, or pc');
+      if (!['cc', 'note', 'pc', 'conditional'].includes(aType)) {
+        errors.set(`${pathBase}.type`, 'Action type must be cc, note, pc, or conditional');
       }
+      
+      // Handle conditional commands
+      if (aType === 'conditional') {
+        // Validate condition exists
+        if (!action.if || typeof action.if !== 'object') {
+          errors.set(`${pathBase}.if`, 'Conditional action requires an if condition');
+        }
+        // Validate then array
+        if (action.then && Array.isArray(action.then)) {
+          action.then.forEach((cmd: any, idx: number) => {
+            validateAction(cmd, `${pathBase}.then[${idx}]`);
+          });
+        } else {
+          errors.set(`${pathBase}.then`, 'Conditional action requires a then array');
+        }
+        // Validate optional else array
+        if (action.else && Array.isArray(action.else)) {
+          action.else.forEach((cmd: any, idx: number) => {
+            validateAction(cmd, `${pathBase}.else[${idx}]`);
+          });
+        }
+        return; // Skip MIDI command validation for conditionals
+      }
+      
       if (aType === 'cc') {
         if (action.cc !== undefined) {
           const e = validators.cc(action.cc);
