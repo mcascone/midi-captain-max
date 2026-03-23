@@ -169,8 +169,8 @@ function validateButtons(
         return;
       }
       const aType = action.type ?? 'cc';
-      if (!['cc', 'note', 'pc', 'conditional'].includes(aType)) {
-        errors.set(`${pathBase}.type`, 'Action type must be cc, note, pc, or conditional');
+      if (!['cc', 'note', 'pc', 'pc_inc', 'pc_dec', 'conditional'].includes(aType)) {
+        errors.set(`${pathBase}.type`, 'Action type must be cc, note, pc, pc_inc, pc_dec, or conditional');
       }
       
       // Handle conditional commands
@@ -210,6 +210,10 @@ function validateButtons(
           const e = validators.note(action.note);
           if (e) errors.set(`${pathBase}.note`, e);
         }
+        if (action.velocity !== undefined) {
+          const e = validators.velocity(action.velocity);
+          if (e) errors.set(`${pathBase}.velocity`, e);
+        }
         if (action.value !== undefined) {
           const e = validators.velocity(action.value);
           if (e) errors.set(`${pathBase}.value`, e);
@@ -218,6 +222,11 @@ function validateButtons(
         if (action.program !== undefined) {
           const e = validators.program(action.program);
           if (e) errors.set(`${pathBase}.program`, e);
+        }
+      } else if (aType === 'pc_inc' || aType === 'pc_dec') {
+        if (action.pc_step !== undefined) {
+          const e = validators.pcStep(action.pc_step);
+          if (e) errors.set(`${pathBase}.pc_step`, e);
         }
       }
       if (action.channel !== undefined) {

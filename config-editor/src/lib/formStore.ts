@@ -409,7 +409,6 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
 
     // Handle conditional commands recursively
     if (cmdType === 'conditional') {
-      console.log('[NORMALIZE] Conditional command:', { then_label: cmd.then_label, else_label: cmd.else_label });
       const result: any = {
         type: 'conditional',
         if: cmd.if,
@@ -420,14 +419,11 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
       // Preserve conditional labels
       if (cmd.then_label !== undefined) {
         result.then_label = cmd.then_label;
-        console.log('[NORMALIZE] Preserved then_label:', cmd.then_label);
       }
       if (cmd.else_label !== undefined) {
         result.else_label = cmd.else_label;
-        console.log('[NORMALIZE] Preserved else_label:', cmd.else_label);
       }
 
-      console.log('[NORMALIZE] Result:', result);
       return result;
     }
 

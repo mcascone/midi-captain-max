@@ -3,7 +3,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { MidiCaptainConfig, DetectedDevice } from './types';
-import type { EventCallback } from '@tauri-apps/api/event';
 
 // Config operations
 export async function readConfig(path: string): Promise<MidiCaptainConfig> {

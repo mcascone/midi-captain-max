@@ -126,7 +126,7 @@ pub enum Condition {
     },
     /// Check expression pedal position
     Expression {
-        pedal: u8, // 1 or 2
+        pedal: String, // "exp1" or "exp2"
         operator: ConditionOperator,
         value: u8,
     },

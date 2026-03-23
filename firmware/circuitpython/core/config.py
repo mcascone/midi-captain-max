@@ -232,11 +232,15 @@ def _validate_single_command(cmd, index=0, default_channel=0):
         else:
             a["else"] = []
 
-        # Preserve optional labels for conditional branches
+        # Preserve optional labels for conditional branches (validate and truncate to 10 chars)
         if "then_label" in cmd:
-            a["then_label"] = cmd["then_label"]
+            label = cmd["then_label"]
+            if isinstance(label, str):
+                a["then_label"] = label[:10]
         if "else_label" in cmd:
-            a["else_label"] = cmd["else_label"]
+            label = cmd["else_label"]
+            if isinstance(label, str):
+                a["else_label"] = label[:10]
 
         return a
 

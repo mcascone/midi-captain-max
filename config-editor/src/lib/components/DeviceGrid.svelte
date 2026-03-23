@@ -23,9 +23,9 @@
   let totalSlots = $derived(deviceType === 'mini6' ? 6 : 10);
   let cols = $derived(deviceType === 'mini6' ? 3 : 5);
 
-  // LED highlight state for incoming MIDI events
-  let lit: boolean[] = [];
-  let states: boolean[] = [];
+  // LED highlight state for incoming MIDI events (use $state for reactivity)
+  let lit = $state<boolean[]>([]);
+  let states = $state<boolean[]>([]);
   $effect(() => {
     const n = (deviceType === 'mini6' ? 6 : 10);
     if (!lit || lit.length !== n) lit = Array(n).fill(false);
@@ -529,7 +529,7 @@
         class:selected={$selectedButtonIndex === i}
         class:lit={lit[i]}        class:active={states[i]}        class:multi-command={isMultiCommand(btn)}
         title={isMultiCommand(btn) ? commandTooltip(btn) : ''}
-        onclick={() => selectedButtonIndex.set(i)}
+        onclick={() => handleButtonClick(btn, i)}
       >
         <div class="btn-led" style="background: {colorHex(btn)}"></div>
 
