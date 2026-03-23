@@ -257,7 +257,6 @@ def _hot_reload_config():
 
         # Update all LEDs to reflect new colors
         for i in range(len(buttons)):
-            btn_config = buttons[i]
             state = button_states[i]
             # Apply current state with new color
             set_button_state(i + 1, state.state)
@@ -1027,7 +1026,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None, skip_label
             else:
                 # No long_press_label configured - don't change the display
                 # Keep showing whatever was there (likely the selected button's label)
-                print(f"[LABEL] No long_press_label configured, keeping current display")
+                print("[LABEL] No long_press_label configured, keeping current display")
                 pass
         else:
             # Normal press/release action - always show button label
@@ -1036,7 +1035,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None, skip_label
             set_label_text(button_name_label, label_text)
             arm_label_return_timeout(btn_config)
     else:
-        print(f"[LABEL] Skipping label update (skip_label_update=True)")
+        print("[LABEL] Skipping label update (skip_label_update=True)")
 
     # Track if any PC command executed (for LED flash feedback)
     pc_command_sent = False
@@ -1120,7 +1119,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None, skip_label
                     if not conditional_persist:
                         arm_label_return_timeout(btn_config)
                 else:
-                    print(f"[CONDITIONAL] No THEN label configured")
+                    print("[CONDITIONAL] No THEN label configured")
                 _send_action_from_cfg(then_commands, btn_num, idx, action_name, skip_label_update=True)
             else:
                 print(f"[CONDITIONAL] Condition FALSE (button {btn_num}), executing ELSE branch with {len(else_commands)} command(s)")
@@ -1131,7 +1130,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None, skip_label
                     if not conditional_persist:
                         arm_label_return_timeout(btn_config)
                 else:
-                    print(f"[CONDITIONAL] No ELSE label configured")
+                    print("[CONDITIONAL] No ELSE label configured")
                 _send_action_from_cfg(else_commands, btn_num, idx, action_name, skip_label_update=True)
 
             # Skip normal MIDI command processing for conditionals
