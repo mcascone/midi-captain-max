@@ -116,3 +116,54 @@ def sample_config():
             {"label": "Up", "cc": 29, "color": "red"},
         ]
     }
+
+
+@pytest.fixture
+def mock_time(monkeypatch):
+    """
+    Provide a controllable time mock for testing cooldowns and timing.
+    Returns a dict with 'current' key that can be modified to advance time.
+    """
+    time_state = {"current": 0.0}
+    
+    def fake_monotonic():
+        return time_state["current"]
+    
+    import time
+    monkeypatch.setattr(time, "monotonic", fake_monotonic)
+    
+    return time_state
+
+
+# Cache for loaded firmware module to speed up runtime tests
+_firmware_module_cache = None
+
+
+@pytest.fixture(scope="session")
+def firmware_module():
+    """
+    Load and cache the firmware code module for runtime tests.
+    Only loads once per test session to improve performance.
+    """
+    global _firmware_module_cache
+    
+    if _firmware_module_cache is not None:
+        return _firmware_module_cache
+    
+    import importlib.util
+    
+    FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "circuitpython"
+    FIRMWARE_CODE = FIRMWARE_DIR / "code.py"
+    
+    # Load firmware code but strip infinite loop
+    src = FIRMWARE_CODE.read_text()
+    loop_idx = src.rfind('\nwhile True:')
+    if loop_idx != -1:
+        src = src[:loop_idx]
+    
+    spec = importlib.util.spec_from_file_location("firmware_code", str(FIRMWARE_CODE))
+    fw = importlib.util.module_from_spec(spec)
+    exec(compile(src, str(FIRMWARE_CODE), 'exec'), fw.__dict__)
+    
+    _firmware_module_cache = fw
+    return fw

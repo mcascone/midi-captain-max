@@ -4,32 +4,22 @@ and send their configured message on every physical press.
 """
 
 import sys
-import time
 from pathlib import Path
 
+# Ensure firmware core modules are in path
 FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "circuitpython"
-sys.path.insert(0, str(FIRMWARE_DIR))
+if str(FIRMWARE_DIR) not in sys.path:
+    sys.path.insert(0, str(FIRMWARE_DIR))
 
 from core.config import validate_config
-import importlib.util
-
-# Load firmware/circuitpython/code.py as module `fw` (strip the infinite loop)
-FIRMWARE_CODE = FIRMWARE_DIR / "code.py"
-src = FIRMWARE_CODE.read_text()
-loop_idx = src.rfind('\nwhile True:')
-if loop_idx != -1:
-    src = src[:loop_idx]
-
-spec = importlib.util.spec_from_file_location("firmware_code", str(FIRMWARE_CODE))
-fw = importlib.util.module_from_spec(spec)
-exec(compile(src, str(FIRMWARE_CODE), 'exec'), fw.__dict__)
 
 
-def _first_button_index():
+def _first_button_index(fw):
     return 1 if fw.HAS_ENCODER else 0
 
 
-def test_tap_mode_always_on_and_sends_on_each_press(tmp_path, monkeypatch):
+def test_tap_mode_always_on_and_sends_on_each_press(tmp_path, monkeypatch, firmware_module, mock_time):
+    fw = firmware_module
     cfg = {
         "device": "std10",
         "buttons": [
@@ -40,7 +30,7 @@ def test_tap_mode_always_on_and_sends_on_each_press(tmp_path, monkeypatch):
     validated = validate_config(cfg, button_count=fw.BUTTON_COUNT)
     fw.buttons = validated["buttons"]
 
-    idx = _first_button_index()
+    idx = _first_button_index(fw)
     sw = fw.switches[idx]
     btn_num = idx + 1
 
@@ -66,7 +56,7 @@ def test_tap_mode_always_on_and_sends_on_each_press(tmp_path, monkeypatch):
 
     for _ in range(len(seq)):
         fw.handle_switches()
-        time.sleep(0.01)
+        mock_time['current'] += 0.01  # Advance 10ms per iteration
 
     # Expect at least one MIDI send per physical press (3 presses)
     assert len(sent) >= 3

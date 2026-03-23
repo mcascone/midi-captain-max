@@ -4,36 +4,24 @@ Uses the existing switch mocks to simulate press/release and calls `handle_switc
 """
 
 import sys
-import time
 from pathlib import Path
 
+# Ensure firmware core modules are in path
 FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "circuitpython"
-sys.path.insert(0, str(FIRMWARE_DIR))
+if str(FIRMWARE_DIR) not in sys.path:
+    sys.path.insert(0, str(FIRMWARE_DIR))
 
 from core.config import validate_config
-import importlib.util
-
-# Load firmware/circuitpython/code.py as module `fw` to avoid stdlib `code` module collision
-FIRMWARE_CODE = FIRMWARE_DIR / "code.py"
-src = FIRMWARE_CODE.read_text()
-# Strip the infinite main loop at the end for test import so module-level
-# initialization runs but the runtime polling loop does not start.
-loop_idx = src.rfind('\nwhile True:')
-if loop_idx != -1:
-    src = src[:loop_idx]
-
-spec = importlib.util.spec_from_file_location("firmware_code", str(FIRMWARE_CODE))
-fw = importlib.util.module_from_spec(spec)
-exec(compile(src, str(FIRMWARE_CODE), 'exec'), fw.__dict__)
 
 
-def _find_first_button_switch_index():
+def _find_first_button_switch_index(fw):
     # In STD10, if encoder present, footswitches start at index 1; else 0
     return 1 if fw.HAS_ENCODER else 0
 
 
-def test_long_press_action_triggers(tmp_path, monkeypatch):
+def test_long_press_action_triggers(tmp_path, monkeypatch, firmware_module, mock_time):
     # Use a minimal config with a long_press on first button
+    fw = firmware_module
     cfg = {
         "device": "std10",
         "buttons": [
@@ -51,7 +39,7 @@ def test_long_press_action_triggers(tmp_path, monkeypatch):
     fw.buttons = validated["buttons"]
 
     # Simulate a press on the first switch
-    idx = _find_first_button_switch_index()
+    idx = _find_first_button_switch_index(fw)
     sw = fw.switches[idx]
 
     # Press: monkeypatch the Switch.changed() to first return (True, True) then (False, True) while held
@@ -65,17 +53,17 @@ def test_long_press_action_triggers(tmp_path, monkeypatch):
 
     monkeypatch.setattr(sw, "changed", fake_changed)
 
-    # Call handle_switches repeatedly to simulate time passing
-    start = time.monotonic()
+    # Call handle_switches repeatedly, advancing mocked time
     for _ in range(len(seq)):
         fw.handle_switches()
-        time.sleep(0.05)
+        mock_time['current'] += 0.05  # Advance 50ms per iteration
 
     # If long-press triggered, status_label should reflect CC41 send
     assert "CC41" in fw.status_label.text or "PC41" in fw.status_label.text or "Note41" in fw.status_label.text
 
 
-def test_short_press_does_not_trigger_longpress(tmp_path, monkeypatch):
+def test_short_press_does_not_trigger_longpress(tmp_path, monkeypatch, firmware_module, mock_time):
+    fw = firmware_module
     cfg = {
         "device": "std10",
         "buttons": [
@@ -90,7 +78,7 @@ def test_short_press_does_not_trigger_longpress(tmp_path, monkeypatch):
     validated = validate_config(cfg, button_count=fw.BUTTON_COUNT)
     fw.buttons = validated["buttons"]
 
-    idx = _find_first_button_switch_index()
+    idx = _find_first_button_switch_index(fw)
     sw = fw.switches[idx]
 
     # Simulate a quick press/release sequence shorter than threshold
@@ -106,7 +94,7 @@ def test_short_press_does_not_trigger_longpress(tmp_path, monkeypatch):
 
     for _ in range(3):
         fw.handle_switches()
-        time.sleep(0.05)
+        mock_time['current'] += 0.05  # Advance 50ms per iteration
 
     # Ensure long-press CC51 was not sent (status_label should not contain CC51)
     assert "CC51" not in fw.status_label.text

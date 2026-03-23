@@ -159,7 +159,7 @@ def test_switch_bank_cooldown():
     assert manager.current_bank_index == 1  # Stayed at bank 1
 
 
-def test_switch_bank_cooldown_expires():
+def test_switch_bank_cooldown_expires(mock_time):
     """Test bank switch succeeds after cooldown expires."""
     banks = [
         {"name": "Bank 1", "buttons": [{}]},
@@ -173,8 +173,8 @@ def test_switch_bank_cooldown_expires():
     manager.switch_bank(1)
     assert manager.current_bank_index == 1
 
-    # Wait for cooldown to expire (200ms)
-    time.sleep(0.25)
+    # Advance time past cooldown (200ms)
+    mock_time['current'] += 0.25
 
     # Second switch should succeed
     result = manager.switch_bank(0)
@@ -182,7 +182,7 @@ def test_switch_bank_cooldown_expires():
     assert manager.current_bank_index == 0
 
 
-def test_switch_bank_preserves_state():
+def test_switch_bank_preserves_state(mock_time):
     """Test switching banks preserves button states."""
     banks = [
         {"name": "Bank 1", "buttons": [{}, {}]},
@@ -201,7 +201,7 @@ def test_switch_bank_preserves_state():
     manager.switch_bank(1)
 
     # Switch back to bank 0
-    time.sleep(0.25)  # Wait for cooldown
+    mock_time['current'] += 0.25  # Advance time for cooldown
     manager.switch_bank(0)
 
     # Check states were preserved
@@ -210,7 +210,7 @@ def test_switch_bank_preserves_state():
     assert restored_states[1].keytime == 2
 
 
-def test_next_bank():
+def test_next_bank(mock_time):
     """Test cycling to next bank."""
     banks = [
         {"name": "Bank 1", "buttons": [{}]},
@@ -228,7 +228,7 @@ def test_next_bank():
     manager.next_bank()
     assert manager.current_bank_index == 1
 
-    time.sleep(0.25)
+    mock_time['current'] += 0.25
 
     # Next bank
     manager.next_bank()
@@ -252,7 +252,7 @@ def test_next_bank_wraps():
     assert manager.current_bank_index == 0
 
 
-def test_previous_bank():
+def test_previous_bank(mock_time):
     """Test cycling to previous bank."""
     banks = [
         {"name": "Bank 1", "buttons": [{}]},
@@ -270,7 +270,7 @@ def test_previous_bank():
     manager.previous_bank()
     assert manager.current_bank_index == 1
 
-    time.sleep(0.25)
+    mock_time['current'] += 0.25
 
     # Previous bank
     manager.previous_bank()

@@ -7,11 +7,10 @@ Tests single-button cycling and dual-button (next/prev) bank switching.
 import pytest
 
 
-def test_bank_button_single_cycles_forward():
+def test_bank_button_single_cycles_forward(mock_time):
     """Test single button cycles through banks in forward direction."""
     from firmware.circuitpython.core.banks import BankManager
     from firmware.circuitpython.core.button import ButtonState
-    import time
     
     banks = [
         {"name": "Bank 1", "buttons": []},
@@ -27,21 +26,20 @@ def test_bank_button_single_cycles_forward():
     # Test cycling forward (wraps around)
     assert bm.current_bank_index == 0
     bm.next_bank()
-    time.sleep(0.25)  # Wait for cooldown
+    mock_time['current'] += 0.25  # Advance time for cooldown
     assert bm.current_bank_index == 1
     bm.next_bank()
-    time.sleep(0.25)
+    mock_time['current'] += 0.25
     assert bm.current_bank_index == 2
     bm.next_bank()
-    time.sleep(0.25)
+    mock_time['current'] += 0.25
     assert bm.current_bank_index == 0  # Wrap around
 
 
-def test_bank_button_dual_next_prev():
+def test_bank_button_dual_next_prev(mock_time):
     """Test dual buttons for next/previous bank switching."""
     from firmware.circuitpython.core.banks import BankManager
     from firmware.circuitpython.core.button import ButtonState
-    import time
     
     banks = [
         {"name": "Bank 1", "buttons": []},
@@ -55,30 +53,29 @@ def test_bank_button_dual_next_prev():
     # Test next button
     assert bm.current_bank_index == 0
     bm.next_bank()
-    time.sleep(0.25)  # Wait for cooldown
+    mock_time['current'] += 0.25  # Advance time for cooldown
     assert bm.current_bank_index == 1
     
     # Test previous button
     bm.previous_bank()
-    time.sleep(0.25)
+    mock_time['current'] += 0.25
     assert bm.current_bank_index == 0
     
     # Test previous wraps to last bank
     bm.previous_bank()
-    time.sleep(0.25)
+    mock_time['current'] += 0.25
     assert bm.current_bank_index == 2
     
     # Test next wraps to first bank
     bm.next_bank()
-    time.sleep(0.25)
+    mock_time['current'] += 0.25
     assert bm.current_bank_index == 0
 
 
-def test_bank_button_state_persistence():
+def test_bank_button_state_persistence(mock_time):
     """Test button states persist across bank switches."""
     from firmware.circuitpython.core.banks import BankManager
     from firmware.circuitpython.core.button import ButtonState
-    import time
     
     banks = [
         {"name": "Bank 1", "buttons": []},
@@ -94,7 +91,7 @@ def test_bank_button_state_persistence():
     
     # Switch to Bank 2
     bm.next_bank()
-    time.sleep(0.25)  # Wait for cooldown
+    mock_time['current'] += 0.25  # Advance time for cooldown
     assert bm.current_bank_index == 1
     
     # Bank 2 button should start off
@@ -103,7 +100,7 @@ def test_bank_button_state_persistence():
     
     # Switch back to Bank 1
     bm.previous_bank()
-    time.sleep(0.25)
+    mock_time['current'] += 0.25
     assert bm.current_bank_index == 0
     
     # Bank 1 button should still be on
@@ -167,11 +164,10 @@ def test_bank_config_legacy_compatibility():
     assert "button_prev" not in bsc or bsc.get("button_prev") is None
 
 
-def test_bank_switch_cooldown():
+def test_bank_switch_cooldown(mock_time):
     """Test that bank switching respects cooldown period."""
     from firmware.circuitpython.core.banks import BankManager
     from firmware.circuitpython.core.button import ButtonState
-    import time
     
     banks = [
         {"name": "Bank 1", "buttons": []},
@@ -192,8 +188,8 @@ def test_bank_switch_cooldown():
     assert bm.next_bank() == False
     assert bm.current_bank_index == 1  # Still in Bank 2
     
-    # Wait for cooldown
-    time.sleep(0.25)
+    # Advance time past cooldown
+    mock_time['current'] += 0.25
     
     # Now switch should succeed
     assert bm.next_bank() == True
