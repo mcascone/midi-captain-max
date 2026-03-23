@@ -217,35 +217,6 @@ def _read_version():
 VERSION = _read_version()
 print(f"Version: {VERSION}")
 
-# SysEx upload buffer for live config writes (chunked)
-sys_ex_buffer = bytearray()
-
-# SysEx ACK/NAK helper
-def _send_sysex_ack(cmd, success=True, error_code=0):
-    """Send SysEx ACK or NAK response.
-
-    Protocol:
-    - ACK: [0xF0, 0x7D, 0x7E, original_cmd, 0xF7]
-    - NAK: [0xF0, 0x7D, 0x7F, original_cmd, error_code, 0xF7]
-
-    Error codes:
-    0x01 = buffer overflow
-    0x02 = decode/parse error
-    0x03 = validation error
-    0x04 = write error
-    """
-    try:
-        if success:
-            # ACK
-            data = bytes([0x7E, cmd])
-        else:
-            # NAK
-            data = bytes([0x7F, cmd, error_code])
-        msg = SystemExclusive(manufacturer_id=[0x7D], data=data)
-        send_midi_message(msg, channel=0)
-    except Exception as e:
-        print(f"[WARN] Failed to send SysEx ACK/NAK: {e}")
-
 
 def _hot_reload_config():
     """Hot-reload config from disk and update all hardware states without restarting.
@@ -293,15 +264,15 @@ def _hot_reload_config():
 
         # Update display with first button label (or selected button)
         if len(buttons) > 0:
-            display_handlers.set_label_text(button_name_label, buttons[0].get('label', '1'))
-        display_handlers.set_label_text(status_label, 'Config reloaded')
+            set_label_text(button_name_label, buttons[0].get('label', '1'))
+        set_label_text(status_label, 'Config reloaded')
 
         print('[HOT-RELOAD] Config hot-reloaded successfully')
         return True
 
     except Exception as e:
         print(f"[HOT-RELOAD] Failed to hot-reload config: {e}")
-        display_handlers.set_label_text(status_label, 'Reload failed')
+        set_label_text(status_label, 'Reload failed')
         return False
 
 # =============================================================================
@@ -1324,15 +1295,22 @@ def handle_midi():
 
     Checks both USB and TRS/serial MIDI for incoming messages (like Helmut's
     original firmware). Some pedals connected via TRS need bidirectional comms.
+    
+    Drains each port's buffer completely to avoid overflow when receiving
+    rapid message sequences (e.g., when switching scene/bank on external device).
     """
-    # Check USB MIDI
-    msg = midi_usb.receive()
-    if msg:
+    # Drain USB MIDI buffer completely
+    while True:
+        msg = midi_usb.receive()
+        if msg is None:
+            break
         _process_incoming_midi(msg)
 
-    # Check TRS/serial MIDI
-    msg = midi_trs.receive()
-    if msg:
+    # Drain TRS/serial MIDI buffer completely
+    while True:
+        msg = midi_trs.receive()
+        if msg is None:
+            break
         _process_incoming_midi(msg)
 
 
@@ -1475,109 +1453,7 @@ def _process_incoming_midi(msg):
                 arm_label_return_timeout(btn_config)
                 break
 
-    # System Exclusive (SysEx) - duck-typed by presence of `manufacturer_id` and `data`
-    elif hasattr(msg, 'manufacturer_id') and hasattr(msg, 'data'):
-        try:
-            man = list(getattr(msg, 'manufacturer_id'))
-            sdata = bytes(list(getattr(msg, 'data')))
-        except Exception as e:
-            print(f"[MIDI RX] SysEx parse error: {e}")
-            return
-
-        # Chunked live-config protocol (safe for large configs):
-        # Manufacturer ID 0x7D (non-commercial) or 0x59 (legacy)
-        # Message payload layout: [cmd, ...bytes]
-        # cmd == 0x01: START -> clear buffer and append bytes
-        # cmd == 0x02: CHUNK -> append bytes
-        # cmd == 0x03: FINISH -> append bytes, then process full buffer as UTF-8 JSON
-        # Any other cmd: ignored
-        if (man == [0x7D] or man == [0x59]) and len(sdata) > 0:
-            cmd = sdata[0]
-            payload = sdata[1:]
-
-            # Safety limits
-            MAX_SYSEX_BUFFER = 16 * 1024  # 16 KB
-
-            if cmd == 0x01:
-                # START: initialize buffer
-                sys_ex_buffer[:] = b''
-                if payload:
-                    sys_ex_buffer.extend(payload)
-                print('[MIDI RX] SysEx START received, buffer initialized')
-                display_handlers.set_label_text(status_label, 'SysEx START')
-                _send_sysex_ack(cmd, success=True)
-                return
-
-            if cmd == 0x02:
-                # CHUNK: append
-                if len(sys_ex_buffer) + len(payload) > MAX_SYSEX_BUFFER:
-                    print('[MIDI RX] SysEx buffer overflow, discarding')
-                    sys_ex_buffer[:] = b''
-                    display_handlers.set_label_text(status_label, 'SysEx overflow')
-                    _send_sysex_ack(cmd, success=False, error_code=0x01)
-                    return
-                sys_ex_buffer.extend(payload)
-                print(f'[MIDI RX] SysEx CHUNK appended ({len(payload)} bytes)')
-                display_handlers.set_label_text(status_label, 'SysEx chunk')
-                _send_sysex_ack(cmd, success=True)
-                return
-
-            if cmd == 0x03:
-                # FINISH: append and process
-                if len(sys_ex_buffer) + len(payload) > MAX_SYSEX_BUFFER:
-                    print('[MIDI RX] SysEx buffer overflow on FINISH, discarding')
-                    sys_ex_buffer[:] = b''
-                    display_handlers.set_label_text(status_label, 'SysEx overflow')
-                    _send_sysex_ack(cmd, success=False, error_code=0x01)
-                    return
-                sys_ex_buffer.extend(payload)
-
-                # Attempt to decode and parse JSON
-                try:
-                    txt = bytes(sys_ex_buffer).decode('utf-8')
-                    new_cfg = json.loads(txt)
-                except Exception as e:
-                    print(f"[MIDI RX] SysEx config decode/parse error: {e}")
-                    sys_ex_buffer[:] = b''
-                    display_handlers.set_label_text(status_label, 'SysEx error')
-                    _send_sysex_ack(cmd, success=False, error_code=0x02)
-                    return
-
-                # Validate before writing
-                try:
-                    validate_config(new_cfg, button_count=BUTTON_COUNT)
-                except Exception as e:
-                    print(f"[MIDI RX] Incoming config failed validation: {e}")
-                    sys_ex_buffer[:] = b''
-                    display_handlers.set_label_text(status_label, 'SysEx invalid')
-                    _send_sysex_ack(cmd, success=False, error_code=0x03)
-                    return
-
-                # Write to /config.json atomically
-                try:
-                    with open('/config.json', 'w') as f:
-                        f.write(json.dumps(new_cfg, indent=2))
-                    print('[MIDI RX] SysEx config written to /config.json')
-
-                    # Hot-reload the config in-place (no restart needed)
-                    if _hot_reload_config():
-                        display_handlers.set_label_text(status_label, 'Config reloaded')
-                        _send_sysex_ack(cmd, success=True)
-                    else:
-                        display_handlers.set_label_text(status_label, 'Reload failed')
-                        _send_sysex_ack(cmd, success=False, error_code=0x04)
-                        sys_ex_buffer[:] = b''
-                        return
-
-                except Exception as e:
-                    print(f"[MIDI RX] Failed to write config from SysEx: {e}")
-                    sys_ex_buffer[:] = b''
-                    _send_sysex_ack(cmd, success=False, error_code=0x04)
-                    return
-
-                # Clear buffer after successful write
-                sys_ex_buffer[:] = b''
-                return
+    # System Exclusive (SysEx) - not currently used but structure kept for future MIDI protocol extensions
 
     # NoteOn/NoteOff - duck-typed by `note` and optionally `velocity`
     elif hasattr(msg, 'note'):

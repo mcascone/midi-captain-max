@@ -10,10 +10,11 @@ import { message } from '@tauri-apps/plugin-dialog';
 import {
   selectedDevice, currentConfigRaw, hasUnsavedChanges,
   validationErrors, statusMessage, isLoading, devices, showToast, isReloadingDevice,
-  lastSavedTimestamp, saveFeedback
+  lastSavedTimestamp, saveFeedback, selectedMidiPort
 } from '$lib/stores';
 import {
-  readConfigRaw, writeConfigRaw, ejectDevice, triggerDeviceReload
+  readConfigRaw, writeConfigRaw, ejectDevice, triggerDeviceReload,
+  listMidiPorts
 } from '$lib/api';
 import { loadConfig, validate, normalizeConfig, config } from '$lib/formStore';
 import type { DetectedDevice } from '$lib/types';
@@ -104,32 +105,21 @@ export async function saveToDevice(): Promise<boolean> {
     }
 
     const configJson = JSON.stringify(configObj, null, 2);
-    console.log('[SAVE] Writing config JSON, length:', configJson.length);
+    console.log('[SAVE] Config JSON length:', configJson.length);
+    
+    // Write to filesystem for persistence
     await writeConfigRaw(device.config_path, configJson);
     currentConfigRaw.set(configJson);
-    lastSavedTimestamp.set(new Date());
-    saveFeedback.set('success');
-    hasUnsavedChanges.set(false);
-    saveSucceeded = true;
-
-    // Extended delay to ensure FAT32 flush on macOS/Windows USB volumes
-    // Even with sync_all(), OS can buffer writes at volume manager level
-    // 1 second ensures config is fully committed before device reboots
-    statusMessage.set('Config saved — flushing to device…');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Auto-reload only works in dev mode (USB drive remounts after reload)
-    // In performance mode, USB stays hidden after reload and editor loses connection
-
+    console.log('[SAVE] Written to filesystem');
+    
+    // Reload method depends on dev_mode setting
     if (devMode) {
-      // Attempt serial reload — non-fatal; falls back to manual restart message
+      // Dev mode: trigger serial reload (device restarts automatically)
       try {
+        statusMessage.set('Reloading device config...');
         await triggerDeviceReload(device.path);
         isReloadingDevice.set(true);
-        statusMessage.set('Config saved — device reloading…');
-
-        // Clear reload flag after 5s (reload takes ~2-3s, buffer for reconnect)
-        // Cancel any existing timeout from previous saves
+        
         if (reloadTimeoutId !== null) {
           clearTimeout(reloadTimeoutId);
         }
@@ -137,13 +127,30 @@ export async function saveToDevice(): Promise<boolean> {
           isReloadingDevice.set(false);
           reloadTimeoutId = null;
         }, 5000);
+        
+        lastSavedTimestamp.set(new Date());
+        saveFeedback.set('success');
+        hasUnsavedChanges.set(false);
+        saveSucceeded = true;
+        statusMessage.set('Config saved — device restarting…');
+        showToast('Config saved! Device will restart.', 'success');
       } catch (e: any) {
-        console.warn('Serial reload failed:', e.message || e);
-        statusMessage.set('Config saved — restart device to apply changes');
+        console.warn('[SAVE] Serial reload failed:', e);
+        statusMessage.set('Config saved to disk — restart device manually to apply');
+        lastSavedTimestamp.set(new Date());
+        saveFeedback.set('success');
+        hasUnsavedChanges.set(false);
+        saveSucceeded = true;
+        showToast('Config saved! Restart device to apply.', 'info');
       }
     } else {
-      // Performance mode: user must manually restart device
-      statusMessage.set('Config saved — unplug and reconnect device to apply changes');
+      // Performance mode: config saved, manual restart required
+      statusMessage.set('Config saved to disk — unplug and reconnect device to apply');
+      lastSavedTimestamp.set(new Date());
+      saveFeedback.set('success');
+      hasUnsavedChanges.set(false);
+      saveSucceeded = true;
+      showToast('Config saved! Reconnect device to apply changes.', 'info');
     }
   } catch (e: any) {
     const errorMsg = `Error saving config: ${e.message || e}`;

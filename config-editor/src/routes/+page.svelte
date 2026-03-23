@@ -12,7 +12,8 @@
   import { toaster } from '$lib/toaster';
   import {
     scanDevices, startDeviceWatcher,
-    onDeviceConnected, onDeviceDisconnected
+    onDeviceConnected, onDeviceDisconnected,
+    listMidiPorts
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
   import LeftPanel from '$lib/components/LeftPanel.svelte';
@@ -41,15 +42,15 @@
   // Config complexity metrics
   let configStats = $derived.by(() => {
     const buttons = $config.buttons?.length ?? 0;
-    const configured = $config.buttons?.filter(b => 
-      (b.press && b.press.length > 0) || 
+    const configured = $config.buttons?.filter(b =>
+      (b.press && b.press.length > 0) ||
       (b.release && b.release.length > 0)
     ).length ?? 0;
     const totalCommands = $config.buttons?.reduce((sum, b) => {
-      return sum + 
-        (b.press?.length ?? 0) + 
-        (b.release?.length ?? 0) + 
-        (b.long_press?.length ?? 0) + 
+      return sum +
+        (b.press?.length ?? 0) +
+        (b.release?.length ?? 0) +
+        (b.long_press?.length ?? 0) +
         (b.long_release?.length ?? 0);
     }, 0) ?? 0;
     return { buttons, configured, totalCommands };
@@ -60,7 +61,7 @@
     if (!$lastSavedTimestamp) return 'Never';
     const now = new Date();
     const diff = Math.floor((now.getTime() - $lastSavedTimestamp.getTime()) / 1000);
-    
+
     if (diff < 60) return 'Just now';
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -88,6 +89,19 @@
   onMount(async () => {
     try {
       appVersion = await getVersion();
+
+      // Test MIDI ports detection
+      console.log('[APP] Testing MIDI ports...');
+      try {
+        const midiPorts = await listMidiPorts();
+        console.log('[APP] MIDI ports available:', midiPorts);
+        if (midiPorts.length === 0) {
+          console.warn('[APP] No MIDI ports detected!');
+        }
+      } catch (midiErr) {
+        console.error('[APP] Failed to list MIDI ports:', midiErr);
+      }
+
       $devices = await scanDevices();
       await startDeviceWatcher();
 
@@ -322,8 +336,8 @@
     </div>
     <div class="toolbar-right">
       <button class="tool-btn secondary" onclick={viewJson}>View JSON</button>
-      <button 
-        class="tool-btn primary save-btn" 
+      <button
+        class="tool-btn primary save-btn"
         class:saving={$saveFeedback === 'saving'}
         class:success={$saveFeedback === 'success'}
         onclick={saveToDevice}
@@ -612,7 +626,7 @@
   .center-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; }
   .center-title { font-size: 15px; font-weight: 500; color: #6b7280; }
   .center-sub { font-size: 13px; color: #444444; }
-  
+
   /* Enhanced loading state */
   .loading-container {
     display: flex;
@@ -662,21 +676,21 @@
   .dot.idle { background: #333333; }
   .status-text { font-size: 12px; color: #6b7280; }
   .status-divider { color: #333333; font-size: 10px; }
-  .status-stat { 
-    font-size: 11px; 
-    color: #6b7280; 
-    background: #1a1a1a; 
-    padding: 2px 8px; 
+  .status-stat {
+    font-size: 11px;
+    color: #6b7280;
+    background: #1a1a1a;
+    padding: 2px 8px;
     border-radius: 4px;
     border: 1px solid #2a2a2a;
   }
   .status-right { display: flex; gap: 12px; align-items: center; }
-  .status-info { 
-    font-size: 11px; 
-    color: #6b7280; 
-    padding: 2px 8px; 
-    background: #1a1a1a; 
-    border-radius: 4px; 
+  .status-info {
+    font-size: 11px;
+    color: #6b7280;
+    padding: 2px 8px;
+    background: #1a1a1a;
+    border-radius: 4px;
   }
   .ghost-btn {
     background: transparent; border: 1px solid var(--border-default); border-radius: 6px;

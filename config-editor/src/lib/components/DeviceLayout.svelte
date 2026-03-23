@@ -1,8 +1,15 @@
 <script lang="ts">
   import { config, getButtonErrors, activeBank, isMultiBankMode } from '$lib/formStore';
-  import { selectedButtonIndex } from '$lib/stores';
+  import { selectedButtonIndex, buttonStates, selectedMidiPort, midiPorts, showToast } from '$lib/stores';
+  import { sendMidiMessage, listMidiPorts } from '$lib/api';
+  import { get } from 'svelte/store';
   import { BUTTON_COLORS } from '$lib/types';
-  import type { ButtonConfig } from '$lib/types';
+  import type { ButtonConfig, CommandOrConditional, MidiCommand } from '$lib/types';
+
+  // Debug: watch buttonStates changes
+  $effect(() => {
+    console.log('[DeviceLayout] buttonStates changed:', $buttonStates);
+  });
 
   // Get buttons from active bank if multi-bank mode, otherwise from top-level
   let buttons = $derived(
@@ -41,10 +48,21 @@
     return buttons[index] ?? null;
   }
 
-  // Get LED color for button
-  function getLedColor(btn: ButtonConfig | null): string {
+  // Get LED color for button (responds to button state)
+  function getLedColor(btn: ButtonConfig | null, index: number): string {
     if (!btn) return '#555555'; // Neutral gray for empty
-    return BUTTON_COLORS[btn.color] ?? '#ffffff';
+
+    const baseColor = BUTTON_COLORS[btn.color] ?? '#ffffff';
+    const isOn = $buttonStates[index] ?? false;
+    const mode = btn.mode ?? 'toggle';
+
+    // For toggle/select buttons, show full brightness when on, dim when off
+    if ((mode === 'toggle' || mode === 'select') && !isOn) {
+      // Dim the color by reducing opacity
+      return baseColor + '40'; // Add 25% opacity
+    }
+
+    return baseColor;
   }
 
   // Get button label
@@ -153,9 +171,92 @@
     return lines.join('\n');
   }
 
-  // Handle button click
-  function handleButtonClick(index: number) {
+  // Type guard to check if a command is a MIDI command (not conditional)
+  function isMidiCommand(cmd: CommandOrConditional | undefined | null): cmd is MidiCommand {
+    return cmd !== undefined && cmd !== null && cmd.type !== 'conditional';
+  }
+
+  // Get primary press command for MIDI sending
+  function getPrimaryPressCommand(btn: ButtonConfig) {
+    const keytimes = btn.keytimes ?? 1;
+    if (keytimes > 1 && btn.states && btn.states.length > 0) {
+      const state = btn.states[0];
+      const pressCommands = (Array.isArray(state.press) && state.press.length > 0)
+        ? state.press
+        : btn.press;
+      return Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
+    }
+
+    if (btn.cc !== undefined) {
+      return { type: 'cc', cc: btn.cc, value: btn.value_on ?? 127, channel: btn.channel } as any;
+    }
+    if (btn.note !== undefined) {
+      return { type: 'note', note: btn.note, velocity: btn.velocity_on ?? 127, channel: btn.channel } as any;
+    }
+
+    const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+    return firstCmd;
+  }
+
+  // Handle button click - send MIDI and update selection
+  async function handleButtonClick(index: number) {
     $selectedButtonIndex = index;
+
+    const btn = getButton(index);
+    if (!btn) return;
+
+    // Determine primary press MIDI command
+    const cmd: any = getPrimaryPressCommand(btn);
+    if (!cmd) return;
+
+    // Optimistic state update for toggle/select buttons
+    const mode = btn.mode ?? 'toggle';
+    if (mode === 'toggle' || mode === 'select') {
+      const currentStates = get(buttonStates);
+      const newState = !currentStates[index];
+      currentStates[index] = newState;
+      buttonStates.set([...currentStates]);
+      console.log(`[DeviceLayout] Button ${index} state changed to:`, newState);
+    }
+
+    // Choose MIDI output port
+    let port = get(selectedMidiPort);
+    if (!port) {
+      const ports = await listMidiPorts();
+      if (ports.length === 0) {
+        showToast('No MIDI output ports available', 'error');
+        return;
+      }
+      port = ports[0];
+      selectedMidiPort.set(port);
+    }
+
+    const cmdType = cmd.type ?? 'cc';
+    const channel = (cmd.channel ?? btn.channel ?? $config.global_channel ?? 0) & 0x0f;
+    let bytes: number[] = [];
+    if (cmdType === 'cc') {
+      const cc = cmd.cc;
+      const val = cmd.value ?? cmd.value_on ?? 127;
+      bytes = [0xB0 | channel, cc, val];
+    } else if (cmdType === 'note') {
+      const note = cmd.note;
+      const vel = cmd.velocity ?? cmd.velocity_on ?? 127;
+      bytes = [0x90 | channel, note, vel];
+    } else if (cmdType === 'pc') {
+      const program = cmd.program ?? cmd.program_change ?? 0;
+      bytes = [0xC0 | channel, program];
+    } else {
+      // Unsupported command types (conditionals handled by firmware)
+      return;
+    }
+
+    try {
+      await sendMidiMessage(port, bytes);
+      console.log('[DeviceLayout] MIDI sent:', bytes, `[${bytes.map(b => '0x' + b.toString(16)).join(', ')}]`);
+    } catch (e) {
+      console.error('[DeviceLayout] MIDI send failed', e);
+      showToast('MIDI send failed', 'error');
+    }
   }
 
   // Check if button is selected
@@ -169,7 +270,6 @@
     {#each Array(totalSlots) as _, index}
       {@const pos = getButtonPosition(index)}
       {@const btn = getButton(index)}
-      {@const ledColor = getLedColor(btn)}
       {@const label = getButtonLabel(btn, index)}
       {@const selected = isSelected(index)}
       {@const multiCmd = isMultiCommand(btn)}
@@ -178,6 +278,9 @@
       {@const mode = getButtonMode(btn)}
       {@const modeColor = getModeBadgeColor(btn)}
       {@const hasErrors = hasButtonErrors(index)}
+
+      <!-- Compute LED color reactively in template (always full brightness) -->
+      {@const ledColor = btn ? (BUTTON_COLORS[btn.color] ?? '#ffffff') : '#555555'}
 
       <!-- Button Group -->
       <g

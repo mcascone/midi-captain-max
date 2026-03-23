@@ -1,12 +1,11 @@
 <script lang="ts">
   import { config, activeBank, isMultiBankMode } from '$lib/formStore';
-  import { selectedButtonIndex } from '$lib/stores';
+  import { selectedButtonIndex, buttonStates, selectedMidiPort, midiPorts, showToast } from '$lib/stores';
+  import { onMount, onDestroy } from 'svelte';
+  import { onMidiEvent, sendMidiMessage, listMidiPorts, startMidiInputListener, stopMidiInputListener } from '$lib/api';
+  import { get } from 'svelte/store';
   import { BUTTON_COLORS } from '$lib/types';
   import type { ButtonConfig, CommandOrConditional, MidiCommand } from '$lib/types';
-  import { onMount, onDestroy } from 'svelte';
-  import { onMidiEvent, sendMidiMessage, listMidiPorts } from '$lib/api';
-  import { selectedMidiPort, midiPorts, showToast, buttonStates } from '$lib/stores';
-  import { get } from 'svelte/store';
 
   // Type guard to check if a command is a MIDI command (not conditional)
   function isMidiCommand(cmd: CommandOrConditional | undefined | null): cmd is MidiCommand {
@@ -42,6 +41,23 @@
     states = $buttonStates;
   });
 
+  // Watch for MIDI port changes and manage listener
+  $effect(() => {
+    const port = $selectedMidiPort;
+    if (port) {
+      console.log(`[MIDI] Port selected: ${port}, starting listener...`);
+      // Stop any existing listener first
+      stopMidiInputListener();
+      // Start new listener
+      startMidiInputListener(port)
+        .then(() => console.log(`[MIDI] ✓ Input listener started on port: ${port}`))
+        .catch(e => console.error('[MIDI] ✗ Failed to start input listener:', e));
+    } else {
+      console.log('[MIDI] No port selected, stopping listener');
+      stopMidiInputListener();
+    }
+  });
+
   function getPrimaryPressCommand(btn: ButtonConfig) {
     const keytimes = btn.keytimes ?? 1;
     if (keytimes > 1 && btn.states && btn.states.length > 0) {
@@ -65,6 +81,7 @@
 
   let unlistenMidi: (() => void) | null = null;
   onMount(async () => {
+    console.log('[MIDI] Subscribing to MIDI events...');
     unlistenMidi = await onMidiEvent((evt) => {
       const data = evt.data;
       if (!data || data.length === 0) return;
@@ -73,8 +90,9 @@
       const d1 = data[1];
       const d2 = data[2] ?? 0;
 
-      console.log('[MIDI IN]', `Status: 0x${status.toString(16)}, Ch: ${channel}, D1: ${d1}, D2: ${d2}`);
+      console.log('[MIDI IN]', `Status: 0x${status.toString(16)}, Ch: ${channel}, D1: ${d1}, D2: ${d2}, Port: ${evt.port}`);
 
+      let matchFound = false;
       buttons.forEach((btn: ButtonConfig, idx: number) => {
         const cmd: any = getPrimaryPressCommand(btn);
         if (!cmd) return;
@@ -84,52 +102,114 @@
 
         let match = false;
         if (cmdType === 'cc' && status === 0xB0 && cmdChannel === channel) {
-          match = (cmd.cc === d1);
+          // For CC: match on CC number
+          const ccMatches = (cmd.cc === d1);
+
+          if (ccMatches) {
+            // Check if this button has a specific value configured (for select groups)
+            const btnValue = cmd.value ?? cmd.value_on;
+            const hasSpecificValue = btnValue !== undefined;
+
+            if (hasSpecificValue) {
+              // For select_group buttons: match BOTH CC and value
+              match = (btnValue === d2);
+              if (match) {
+                console.log(`[MIDI MATCH] Button ${idx} (${btn.label}) matched CC${d1}=${d2} (exact value match) on ch${channel}`);
+              }
+            } else {
+              // No specific value configured: match any value on this CC
+              match = true;
+              console.log(`[MIDI MATCH] Button ${idx} (${btn.label}) matched CC${d1}=${d2} (any value) on ch${channel}`);
+            }
+          }
+
           if (match) {
-            console.log(`[MIDI MATCH] Button ${idx} (${btn.label}) matched CC${d1}=${d2} on ch${channel}`);
             // Update persistent state based on CC value
             const mode = btn.mode ?? 'toggle';
+            const btnValue = cmd.value ?? cmd.value_on;
+            const hasSpecificValue = btnValue !== undefined;
+
             if (mode === 'toggle' || mode === 'select') {
-              // For toggle/select: value > 0 = on, value = 0 = off
-              states[idx] = d2 > 0;
+              // For select_group buttons with specific values: matching CC+value means this button is ON
+              // For regular toggle buttons: value > 0 = on, value = 0 = off
+              const newState = hasSpecificValue ? true : (d2 > 0);
+              states[idx] = newState;
               buttonStates.set([...states]);
+              console.log(`[DeviceGrid] Updated button ${idx} state to ${newState}, store:`, get(buttonStates));
+
+              // If turning ON, also select this button in the UI
+              if (newState) {
+                selectedButtonIndex.set(idx);
+                console.log(`[DeviceGrid] Selected button ${idx} in UI`);
+              }
             } else if (mode === 'momentary') {
               // Momentary: on during press, off on release
-              states[idx] = d2 > 0;
+              const newState = d2 > 0;
+              states[idx] = newState;
               buttonStates.set([...states]);
+              console.log(`[DeviceGrid] Updated button ${idx} state to ${newState}, store:`, get(buttonStates));
+
+              // On press, select this button
+              if (newState) {
+                selectedButtonIndex.set(idx);
+                console.log(`[DeviceGrid] Selected button ${idx} in UI`);
+              }
             }
           }
         } else if (cmdType === 'note' && (status === 0x90 || status === 0x80) && cmdChannel === channel) {
           match = (cmd.note === d1);
           if (match) {
             // Note on/off tracking
-            states[idx] = (status === 0x90 && d2 > 0);
+            const noteOn = (status === 0x90 && d2 > 0);
+            states[idx] = noteOn;
             buttonStates.set([...states]);
+
+            // Select button when note turns on
+            if (noteOn) {
+              selectedButtonIndex.set(idx);
+              console.log(`[DeviceGrid] Selected button ${idx} in UI (note on)`);
+            }
           }
         } else if (cmdType === 'pc' && status === 0xC0 && cmdChannel === channel) {
           match = (cmd.program === d1);
-          // PC buttons don't have persistent state (just flash)
+          if (match) {
+            // PC buttons don't have persistent state (just flash), but select in UI
+            selectedButtonIndex.set(idx);
+            console.log(`[DeviceGrid] Selected button ${idx} in UI (PC)`);
+          }
         }
 
         if (match) {
+          matchFound = true;
           lit[idx] = true;
           setTimeout(() => { lit[idx] = false; }, 300);
         }
       });
+
+      if (!matchFound) {
+        console.log('[MIDI] No button matched this MIDI message');
+      }
     });
+    console.log('[MIDI] Event subscription active');
   });
 
-  onDestroy(() => { if (unlistenMidi) unlistenMidi(); });
+  onDestroy(() => {
+    if (unlistenMidi) unlistenMidi();
+    stopMidiInputListener();
+  });
 
   async function ensureMidiPortList() {
     try {
       const ports = await listMidiPorts();
+      console.log(`[MIDI] Found ${ports.length} MIDI ports:`, ports);
       midiPorts.set(ports);
       if (!get(selectedMidiPort) && ports.length > 0) {
+        console.log(`[MIDI] Auto-selecting first port: ${ports[0]}`);
         selectedMidiPort.set(ports[0]);
+        // Note: The reactive effect will start the listener
       }
     } catch (e) {
-      console.warn('Failed to list MIDI ports', e);
+      console.error('[MIDI] Failed to list MIDI ports:', e);
     }
   }
 

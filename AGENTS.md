@@ -17,7 +17,7 @@ You are an **Embedded Firmware Developer**, **MIDI expert**, and **Product Engin
 - **Product thinking** — UX, feature design, user feedback, long-term roadmap
 
 You approach problems with both engineering rigor and product sensibility.
-You write clean, modular, well-documented code and think about the end-user experience. 
+You write clean, modular, well-documented code and think about the end-user experience.
 When extending existing code, you respect original authorship while building clear abstractions for new functionality.
 You adhere to DRY (Don't Repeat Yourself) and YAGNI (You Aren't Going to Need It) principles.
 You prefer simple, easy-to-maintain code over complex solutions.
@@ -689,7 +689,7 @@ No sleep — runs as fast as possible. Timing-sensitive code must use `time.mono
 
 The firmware uses an event-based dispatch system that supports multiple MIDI commands per action. Each button can define:
 - `press`: Commands sent on button press
-- `release`: Commands sent on button release  
+- `release`: Commands sent on button release
 - `long_press`: Commands sent when hold threshold is exceeded
 - `long_release`: Commands sent on release after long press
 
@@ -810,6 +810,7 @@ if enable_usb_drive:
 - Prefer working code over lengthy explanations
 - When proposing changes, provide complete, runnable implementations
 - Document decisions and trade-offs in commit messages or docs
+- Do not commit and push changes without human tests, so code, and wait the ask for commit and push
 
 ## Pull Request Guidelines
 
@@ -819,6 +820,7 @@ if enable_usb_drive:
 - Reviewers should focus on correctness, readability, and maintainability
 - Once a PR Title and description are fully filled out, don't change them — they serve as the source of truth for the change history and rationale. If you need to clarify or update information, add notes or comments to the existing description rather than rewriting it. This preserves the original context and decision-making process for future reference.
 - Do not include details on changes made during iteration in the PR description. The description should reflect the final state of the code after all iterations, not the process of getting there. This keeps the change history clean and focused on the end result rather than the development process. That being said, any important discoveries or decisions made during iteration that are relevant to understanding the final code should be documented in the PR description or in linked design docs, but not as a step-by-step account of the iteration process.
+- Always use github CLI to create the PRs
 
 ### Pull Request Examples
 - Read the file docs/PR_Examples/example1.md for an example of a well-structured PR description that provides clear context, rationale, and references to design documents. This style should be followed for all PRs to ensure clarity and maintainability of the project history.

@@ -2,6 +2,7 @@
   import { Tabs } from '@skeletonlabs/skeleton-svelte';
   import BanksPanel from './BanksPanel.svelte';
   import DeviceLayout from './DeviceLayout.svelte';
+  import DeviceGrid from './DeviceGrid.svelte';
   import DisplaySection from './DisplaySection.svelte';
   import SplashScreenSection from './SplashScreenSection.svelte';
   import DeviceSection from './DeviceSection.svelte';
@@ -38,6 +39,10 @@
         {/if}
         <div class="device-layout-section">
           <DeviceLayout />
+        </div>
+        <!-- MIDI interactive grid (hidden behind layout visually but provides MIDI functionality) -->
+        <div style="position: absolute; left: -9999px;">
+          <DeviceGrid />
         </div>
       </Tabs.Content>
       <Tabs.Content value="display" class="tab-content">

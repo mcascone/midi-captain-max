@@ -24,6 +24,7 @@ pub fn run() {
             send_midi_message_cmd,
             start_midi_input_listener_cmd,
             stop_midi_input_listener_cmd,
+
             scan_devices,
             start_device_watcher,
             stop_device_watcher
