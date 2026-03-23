@@ -100,8 +100,12 @@ def test_host_driven_select_group_preserves_exclusivity(tmp_path, firmware_modul
     fw.buttons = validated["buttons"]
 
     # Simulate host sending CC31=127 to turn B on
+    # Must return None after first message to avoid infinite loop in handle_midi()
     from adafruit_midi.control_change import ControlChange
-    fw.midi_usb.receive = lambda: ControlChange(31, 127, channel=0)
+    messages = [ControlChange(31, 127, channel=0)]
+    def mock_receive():
+        return messages.pop(0) if messages else None
+    fw.midi_usb.receive = mock_receive
     fw.handle_midi()
 
     # B should be on and A off

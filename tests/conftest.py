@@ -135,35 +135,36 @@ def mock_time(monkeypatch):
     return time_state
 
 
-# Cache for loaded firmware module to speed up runtime tests
-_firmware_module_cache = None
+# Cache for compiled firmware code (immutable) to speed up runtime tests
+_firmware_compiled_code = None
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def firmware_module():
     """
-    Load and cache the firmware code module for runtime tests.
-    Only loads once per test session to improve performance.
-    """
-    global _firmware_module_cache
+    Load firmware code module for runtime tests with per-test isolation.
     
-    if _firmware_module_cache is not None:
-        return _firmware_module_cache
+    Compiles the firmware code once per session but creates a fresh module
+    instance for each test to avoid state pollution between tests.
+    """
+    global _firmware_compiled_code
     
     import importlib.util
     
     FIRMWARE_DIR = Path(__file__).parent.parent / "firmware" / "circuitpython"
     FIRMWARE_CODE = FIRMWARE_DIR / "code.py"
     
-    # Load firmware code but strip infinite loop
-    src = FIRMWARE_CODE.read_text()
-    loop_idx = src.rfind('\nwhile True:')
-    if loop_idx != -1:
-        src = src[:loop_idx]
+    # Compile firmware code once per session (immutable cache)
+    if _firmware_compiled_code is None:
+        src = FIRMWARE_CODE.read_text()
+        loop_idx = src.rfind('\nwhile True:')
+        if loop_idx != -1:
+            src = src[:loop_idx]
+        _firmware_compiled_code = compile(src, str(FIRMWARE_CODE), 'exec')
     
+    # Create fresh module instance for this test (mutable, isolated state)
     spec = importlib.util.spec_from_file_location("firmware_code", str(FIRMWARE_CODE))
     fw = importlib.util.module_from_spec(spec)
-    exec(compile(src, str(FIRMWARE_CODE), 'exec'), fw.__dict__)
+    exec(_firmware_compiled_code, fw.__dict__)
     
-    _firmware_module_cache = fw
     return fw
