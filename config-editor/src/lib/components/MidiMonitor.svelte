@@ -235,7 +235,6 @@
   <!-- Header -->
   <div class="monitor-header">
     <div class="monitor-title">
-      <span class="icon">📊</span>
       <h3>MIDI Monitor</h3>
       <span class="badge">{filteredMessages.length} / {messages.length}</span>
     </div>
@@ -256,7 +255,7 @@
         onclick={togglePause}
         title={isPaused ? 'Resume' : 'Pause'}
       >
-        {isPaused ? '▶️' : '⏸️'}
+        {isPaused ? 'Resume' : 'Pause'}
       </button>
 
       <!-- Clear -->
@@ -265,7 +264,7 @@
         onclick={clearLog}
         title="Clear log"
       >
-        🗑️
+        Clear
       </button>
 
       <!-- Export -->
@@ -275,7 +274,7 @@
         title="Export to file"
         disabled={messages.length === 0}
       >
-        💾
+        Export
       </button>
 
       <!-- Auto-scroll -->
@@ -372,10 +371,6 @@
     font-size: var(--text-lg);
     font-weight: 600;
     color: var(--text-primary);
-  }
-
-  .icon {
-    font-size: var(--text-xl);
   }
 
   .badge {
