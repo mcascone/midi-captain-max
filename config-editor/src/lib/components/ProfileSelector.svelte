@@ -289,7 +289,7 @@
           >
             <div class="profile-card-header">
               <span class="profile-name">{profile.manufacturer}</span>
-              <span class="profile-type-badge" class:fixed={profile.type === 'fixed'}>
+              <span class="profile-type-badge" class:type-fixed={profile.type === 'fixed'}>
                 {profile.type}
               </span>
             </div>
@@ -504,14 +504,14 @@
   /* Profile Cards Grid */
   .profile-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 0.75rem;
   }
 
   .profile-card {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.625rem;
     padding: 0.875rem;
     background: #131313;
     border: 2px solid var(--border-default);
@@ -519,6 +519,9 @@
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: left;
+    min-height: 70px;
+    width: 100%;
+    position: relative;
   }
 
   .profile-card:hover {
@@ -536,6 +539,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    margin-bottom: 0.125rem;
+    width: 100%;
   }
 
   .profile-name {
@@ -544,6 +549,13 @@
     color: #9ca3af;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    line-height: 1.3;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .profile-type-badge {
@@ -554,9 +566,11 @@
     background: var(--bg-input);
     color: #9ca3af;
     text-transform: uppercase;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
-  .profile-type-badge.fixed {
+  .profile-type-badge.type-fixed {
     background: rgba(34, 197, 94, 0.15);
     color: #22c55e;
   }
@@ -565,6 +579,10 @@
     font-size: 14px;
     font-weight: 600;
     color: #e5e7eb;
+    line-height: 1.4;
+    margin-top: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Channel Override */

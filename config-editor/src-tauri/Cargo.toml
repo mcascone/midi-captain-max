@@ -30,10 +30,12 @@ serde_json = "1"
 notify = "6"
 dirs = "5"
 serialport = { version = "4", default-features = false }
+midir = "0.8"
+crossbeam-channel = "0.5"
+once_cell = "1"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi", "winbase", "winnt", "minwindef"] }
 
 [dev-dependencies]
 tempfile = "3"
-

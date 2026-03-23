@@ -16,7 +16,9 @@ def install_mocks():
     """Install mock modules into sys.modules before importing firmware code."""
     from tests.mocks import board, digitalio, neopixel, displayio, busio
     from tests.mocks import usb_midi, rotaryio, analogio, terminalio, supervisor
-    
+    from tests.mocks import adafruit_midi
+    from tests.mocks.adafruit_midi import control_change, program_change, note_on, note_off, system_exclusive
+
     sys.modules["board"] = board
     sys.modules["digitalio"] = digitalio
     sys.modules["neopixel"] = neopixel
@@ -27,27 +29,30 @@ def install_mocks():
     sys.modules["analogio"] = analogio
     sys.modules["terminalio"] = terminalio
     sys.modules["supervisor"] = supervisor
-    
+
+    # Adafruit MIDI mocks
+    sys.modules["adafruit_midi"] = adafruit_midi
+    sys.modules["adafruit_midi.control_change"] = control_change
+    sys.modules["adafruit_midi.program_change"] = program_change
+    sys.modules["adafruit_midi.note_on"] = note_on
+    sys.modules["adafruit_midi.note_off"] = note_off
+    sys.modules["adafruit_midi.system_exclusive"] = system_exclusive
+
     # Mock additional CircuitPython modules that may be needed
     # These are stub modules for imports that we don't need to fully mock
-    
+
     class StubModule:
         def __getattr__(self, name):
             return StubModule()
         def __call__(self, *args, **kwargs):
             return StubModule()
-    
+
     # Adafruit libraries that need stubs
     sys.modules["adafruit_display_text"] = StubModule()
     sys.modules["adafruit_display_text.label"] = StubModule()
     sys.modules["adafruit_bitmap_font"] = StubModule()
     sys.modules["adafruit_bitmap_font.bitmap_font"] = StubModule()
     sys.modules["adafruit_st7789"] = StubModule()
-    sys.modules["adafruit_midi"] = StubModule()
-    sys.modules["adafruit_midi.control_change"] = StubModule()
-    sys.modules["adafruit_midi.program_change"] = StubModule()
-    sys.modules["adafruit_midi.note_on"] = StubModule()
-    sys.modules["adafruit_midi.note_off"] = StubModule()
 
 
 # Install mocks at import time (before tests run)
@@ -78,19 +83,19 @@ def mock_switches():
     """Provide mock switch inputs for testing."""
     from tests.mocks.digitalio import DigitalInOut, Direction, Pull
     from tests.mocks import board
-    
+
     switch_pins = [
         board.GP0, board.GP1, board.GP25, board.GP24, board.GP23,
         board.GP20, board.GP9, board.GP10, board.GP11, board.GP18, board.GP19
     ]
-    
+
     switches = []
     for pin in switch_pins:
         sw = DigitalInOut(pin)
         sw.direction = Direction.INPUT
         sw.pull = Pull.UP
         switches.append(sw)
-    
+
     return switches
 
 

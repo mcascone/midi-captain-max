@@ -54,9 +54,9 @@ export interface EncoderCondition {
 }
 
 // Union of all condition types
-export type Condition = 
-  | ButtonStateCondition 
-  | ButtonKeytimeCondition 
+export type Condition =
+  | ButtonStateCondition
+  | ButtonKeytimeCondition
   | ReceivedMidiCondition
   | ExpressionCondition
   | EncoderCondition;
@@ -85,6 +85,8 @@ export interface ConditionalCommand {
   if: Condition;                    // Condition to evaluate
   then: CommandOrConditional[];     // Commands to execute if condition is true
   else?: CommandOrConditional[];    // Optional commands to execute if condition is false
+  then_label?: string;              // Optional label to display when then branch executes
+  else_label?: string;              // Optional label to display when else branch executes
 }
 
 // Union type for command arrays - can be regular MIDI commands or conditional wrappers
@@ -117,6 +119,7 @@ export interface ButtonConfig {
   long_press_label?: string;  // Optional label to display when long press triggers
   long_press_color?: ButtonColor; // Optional color to display when long press triggers
   long_press_label_persist?: boolean; // Whether to keep long_press_label visible (default: true)
+  conditional_label_persist?: boolean; // Whether to keep conditional labels (then_label/else_label) visible (default: false)
   color: ButtonColor;
 
   // ===== DEVICE PROFILE SUPPORT =====
@@ -252,17 +255,17 @@ export interface MidiCaptainConfig {
   midi_transport?: MidiTransport; // "usb" (default) | "trs" | "both"
   // Optional global default threshold for long-press in milliseconds
   long_press_threshold_ms?: number;
-  
+
   // ===== MULTI-BANK SUPPORT =====
   // If 'banks' is present, use multi-bank mode (preferred)
   // If 'buttons' is present without 'banks', use single-bank mode (legacy, auto-wrapped)
   banks?: BankConfig[];      // Array of banks (max 8)
   bank_switch?: BankSwitchConfig; // Bank switching configuration
   active_bank?: number;      // Active bank on boot (0-indexed, default: 0)
-  
+
   // ===== SINGLE-BANK MODE (legacy, backward compatibility) =====
   buttons?: ButtonConfig[];  // Legacy: single bank of buttons (auto-wrapped in banks[0] on load)
-  
+
   // ===== SHARED ACROSS ALL BANKS =====
   encoder?: EncoderConfig;
   expression?: ExpressionPedals;

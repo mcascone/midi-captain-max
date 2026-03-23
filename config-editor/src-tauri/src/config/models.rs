@@ -104,6 +104,10 @@ pub struct ConditionalCommand {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "else")]
     pub else_branch: Option<Vec<CommandOrConditional>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub then_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub else_label: Option<String>,
 }
 
 /// Union type for command arrays - can be regular MIDI commands or conditional wrappers
@@ -176,6 +180,10 @@ pub struct ButtonConfig {
     /// When false, label shows for 3s then returns to selected button
     #[serde(skip_serializing_if = "Option::is_none")]
     pub long_press_label_persist: Option<bool>,
+    /// Whether to keep conditional labels (then_label/else_label) visible (default: false)
+    /// When false, label shows for 3s then returns to selected button
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conditional_label_persist: Option<bool>,
     pub color: ButtonColor,
 
     // ===== DEVICE PROFILE SUPPORT =====
@@ -426,7 +434,7 @@ pub struct MidiCaptainConfig {
     /// "both" — send to USB and TRS simultaneously
     #[serde(skip_serializing_if = "Option::is_none")]
     pub midi_transport: Option<String>,
-    
+
     // ===== MULTI-BANK SUPPORT =====
     /// Array of banks (max 8 recommended for Flash storage)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -437,12 +445,12 @@ pub struct MidiCaptainConfig {
     /// Active bank on boot (0-indexed, default: 0)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active_bank: Option<u8>,
-    
+
     // ===== SINGLE-BANK MODE (legacy, backward compatibility) =====
     /// Legacy: single bank of buttons (auto-wrapped in banks[0] on load if banks not present)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buttons: Option<Vec<ButtonConfig>>,
-    
+
     // ===== SHARED ACROSS ALL BANKS =====
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoder: Option<EncoderConfig>,

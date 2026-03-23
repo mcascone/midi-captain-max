@@ -111,7 +111,7 @@
 
         <div class="knobs-row">
           <Knob
-            bind:value={encoder.min}
+            value={encoder.min ?? 0}
             min={0}
             max={127}
             label="MIN"
@@ -120,7 +120,7 @@
           />
 
           <Knob
-            bind:value={encoder.max}
+            value={encoder.max ?? 127}
             min={0}
             max={127}
             label="MAX"
@@ -129,7 +129,7 @@
           />
 
           <Knob
-            bind:value={encoder.initial}
+            value={encoder.initial ?? 64}
             min={0}
             max={127}
             label="INITIAL"

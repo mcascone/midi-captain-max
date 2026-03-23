@@ -290,7 +290,7 @@ export function setDevice(deviceType: DeviceType) {
     if (newState.config.banks) {
       for (let bankIdx = 0; bankIdx < newState.config.banks.length; bankIdx++) {
         const buttons = getButtons(bankIdx);
-        
+
         if (deviceType === 'mini6' && currentDevice === 'std10') {
           // Truncate to 6 buttons
           setButtons(buttons.slice(0, 6), bankIdx);
@@ -404,29 +404,43 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
   // Normalize a single MIDI command - strip type-irrelevant fields
   const normalizeCommand = (cmd: any): any => {
     if (!cmd || typeof cmd !== 'object') return cmd;
-    
+
     const cmdType = cmd.type ?? 'cc';
-    
+
     // Handle conditional commands recursively
     if (cmdType === 'conditional') {
-      return {
+      console.log('[NORMALIZE] Conditional command:', { then_label: cmd.then_label, else_label: cmd.else_label });
+      const result: any = {
         type: 'conditional',
         if: cmd.if,
         then: (cmd.then ?? []).map(normalizeCommand),
         else: cmd.else ? cmd.else.map(normalizeCommand) : undefined,
       };
+
+      // Preserve conditional labels
+      if (cmd.then_label !== undefined) {
+        result.then_label = cmd.then_label;
+        console.log('[NORMALIZE] Preserved then_label:', cmd.then_label);
+      }
+      if (cmd.else_label !== undefined) {
+        result.else_label = cmd.else_label;
+        console.log('[NORMALIZE] Preserved else_label:', cmd.else_label);
+      }
+
+      console.log('[NORMALIZE] Result:', result);
+      return result;
     }
-    
+
     // Base fields common to all command types
     const base: any = {
       type: cmdType,
     };
-    
+
     // Optional channel (skip if undefined to reduce clutter)
     if (cmd.channel !== undefined) {
       base.channel = cmd.channel;
     }
-    
+
     // Type-specific fields
     if (cmdType === 'cc') {
       if (cmd.cc !== undefined) base.cc = cmd.cc;
@@ -439,12 +453,12 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
     } else if (cmdType === 'pc_inc' || cmdType === 'pc_dec') {
       if (cmd.pc_step !== undefined) base.pc_step = cmd.pc_step;
     }
-    
+
     // Optional threshold for long-press (only on first command, but we normalize everywhere)
     if (cmd.threshold_ms !== undefined) {
       base.threshold_ms = cmd.threshold_ms;
     }
-    
+
     return base;
   };
 

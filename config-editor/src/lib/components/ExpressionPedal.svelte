@@ -108,7 +108,7 @@
 
       <div class="knobs-row">
         <Knob
-          bind:value={pedal.min}
+          value={pedal.min ?? 0}
           min={0}
           max={127}
           label="MIN"
@@ -116,7 +116,7 @@
         />
 
         <Knob
-          bind:value={pedal.max}
+          value={pedal.max ?? 127}
           min={0}
           max={127}
           label="MAX"

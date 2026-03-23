@@ -84,7 +84,27 @@ export async function saveToDevice(): Promise<boolean> {
     const devMode = currentConfig.dev_mode ?? false;
 
     const configObj = normalizeConfig(currentConfig);
+
+    // Debug: log buttons with conditional commands
+    const buttons = configObj.banks ? configObj.banks[0]?.buttons : configObj.buttons;
+    if (buttons) {
+      buttons.forEach((btn: any, idx: number) => {
+        if (btn.press) {
+          btn.press.forEach((cmd: any, cmdIdx: number) => {
+            if (cmd.type === 'conditional') {
+              console.log(`[SAVE] Button ${idx}, Press[${cmdIdx}]:`, {
+                type: cmd.type,
+                then_label: cmd.then_label,
+                else_label: cmd.else_label
+              });
+            }
+          });
+        }
+      });
+    }
+
     const configJson = JSON.stringify(configObj, null, 2);
+    console.log('[SAVE] Writing config JSON, length:', configJson.length);
     await writeConfigRaw(device.config_path, configJson);
     currentConfigRaw.set(configJson);
     lastSavedTimestamp.set(new Date());

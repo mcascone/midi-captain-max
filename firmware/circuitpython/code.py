@@ -40,6 +40,7 @@ from adafruit_midi.control_change import ControlChange
 from adafruit_midi.program_change import ProgramChange
 from adafruit_midi.note_on import NoteOn
 from adafruit_midi.note_off import NoteOff
+from adafruit_midi.system_exclusive import SystemExclusive
 
 # Import core modules (testable logic)
 from core.colors import COLORS, get_color, dim_color, rgb_to_hex, get_off_color, get_off_color_for_display
@@ -216,6 +217,93 @@ def _read_version():
 VERSION = _read_version()
 print(f"Version: {VERSION}")
 
+# SysEx upload buffer for live config writes (chunked)
+sys_ex_buffer = bytearray()
+
+# SysEx ACK/NAK helper
+def _send_sysex_ack(cmd, success=True, error_code=0):
+    """Send SysEx ACK or NAK response.
+
+    Protocol:
+    - ACK: [0xF0, 0x7D, 0x7E, original_cmd, 0xF7]
+    - NAK: [0xF0, 0x7D, 0x7F, original_cmd, error_code, 0xF7]
+
+    Error codes:
+    0x01 = buffer overflow
+    0x02 = decode/parse error
+    0x03 = validation error
+    0x04 = write error
+    """
+    try:
+        if success:
+            # ACK
+            data = bytes([0x7E, cmd])
+        else:
+            # NAK
+            data = bytes([0x7F, cmd, error_code])
+        msg = SystemExclusive(manufacturer_id=[0x7D], data=data)
+        send_midi_message(msg, channel=0)
+    except Exception as e:
+        print(f"[WARN] Failed to send SysEx ACK/NAK: {e}")
+
+
+def _hot_reload_config():
+    """Hot-reload config from disk and update all hardware states without restarting.
+
+    This reloads the config.json, updates button mappings, LEDs, and display
+    while keeping the device running. Returns True on success, False on failure.
+    """
+    global config, buttons, button_states
+
+    try:
+        # Reload config from disk
+        new_config = load_config()
+
+        # Validate and migrate
+        new_config = migrate_legacy_config(new_config, button_count=BUTTON_COUNT)
+        try:
+            new_config = validate_config(new_config, button_count=BUTTON_COUNT)
+        except Exception as e:
+            print(f"[HOT-RELOAD] Config validation warning: {e}")
+            # Continue with raw config even if validation has warnings
+
+        # Extract buttons (support both single and multi-bank configs)
+        _, active_bank_config = get_active_bank_config(new_config)
+        new_buttons = active_bank_config.get('buttons', []) if active_bank_config else new_config.get('buttons', [])
+
+        # Update global state
+        config = new_config
+        buttons = new_buttons
+
+        # Preserve existing button states, resize array if button count changed
+        old_states = button_states[:]
+        button_states = [ButtonState() for _ in range(len(buttons))]
+        # Copy over old states where possible
+        for i in range(min(len(old_states), len(button_states))):
+            button_states[i] = old_states[i]
+
+        print(f"[HOT-RELOAD] Loaded {len(buttons)} button configs")
+
+        # Update all LEDs to reflect new colors
+        for i in range(len(buttons)):
+            btn_config = buttons[i]
+            state = button_states[i]
+            # Apply current state with new color
+            set_button_state(i + 1, state.state)
+
+        # Update display with first button label (or selected button)
+        if len(buttons) > 0:
+            display_handlers.set_label_text(button_name_label, buttons[0].get('label', '1'))
+        display_handlers.set_label_text(status_label, 'Config reloaded')
+
+        print('[HOT-RELOAD] Config hot-reloaded successfully')
+        return True
+
+    except Exception as e:
+        print(f"[HOT-RELOAD] Failed to hot-reload config: {e}")
+        display_handlers.set_label_text(status_label, 'Reload failed')
+        return False
+
 # =============================================================================
 # Color Palette - imported from core/colors.py
 # =============================================================================
@@ -245,7 +333,7 @@ def load_config():
         if "buttons" in cfg and len(cfg["buttons"]) > 0:
             return True
         return False
-    
+
     # Try user config
     cfg = _load_config_from_file("/config.json", button_count=BUTTON_COUNT)
     if is_valid_config(cfg):
@@ -565,15 +653,20 @@ press_start_times = [0.0] * BUTTON_COUNT
 long_press_triggered = [False] * BUTTON_COUNT
 # Guard to avoid executing the short-press action more than once per press/release
 short_action_executed = [False] * BUTTON_COUNT
-# Snapshot of all button states at the moment a button is pressed down.
-# Used by conditional evaluator so it checks pre-press state, not state
-# modified by the press/long-press handler itself.
-state_at_press = [[False] * BUTTON_COUNT for _ in range(BUTTON_COUNT)]
+# Per-button snapshot captured at press-down time. Each entry is either
+# None (no snapshot) or a dict: { 'states': [bool...], 'keytimes': [int...] }
+state_at_press = [None] * BUTTON_COUNT
 # Default threshold (ms) if not provided per-button; can be overridden in config
 LONG_PRESS_THRESHOLD_MS = config.get("long_press_threshold_ms", DEFAULT_LONG_PRESS_MS)
 
 pc_values = [0] * MIDI_CHANNEL_COUNT  # Current PC value per MIDI channel, shared across all pc_inc/pc_dec buttons
 pc_flash_timers = [0.0] * BUTTON_COUNT  # Expiry time (monotonic) for PC button flash; 0 = inactive
+
+# Track received CC values for conditional actions: received_cc_values[channel][cc] = value
+# Initialize with empty dicts for each channel
+received_cc_values = {}
+for ch in range(MIDI_CHANNEL_COUNT):
+    received_cc_values[ch] = {}
 
 encoder_value = ENC_INITIAL  # Internal value 0-127
 encoder_slot = -1  # Current slot (set on first change)
@@ -906,7 +999,7 @@ class _SnapState:
         return self.current_keytime
 
 
-def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
+def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None, skip_label_update=False):
     """Send MIDI from action config (single dict or list of dicts).
 
     Args:
@@ -915,6 +1008,7 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
         idx: 0-indexed button index
         action_name: Optional action type ("press", "release", "long_press", "long_release")
                      Used to display long_press_label when available
+        skip_label_update: Skip updating the display label (used for conditional branches)
 
     Supports:
     - Single command: {"type":"cc","cc":20,"value":127,"channel":0}
@@ -936,33 +1030,42 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
 
     # Display button name in center (large font)
     btn_config = buttons[idx] if idx < len(buttons) else {}
-    
-    # For long_press actions: only update label if long_press_label is configured
-    # Otherwise, keep the current display (likely showing the selected button)
-    if action_name == "long_press":
-        if "long_press_label" in btn_config:
-            # Long press label configured - show it
-            label_text = btn_config.get("long_press_label")
-            set_label_text(button_name_label, label_text)
-            
-            # Check if label should persist or timeout
-            persist = btn_config.get("long_press_label_persist", True)
-            if not persist:
-                # Override select_group logic: force timeout even for select buttons
-                global label_timeout_return_to_select
-                label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+
+    # Skip label update if we're inside a conditional branch
+    # (the conditional handler has already set the appropriate label)
+    if not skip_label_update:
+        print(f"[LABEL] Setting label for action={action_name}, skip={skip_label_update}")
+        # For long_press actions: only update label if long_press_label is configured
+        # Otherwise, keep the current display (likely showing the selected button)
+        if action_name == "long_press":
+            if "long_press_label" in btn_config:
+                # Long press label configured - show it
+                label_text = btn_config.get("long_press_label")
+                print(f"[LABEL] Setting long_press_label: '{label_text}'")
+                set_label_text(button_name_label, label_text)
+
+                # Check if label should persist or timeout
+                persist = btn_config.get("long_press_label_persist", True)
+                if not persist:
+                    # Override select_group logic: force timeout even for select buttons
+                    global label_timeout_return_to_select
+                    label_timeout_return_to_select = time.monotonic() + LABEL_RETURN_TIMEOUT_SEC
+                else:
+                    # Use normal logic (select buttons stay, others timeout)
+                    arm_label_return_timeout(btn_config)
             else:
-                # Use normal logic (select buttons stay, others timeout)
-                arm_label_return_timeout(btn_config)
+                # No long_press_label configured - don't change the display
+                # Keep showing whatever was there (likely the selected button's label)
+                print(f"[LABEL] No long_press_label configured, keeping current display")
+                pass
         else:
-            # No long_press_label configured - don't change the display
-            # Keep showing whatever was there (likely the selected button's label)
-            pass
+            # Normal press/release action - always show button label
+            label_text = btn_config.get("label", str(btn_num))
+            print(f"[LABEL] Setting button label: '{label_text}'")
+            set_label_text(button_name_label, label_text)
+            arm_label_return_timeout(btn_config)
     else:
-        # Normal press/release action - always show button label
-        label_text = btn_config.get("label", str(btn_num))
-        set_label_text(button_name_label, label_text)
-        arm_label_return_timeout(btn_config)
+        print(f"[LABEL] Skipping label update (skip_label_update=True)")
 
     # Track if any PC command executed (for LED flash feedback)
     pc_command_sent = False
@@ -980,26 +1083,20 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
 
         msg_type = cmd.get("type", "cc")
         channel = cmd.get("channel", 0)
-        
-        # DEBUG: Print what we're processing
-        print(f"[DEBUG] Processing command: type={msg_type}, cmd_keys={list(cmd.keys())}")
 
         # Handle conditional commands (if/then/else logic)
         if msg_type == "conditional":
+            print(f"[CONDITIONAL] Raw cmd dict keys: {list(cmd.keys())}")
+            print(f"[CONDITIONAL] Full cmd dict: {cmd}")
             condition = cmd.get("if")
             then_commands = cmd.get("then", [])
             else_commands = cmd.get("else", [])
-            
+
             if not condition:
                 print(f"[WARN] Conditional command missing 'if' condition (button {btn_num})")
                 continue
-            
-            # Debug: print the condition
-            print(f"[CONDITIONAL] Evaluating condition for button {btn_num}:")
-            print(f"[CONDITIONAL]   Condition: {condition}")
-            
-            # Create evaluator with current device state
-            # Get expression values (convert to format expected by evaluator)
+
+            # Prepare evaluator inputs
             exp_vals = {}
             if HAS_EXPRESSION:
                 exp_vals['exp1'] = exp1_last
@@ -1007,56 +1104,65 @@ def _send_action_from_cfg(action_cfg, btn_num, idx, action_name=None):
             else:
                 exp_vals['exp1'] = 0
                 exp_vals['exp2'] = 0
-            
-            # Get encoder value
+
             enc_val = encoder_value if HAS_ENCODER else 64
-            
-            # For button_state conditions, use the state snapshot captured at
-            # press-down time so the conditional sees the state *before* the
-            # press/long-press handler modified it.
-            use_snapshot = (condition.get('type') == 'button_state'
-                           and 0 <= idx < len(state_at_press))
-            
+
+            # Use snapshot for button_state conditions when available
+            use_snapshot = (condition.get('type') == 'button_state' and
+                           0 <= idx < len(state_at_press) and state_at_press[idx] is not None)
+
             if use_snapshot:
-                # Build lightweight state wrappers from the snapshot
                 snap_states = []
+                snap = state_at_press[idx]
                 for si in range(len(button_states)):
-                    s = _SnapState(state_at_press[idx][si])
-                    # Preserve keytime from live state
-                    s.current_keytime = button_states[si].current_keytime
+                    s = _SnapState(snap['states'][si])
+                    s.current_keytime = snap['keytimes'][si]
                     snap_states.append(s)
-                
-                check_btn_idx = condition.get('button', 0)
-                expected_state = condition.get('state', 'on')
-                if check_btn_idx < len(snap_states):
-                    print(f"[CONDITIONAL]   Checking button {check_btn_idx}: snapshot_state={snap_states[check_btn_idx].state}, live_state={button_states[check_btn_idx].state} (expecting '{expected_state}')")
             else:
                 snap_states = button_states
-                if condition.get('type') == 'button_state':
-                    check_btn_idx = condition.get('button', 0)
-                    expected_state = condition.get('state', 'on')
-                    if check_btn_idx < len(button_states):
-                        print(f"[CONDITIONAL]   Checking button {check_btn_idx}: state={button_states[check_btn_idx].state} (expecting '{expected_state}')")
-            
-            # Create evaluator with snapshot (or live) states
+
             evaluator = ConditionEvaluator(
                 button_states=snap_states,
                 received_cc_values=received_cc_values,
                 encoder_value=enc_val,
-                expression_values=exp_vals
+                expression_values=exp_vals,
             )
-            
+
             # Evaluate condition
             condition_result = evaluator.evaluate(condition)
-            
+
+            # Get labels for conditional branches (optional)
+            then_label = cmd.get("then_label")
+            else_label = cmd.get("else_label")
+            # Check if conditional labels should persist or timeout
+            conditional_persist = btn_config.get("conditional_label_persist", False)
+
+            print(f"[CONDITIONAL] then_label={then_label}, else_label={else_label}, persist={conditional_persist}")
+
             # Execute appropriate branch
             if condition_result:
                 print(f"[CONDITIONAL] Condition TRUE (button {btn_num}), executing THEN branch with {len(then_commands)} command(s)")
-                _send_action_from_cfg(then_commands, btn_num, idx, action_name)
+                if then_label:
+                    print(f"[CONDITIONAL] Setting THEN label: '{then_label}'")
+                    set_label_text(button_name_label, then_label)
+                    # Only arm timeout if persist is disabled
+                    if not conditional_persist:
+                        arm_label_return_timeout(btn_config)
+                else:
+                    print(f"[CONDITIONAL] No THEN label configured")
+                _send_action_from_cfg(then_commands, btn_num, idx, action_name, skip_label_update=True)
             else:
                 print(f"[CONDITIONAL] Condition FALSE (button {btn_num}), executing ELSE branch with {len(else_commands)} command(s)")
-                _send_action_from_cfg(else_commands, btn_num, idx, action_name)
-            
+                if else_label:
+                    print(f"[CONDITIONAL] Setting ELSE label: '{else_label}'")
+                    set_label_text(button_name_label, else_label)
+                    # Only arm timeout if persist is disabled
+                    if not conditional_persist:
+                        arm_label_return_timeout(btn_config)
+                else:
+                    print(f"[CONDITIONAL] No ELSE label configured")
+                _send_action_from_cfg(else_commands, btn_num, idx, action_name, skip_label_update=True)
+
             # Skip normal MIDI command processing for conditionals
             continue
 
@@ -1232,37 +1338,37 @@ def handle_midi():
 
 def handle_bank_switch(target_bank_idx=None):
     """Switch to the specified bank with visual feedback.
-    
+
     Args:
         target_bank_idx: Target bank index (0-indexed), or None to use BankManager default
-    
+
     Returns:
         True if switch succeeded, False otherwise
     """
     global button_states, buttons
-    
+
     if not bank_manager or len(banks) == 0:
         return False
-    
+
     if target_bank_idx is None:
         return False
-    
+
     # Attempt switch
     success = bank_manager.switch_bank(target_bank_idx)
     if not success:
         return False
-    
+
     # Get new bank config
     new_bank_config = bank_manager.get_current_bank_config()
     if not new_bank_config:
         return False
-    
+
     # Update global buttons array
     buttons = new_bank_config.get("buttons", [])
-    
+
     # Get button states for new bank
     button_states = bank_manager.get_button_states()
-    
+
     # Flash all LEDs briefly to indicate bank switch
     for i in range(BUTTON_COUNT):
         # Show ON color briefly
@@ -1274,23 +1380,23 @@ def handle_bank_switch(target_bank_idx=None):
             for j in range(3):
                 pixels[base + j] = color
     pixels.show()
-    
+
     # Use non-blocking delay to avoid stalling main loop
     time.sleep(0.1)
-    
+
     # Restore button states
     for i in range(BUTTON_COUNT):
         set_button_state(i + 1, button_states[i].state)
-    
+
     # Update center display using the local set_label_text helper
     bank_name = new_bank_config.get("name", f"Bank {target_bank_idx + 1}")
     set_label_text(button_name_label, bank_name)
     set_label_text(status_label, f"Bank {target_bank_idx + 1}/{len(banks)}")
-    
+
     # Set timeout to return to "Ready" after 2 seconds
     global label_timeout_return_to_select
     label_timeout_return_to_select = time.monotonic() + 2.0
-    
+
     print(f"[BANK] Switched to bank {target_bank_idx + 1}: {bank_name}")
     return True
 
@@ -1328,6 +1434,12 @@ def _process_incoming_midi(msg):
         val = getattr(msg, 'value', 0)
         print(f"[MIDI RX] Ch{msg_channel+1} CC{cc}={val}")
 
+        # Track received CC value for conditional actions
+        global received_cc_values
+        if msg_channel not in received_cc_values:
+            received_cc_values[msg_channel] = {}
+        received_cc_values[msg_channel][cc] = val
+
         # Check for bank switch trigger (CC-based)
         if bank_manager and bank_switch_config:
             method = bank_switch_config.get("method", "button")
@@ -1363,6 +1475,110 @@ def _process_incoming_midi(msg):
                 arm_label_return_timeout(btn_config)
                 break
 
+    # System Exclusive (SysEx) - duck-typed by presence of `manufacturer_id` and `data`
+    elif hasattr(msg, 'manufacturer_id') and hasattr(msg, 'data'):
+        try:
+            man = list(getattr(msg, 'manufacturer_id'))
+            sdata = bytes(list(getattr(msg, 'data')))
+        except Exception as e:
+            print(f"[MIDI RX] SysEx parse error: {e}")
+            return
+
+        # Chunked live-config protocol (safe for large configs):
+        # Manufacturer ID 0x7D (non-commercial) or 0x59 (legacy)
+        # Message payload layout: [cmd, ...bytes]
+        # cmd == 0x01: START -> clear buffer and append bytes
+        # cmd == 0x02: CHUNK -> append bytes
+        # cmd == 0x03: FINISH -> append bytes, then process full buffer as UTF-8 JSON
+        # Any other cmd: ignored
+        if (man == [0x7D] or man == [0x59]) and len(sdata) > 0:
+            cmd = sdata[0]
+            payload = sdata[1:]
+
+            # Safety limits
+            MAX_SYSEX_BUFFER = 16 * 1024  # 16 KB
+
+            if cmd == 0x01:
+                # START: initialize buffer
+                sys_ex_buffer[:] = b''
+                if payload:
+                    sys_ex_buffer.extend(payload)
+                print('[MIDI RX] SysEx START received, buffer initialized')
+                display_handlers.set_label_text(status_label, 'SysEx START')
+                _send_sysex_ack(cmd, success=True)
+                return
+
+            if cmd == 0x02:
+                # CHUNK: append
+                if len(sys_ex_buffer) + len(payload) > MAX_SYSEX_BUFFER:
+                    print('[MIDI RX] SysEx buffer overflow, discarding')
+                    sys_ex_buffer[:] = b''
+                    display_handlers.set_label_text(status_label, 'SysEx overflow')
+                    _send_sysex_ack(cmd, success=False, error_code=0x01)
+                    return
+                sys_ex_buffer.extend(payload)
+                print(f'[MIDI RX] SysEx CHUNK appended ({len(payload)} bytes)')
+                display_handlers.set_label_text(status_label, 'SysEx chunk')
+                _send_sysex_ack(cmd, success=True)
+                return
+
+            if cmd == 0x03:
+                # FINISH: append and process
+                if len(sys_ex_buffer) + len(payload) > MAX_SYSEX_BUFFER:
+                    print('[MIDI RX] SysEx buffer overflow on FINISH, discarding')
+                    sys_ex_buffer[:] = b''
+                    display_handlers.set_label_text(status_label, 'SysEx overflow')
+                    _send_sysex_ack(cmd, success=False, error_code=0x01)
+                    return
+                sys_ex_buffer.extend(payload)
+
+                # Attempt to decode and parse JSON
+                try:
+                    txt = bytes(sys_ex_buffer).decode('utf-8')
+                    new_cfg = json.loads(txt)
+                except Exception as e:
+                    print(f"[MIDI RX] SysEx config decode/parse error: {e}")
+                    sys_ex_buffer[:] = b''
+                    display_handlers.set_label_text(status_label, 'SysEx error')
+                    _send_sysex_ack(cmd, success=False, error_code=0x02)
+                    return
+
+                # Validate before writing
+                try:
+                    validate_config(new_cfg, button_count=BUTTON_COUNT)
+                except Exception as e:
+                    print(f"[MIDI RX] Incoming config failed validation: {e}")
+                    sys_ex_buffer[:] = b''
+                    display_handlers.set_label_text(status_label, 'SysEx invalid')
+                    _send_sysex_ack(cmd, success=False, error_code=0x03)
+                    return
+
+                # Write to /config.json atomically
+                try:
+                    with open('/config.json', 'w') as f:
+                        f.write(json.dumps(new_cfg, indent=2))
+                    print('[MIDI RX] SysEx config written to /config.json')
+
+                    # Hot-reload the config in-place (no restart needed)
+                    if _hot_reload_config():
+                        display_handlers.set_label_text(status_label, 'Config reloaded')
+                        _send_sysex_ack(cmd, success=True)
+                    else:
+                        display_handlers.set_label_text(status_label, 'Reload failed')
+                        _send_sysex_ack(cmd, success=False, error_code=0x04)
+                        sys_ex_buffer[:] = b''
+                        return
+
+                except Exception as e:
+                    print(f"[MIDI RX] Failed to write config from SysEx: {e}")
+                    sys_ex_buffer[:] = b''
+                    _send_sysex_ack(cmd, success=False, error_code=0x04)
+                    return
+
+                # Clear buffer after successful write
+                sys_ex_buffer[:] = b''
+                return
+
     # NoteOn/NoteOff - duck-typed by `note` and optionally `velocity`
     elif hasattr(msg, 'note'):
         note = getattr(msg, 'note')
@@ -1396,7 +1612,7 @@ def _process_incoming_midi(msg):
     elif hasattr(msg, 'patch'):
         program = getattr(msg, 'patch')
         print(f"[MIDI RX] Ch{msg_channel+1} PC{program}")
-        
+
         # Check for bank switch trigger (PC-based)
         if bank_manager and bank_switch_config:
             method = bank_switch_config.get("method", "button")
@@ -1408,7 +1624,7 @@ def _process_incoming_midi(msg):
                     if target_bank is not None:
                         handle_bank_switch(target_bank)
                         return  # Don't update pc_values for bank switches
-        
+
         # pc_values is per-channel, so one assignment covers all pc_inc/pc_dec buttons on this channel
         pc_values[msg_channel] = program
         set_label_text(status_label, f"RX PC{program}")
@@ -1502,10 +1718,11 @@ def handle_switches():
                     press_start_times[idx] = now
                     long_press_triggered[idx] = False
                     short_action_executed[idx] = False
-                    # Capture all button states at press-down for conditional evaluation
-                    for si in range(len(button_states)):
-                        state_at_press[idx][si] = button_states[si].state
-                    print(f"[PRESS START] Button {btn_num}: state={btn_state.state}, mode={mode}, long_enabled={long_enabled}")
+                    # Capture snapshot of states and keytimes at the moment of press
+                    state_at_press[idx] = {
+                        'states': [button_states[si].state for si in range(len(button_states))],
+                        'keytimes': [button_states[si].current_keytime for si in range(len(button_states))],
+                    }
 
                 # Check for bank switching button
                 if bank_manager and bank_switch_config and len(banks) > 0:
@@ -1516,7 +1733,7 @@ def handle_switches():
                         # New dual button mode
                         bank_next = bank_switch_config.get("button_next")
                         bank_prev = bank_switch_config.get("button_prev")
-                        
+
                         if bank_next and btn_num == bank_next:
                             # Bank up button pressed - compute target and switch once
                             target_idx = (bank_manager.current_bank_index + 1) % len(banks)
@@ -1624,7 +1841,7 @@ def handle_switches():
                     else:
                         # Toggle/select: restore LED to match button's actual state
                         persist = btn_config.get("long_press_label_persist", True)
-                        
+
                         if persist and btn_state.state and "long_press_color" in btn_config:
                             # Long press with persist=true and button is ON: keep long_press_color
                             long_press_color_name = btn_config["long_press_color"]
@@ -1697,10 +1914,8 @@ def handle_switches():
             # Get effective long_press config for current keytime (may be per-state override)
             current_keytime = btn_state.get_keytime()
             effective_long_press = _get_effective_action_cfg(btn_config, "long_press", current_keytime)
-            
-            print(f"[LONG PRESS] Button {btn_num}: keytime={current_keytime}, state={btn_state.state}, has_effective={effective_long_press is not None}")
-            if effective_long_press:
-                print(f"[LONG PRESS] effective_long_press type: {type(effective_long_press).__name__}, content: {effective_long_press}")
+
+            # snapshot captured at press-down; no debug log here
 
             # Determine threshold (ms) from effective config
             threshold_ms = LONG_PRESS_THRESHOLD_MS
@@ -1718,12 +1933,12 @@ def handle_switches():
 
                 # Check if long_press_label_persist means this acts like a state change
                 persist = btn_config.get("long_press_label_persist", True)
-                
+
                 if persist and mode in ("toggle", "normal", "select"):
                     # Long press with persist acts like a button press - update state
                     # Turn this button ON and deselect others in same select_group
                     btn_state.state = True
-                    
+
                     # Apply long_press_color if configured, otherwise use normal ON color
                     if "long_press_color" in btn_config:
                         # Use long_press_color during hold
@@ -1739,7 +1954,7 @@ def handle_switches():
                     else:
                         # No long_press_color - use normal ON state
                         set_button_state(btn_num, True)
-                    
+
                     # Handle select_group exclusivity
                     sg = btn_config.get("select_group")
                     if sg:
@@ -1771,7 +1986,7 @@ def handle_encoder_button():
     Delegates to handlers.encoder module for actual implementation.
     """
     global encoder_push_state
-    
+
     # Check for bank switching first (button 11 = encoder push)
     if bank_manager and bank_switch_config and len(banks) > 0:
         method = bank_switch_config.get("method", "button")
@@ -1779,11 +1994,11 @@ def handle_encoder_button():
             bank_btn = bank_switch_config.get("button")
             bank_next = bank_switch_config.get("button_next")
             bank_prev = bank_switch_config.get("button_prev")
-            
+
             # Check if encoder push is configured for bank switching (button 11)
             sw = switches[0]
             changed, pressed = sw.changed()
-            
+
             if changed and pressed:
                 if bank_next == 11:
                     target_idx = (bank_manager.current_bank_index + 1) % len(banks)
@@ -1800,7 +2015,7 @@ def handle_encoder_button():
                     handle_bank_switch(target_idx)
                     reset_activity_timer()
                     return
-    
+
     # Normal encoder push button handling
     old_state = encoder_push_state
     encoder_push_state = encoder_handlers.handle_encoder_button(

@@ -6,6 +6,7 @@
   import ProfileSelector from './ProfileSelector.svelte';
   import MidiFlowDiagram from './MidiFlowDiagram.svelte';
   import Toggle from './Toggle.svelte';
+  import { slide } from 'svelte/transition';
   import type { MidiCommand, ButtonConfig } from '$lib/types';
   import { BUTTON_COLORS } from '$lib/types';
 
@@ -261,6 +262,15 @@
           onchange={(checked) => update('long_press_label_persist', checked)}
         />
         <span class="field-hint" style="display: block; margin-top: 0.5rem;">When disabled, long press label shows for 3s then returns to button label</span>
+      </div>
+
+      <div class="field full" style="margin-top: 1rem;">
+        <Toggle
+          checked={btn.conditional_label_persist ?? false}
+          label="Keep conditional labels visible"
+          onchange={(checked) => update('conditional_label_persist', checked)}
+        />
+        <span class="field-hint" style="display: block; margin-top: 0.5rem;">When disabled, conditional labels (then/else) show for 3s then return to button label</span>
       </div>
     </div>
 

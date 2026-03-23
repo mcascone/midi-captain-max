@@ -497,3 +497,45 @@ pub fn trigger_device_reload(device_path: String) -> Result<String, ConfigError>
         details: None,
     })
 }
+
+// -----------------------------
+// MIDI command wrappers (Tauri)
+// -----------------------------
+
+#[command]
+pub fn list_midi_ports_cmd() -> Result<Vec<String>, ConfigError> {
+    match crate::midi::list_midi_ports() {
+        Ok(v) => Ok(v),
+        Err(e) => Err(ConfigError {
+            message: format!("MIDI error: {}", e),
+            details: None,
+        }),
+    }
+}
+
+#[command]
+pub fn send_midi_message_cmd(port_name: String, data: Vec<u8>) -> Result<(), ConfigError> {
+    match crate::midi::send_midi_message(&port_name, data) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(ConfigError {
+            message: format!("MIDI send error: {}", e),
+            details: None,
+        }),
+    }
+}
+
+#[command]
+pub fn start_midi_input_listener_cmd(app: tauri::AppHandle, port_name: String) -> Result<(), ConfigError> {
+    match crate::midi::start_midi_input_listener(app, port_name) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(ConfigError {
+            message: format!("MIDI listen error: {}", e),
+            details: None,
+        }),
+    }
+}
+
+#[command]
+pub fn stop_midi_input_listener_cmd() {
+    crate::midi::stop_midi_input_listener();
+}

@@ -3,6 +3,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { MidiCaptainConfig, DetectedDevice } from './types';
+import type { EventCallback } from '@tauri-apps/api/event';
 
 // Config operations
 export async function readConfig(path: string): Promise<MidiCaptainConfig> {
@@ -51,6 +52,30 @@ export function onDeviceConnected(callback: (device: DetectedDevice) => void) {
 
 export function onDeviceDisconnected(callback: (name: string) => void) {
   return listen<string>('device-disconnected', (event) => {
+    callback(event.payload);
+  });
+}
+
+// MIDI wrappers
+export async function listMidiPorts(): Promise<string[]> {
+  return invoke('list_midi_ports_cmd');
+}
+
+export async function sendMidiMessage(portName: string, data: number[]): Promise<void> {
+  return invoke('send_midi_message_cmd', { portName, data });
+}
+
+export async function startMidiInputListener(portName: string): Promise<void> {
+  return invoke('start_midi_input_listener_cmd', { portName });
+}
+
+export async function stopMidiInputListener(): Promise<void> {
+  return invoke('stop_midi_input_listener_cmd');
+}
+
+// Frontend event: subscribe to MIDI events emitted by the backend
+export function onMidiEvent(callback: (evt: { timestamp: number; data: number[]; port: string }) => void) {
+  return listen<{ timestamp: number; data: number[]; port: string }>('midi-event', (event) => {
     callback(event.payload);
   });
 }

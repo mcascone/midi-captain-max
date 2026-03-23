@@ -231,6 +231,13 @@ def _validate_single_command(cmd, index=0, default_channel=0):
             a["else"] = validated_else
         else:
             a["else"] = []
+
+        # Preserve optional labels for conditional branches
+        if "then_label" in cmd:
+            a["then_label"] = cmd["then_label"]
+        if "else_label" in cmd:
+            a["else_label"] = cmd["else_label"]
+
         return a
 
     # Standard MIDI command types
@@ -605,7 +612,7 @@ def validate_config(cfg, button_count=10):
                     groups[g] = []
                 if b.get("default_selected"):
                     groups[g].append(i)
-            
+
             for g, indices in groups.items():
                 if len(indices) > 1:
                     # Keep the first default-selected, clear others
@@ -632,7 +639,7 @@ def validate_config(cfg, button_count=10):
                 for idx in indices[1:]:
                     result["buttons"][idx].pop("default_selected", None)
                 print(f"Warning: multiple default_selected in group '{g}'; keeping button {first+1}")
-    
+
     return result
 
 
