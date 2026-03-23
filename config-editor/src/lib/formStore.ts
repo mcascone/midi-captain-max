@@ -401,6 +401,34 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
     return [field]; // Convert single object to array
   };
 
+  // Normalize operator from symbolic to string token (firmware expects 'eq', 'ne', etc.)
+  const normalizeOperator = (op: string | undefined): string | undefined => {
+    if (!op) return op;
+    const operatorMap: Record<string, string> = {
+      '==': 'eq',
+      '!=': 'ne',
+      '>': 'gt',
+      '<': 'lt',
+      '>=': 'gte',
+      '<=': 'lte',
+    };
+    return operatorMap[op] ?? op;  // Return normalized or pass through if already correct
+  };
+
+  // Normalize a condition (recursively handles nested conditions)
+  const normalizeCondition = (cond: any): any => {
+    if (!cond || typeof cond !== 'object') return cond;
+
+    const result = { ...cond };
+
+    // Normalize operator if present
+    if (result.operator) {
+      result.operator = normalizeOperator(result.operator);
+    }
+
+    return result;
+  };
+
   // Normalize a single MIDI command - strip type-irrelevant fields
   const normalizeCommand = (cmd: any): any => {
     if (!cmd || typeof cmd !== 'object') return cmd;
@@ -411,7 +439,7 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
     if (cmdType === 'conditional') {
       const result: any = {
         type: 'conditional',
-        if: cmd.if,
+        if: normalizeCondition(cmd.if),  // Normalize the condition
         then: (cmd.then ?? []).map(normalizeCommand),
         else: cmd.else ? cmd.else.map(normalizeCommand) : undefined,
       };

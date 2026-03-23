@@ -6,11 +6,6 @@
   import { BUTTON_COLORS } from '$lib/types';
   import type { ButtonConfig, CommandOrConditional, MidiCommand } from '$lib/types';
 
-  // Debug: watch buttonStates changes
-  $effect(() => {
-    console.log('[DeviceLayout] buttonStates changed:', $buttonStates);
-  });
-
   // Get buttons from active bank if multi-bank mode, otherwise from top-level
   let buttons = $derived(
     $isMultiBankMode && $activeBank
@@ -279,8 +274,8 @@
       {@const modeColor = getModeBadgeColor(btn)}
       {@const hasErrors = hasButtonErrors(index)}
 
-      <!-- Compute LED color reactively in template (always full brightness) -->
-      {@const ledColor = btn ? (BUTTON_COLORS[btn.color] ?? '#ffffff') : '#555555'}
+      <!-- Compute LED color reactively in template (respects dimming for off state) -->
+      {@const ledColor = getLedColor(btn, index)}
 
       <!-- Button Group -->
       <g

@@ -22,6 +22,9 @@ import type { DetectedDevice } from '$lib/types';
 // Track reload timeout to allow cancellation on subsequent saves
 let reloadTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
+// Track feedback timeout to prevent race conditions
+let feedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
 /**
  * Select a device and load its configuration
  */
@@ -159,8 +162,14 @@ export async function saveToDevice(): Promise<boolean> {
     saveFeedback.set('error');
   } finally {
     isLoading.set(false);
-    // Reset feedback after animation
-    setTimeout(() => saveFeedback.set('idle'), 2000);
+    // Reset feedback after animation (cancel any previous timeout)
+    if (feedbackTimeoutId !== null) {
+      clearTimeout(feedbackTimeoutId);
+    }
+    feedbackTimeoutId = setTimeout(() => {
+      saveFeedback.set('idle');
+      feedbackTimeoutId = null;
+    }, 2000);
   }
 
   return saveSucceeded;

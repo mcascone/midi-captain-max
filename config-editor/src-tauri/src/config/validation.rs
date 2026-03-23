@@ -20,8 +20,8 @@ fn validate_command_recursive(
 ) -> Vec<String> {
     let mut cmd_errors = Vec::new();
 
-    // Check max nesting depth
-    if depth >= MAX_CONDITIONAL_DEPTH {
+    // Check max nesting depth (allow exactly MAX_CONDITIONAL_DEPTH levels)
+    if depth > MAX_CONDITIONAL_DEPTH {
         cmd_errors.push(format!(
             "{}Button {} {}.{} exceeds maximum conditional nesting depth (max {})",
             prefix, btn_num, event_name, cmd_idx, MAX_CONDITIONAL_DEPTH
