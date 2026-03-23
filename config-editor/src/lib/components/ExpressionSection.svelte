@@ -1,11 +1,11 @@
 <script lang="ts">
   import ExpressionPedal from './ExpressionPedal.svelte';
   import { config, updateField } from '$lib/formStore';
-  
+
   let deviceType = $derived($config.device);
   let expression = $derived($config.expression);
   let isDisabled = $derived(deviceType === 'mini6');
-  
+
   function handlePedalUpdate(pedal: 'exp1' | 'exp2', field: string, value: any) {
     updateField(`expression.${pedal}.${field}`, value);
   }
@@ -13,12 +13,12 @@
 
 {#if expression}
   <div class="pedals-list">
-    <ExpressionPedal 
+    <ExpressionPedal
       pedal={expression.exp1}
       name="Expression 1"
       onUpdate={(field, value) => handlePedalUpdate('exp1', field, value)}
     />
-    <ExpressionPedal 
+    <ExpressionPedal
       pedal={expression.exp2}
       name="Expression 2"
       onUpdate={(field, value) => handlePedalUpdate('exp2', field, value)}
@@ -49,10 +49,10 @@
     flex-direction: column;
     gap: 1.5rem;
   }
-  
+
   .empty-state {
     padding: 2rem;
-    background: #0f172a;
+    background: var(--bg-input);
     border-radius: 4px;
     text-align: center;
   }

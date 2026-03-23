@@ -54,3 +54,27 @@ export function onDeviceDisconnected(callback: (name: string) => void) {
     callback(event.payload);
   });
 }
+
+// MIDI wrappers
+export async function listMidiPorts(): Promise<string[]> {
+  return invoke('list_midi_ports_cmd');
+}
+
+export async function sendMidiMessage(portName: string, data: number[]): Promise<void> {
+  return invoke('send_midi_message_cmd', { portName, data });
+}
+
+export async function startMidiInputListener(portName: string): Promise<void> {
+  return invoke('start_midi_input_listener_cmd', { portName });
+}
+
+export async function stopMidiInputListener(): Promise<void> {
+  return invoke('stop_midi_input_listener_cmd');
+}
+
+// Frontend event: subscribe to MIDI events emitted by the backend
+export function onMidiEvent(callback: (evt: { timestamp: number; data: number[]; port: string }) => void) {
+  return listen<{ timestamp: number; data: number[]; port: string }>('midi-event', (event) => {
+    callback(event.payload);
+  });
+}

@@ -5,6 +5,133 @@
 use super::models::*;
 use super::types::*;
 
+/// Maximum nesting depth for conditional commands to prevent infinite recursion
+const MAX_CONDITIONAL_DEPTH: usize = 3;
+
+/// Recursively validate a command (either MIDI or conditional)
+/// Returns a vector of error messages
+fn validate_command_recursive(
+    cmd: &CommandOrConditional,
+    event_name: &str,
+    cmd_idx: usize,
+    prefix: &str,
+    btn_num: usize,
+    depth: usize,
+) -> Vec<String> {
+    let mut cmd_errors = Vec::new();
+
+    // Check max nesting depth (allow exactly MAX_CONDITIONAL_DEPTH levels)
+    if depth > MAX_CONDITIONAL_DEPTH {
+        cmd_errors.push(format!(
+            "{}Button {} {}.{} exceeds maximum conditional nesting depth (max {})",
+            prefix, btn_num, event_name, cmd_idx, MAX_CONDITIONAL_DEPTH
+        ));
+        return cmd_errors;
+    }
+
+    match cmd {
+        CommandOrConditional::Midi(midi_cmd) => {
+            // Validate MIDI command fields
+            if let Some(ch) = midi_cmd.channel {
+                if ch > 15 {
+                    cmd_errors.push(format!(
+                        "{}Button {} {}.{} channel {} invalid (must be 0-15)",
+                        prefix, btn_num, event_name, cmd_idx, ch
+                    ));
+                }
+            }
+            if let Some(cc) = midi_cmd.cc {
+                if cc > 127 {
+                    cmd_errors.push(format!(
+                        "{}Button {} {}.{} cc {} exceeds 127",
+                        prefix, btn_num, event_name, cmd_idx, cc
+                    ));
+                }
+            }
+            if let Some(val) = midi_cmd.value {
+                if val > 127 {
+                    cmd_errors.push(format!(
+                        "{}Button {} {}.{} value {} exceeds 127",
+                        prefix, btn_num, event_name, cmd_idx, val
+                    ));
+                }
+            }
+            if let Some(note) = midi_cmd.note {
+                if note > 127 {
+                    cmd_errors.push(format!(
+                        "{}Button {} {}.{} note {} exceeds 127",
+                        prefix, btn_num, event_name, cmd_idx, note
+                    ));
+                }
+            }
+            if let Some(vel) = midi_cmd.velocity {
+                if vel > 127 {
+                    cmd_errors.push(format!(
+                        "{}Button {} {}.{} velocity {} exceeds 127",
+                        prefix, btn_num, event_name, cmd_idx, vel
+                    ));
+                }
+            }
+            if let Some(prog) = midi_cmd.program {
+                if prog > 127 {
+                    cmd_errors.push(format!(
+                        "{}Button {} {}.{} program {} exceeds 127",
+                        prefix, btn_num, event_name, cmd_idx, prog
+                    ));
+                }
+            }
+            if let Some(step) = midi_cmd.pc_step {
+                if !(1..=127).contains(&step) {
+                    cmd_errors.push(format!(
+                        "{}Button {} {}.{} pc_step {} out of range (1-127)",
+                        prefix, btn_num, event_name, cmd_idx, step
+                    ));
+                }
+            }
+            if let Some(thresh) = midi_cmd.threshold_ms {
+                if !(50..=10000).contains(&thresh) {
+                    cmd_errors.push(format!(
+                        "{}Button {} {}.{} threshold_ms {} out of range (50-10000)",
+                        prefix, btn_num, event_name, cmd_idx, thresh
+                    ));
+                }
+            }
+        }
+        CommandOrConditional::Conditional(cond_cmd) => {
+            // Validate condition (basic check for now - can be extended)
+            // TODO: Add condition-specific validation (button ranges, CC ranges, etc.)
+
+            // Recursively validate THEN branch
+            for (idx, then_cmd) in cond_cmd.then.iter().enumerate() {
+                cmd_errors.extend(validate_command_recursive(
+                    then_cmd,
+                    &format!("{}.then", event_name),
+                    idx,
+                    prefix,
+                    btn_num,
+                    depth + 1,
+                ));
+            }
+
+            // Recursively validate ELSE branch if it exists
+            if let Some(ref else_cmds) = cond_cmd.else_branch {
+                for (idx, else_cmd) in else_cmds.iter().enumerate() {
+                    cmd_errors.extend(validate_command_recursive(
+                        else_cmd,
+                        &format!("{}.else", event_name),
+                        idx,
+                        prefix,
+                        btn_num,
+                        depth + 1,
+                    ));
+                }
+            }
+        }
+    }
+
+    cmd_errors
+}
+
 impl MidiCaptainConfig {
     /// Validate the configuration
     pub fn validate(&self) -> Result<(), Vec<String>> {
@@ -315,93 +442,30 @@ impl MidiCaptainConfig {
             }
 
             // Validate event command arrays (press, release, long_press, long_release)
-            let validate_command = |cmd: &MidiCommand, event_name: &str, cmd_idx: usize| {
-                let mut cmd_errors = Vec::new();
-                if let Some(ch) = cmd.channel {
-                    if ch > 15 {
-                        cmd_errors.push(format!(
-                            "{}Button {} {}.{} channel {} invalid (must be 0-15)",
-                            prefix, btn_num, event_name, cmd_idx, ch
-                        ));
-                    }
-                }
-                if let Some(cc) = cmd.cc {
-                    if cc > 127 {
-                        cmd_errors.push(format!(
-                            "{}Button {} {}.{} cc {} exceeds 127",
-                            prefix, btn_num, event_name, cmd_idx, cc
-                        ));
-                    }
-                }
-                if let Some(val) = cmd.value {
-                    if val > 127 {
-                        cmd_errors.push(format!(
-                            "{}Button {} {}.{} value {} exceeds 127",
-                            prefix, btn_num, event_name, cmd_idx, val
-                        ));
-                    }
-                }
-                if let Some(note) = cmd.note {
-                    if note > 127 {
-                        cmd_errors.push(format!(
-                            "{}Button {} {}.{} note {} exceeds 127",
-                            prefix, btn_num, event_name, cmd_idx, note
-                        ));
-                    }
-                }
-                if let Some(vel) = cmd.velocity {
-                    if vel > 127 {
-                        cmd_errors.push(format!(
-                            "{}Button {} {}.{} velocity {} exceeds 127",
-                            prefix, btn_num, event_name, cmd_idx, vel
-                        ));
-                    }
-                }
-                if let Some(prog) = cmd.program {
-                    if prog > 127 {
-                        cmd_errors.push(format!(
-                            "{}Button {} {}.{} program {} exceeds 127",
-                            prefix, btn_num, event_name, cmd_idx, prog
-                        ));
-                    }
-                }
-                if let Some(step) = cmd.pc_step {
-                    if !(1..=127).contains(&step) {
-                        cmd_errors.push(format!(
-                            "{}Button {} {}.{} pc_step {} out of range (1-127)",
-                            prefix, btn_num, event_name, cmd_idx, step
-                        ));
-                    }
-                }
-                if let Some(thresh) = cmd.threshold_ms {
-                    if !(50..=10000).contains(&thresh) {
-                        cmd_errors.push(format!(
-                            "{}Button {} {}.{} threshold_ms {} out of range (50-10000)",
-                            prefix, btn_num, event_name, cmd_idx, thresh
-                        ));
-                    }
-                }
-                cmd_errors
-            };
+            // Recursive function to validate both MIDI commands and conditional commands
+            let validate_command_or_conditional =
+                |cmd: &CommandOrConditional, event_name: &str, cmd_idx: usize| {
+                    validate_command_recursive(cmd, event_name, cmd_idx, &prefix, btn_num, 0)
+                };
 
             if let Some(ref cmds) = button.press {
                 for (idx, cmd) in cmds.iter().enumerate() {
-                    errors.extend(validate_command(cmd, "press", idx));
+                    errors.extend(validate_command_or_conditional(cmd, "press", idx));
                 }
             }
             if let Some(ref cmds) = button.release {
                 for (idx, cmd) in cmds.iter().enumerate() {
-                    errors.extend(validate_command(cmd, "release", idx));
+                    errors.extend(validate_command_or_conditional(cmd, "release", idx));
                 }
             }
             if let Some(ref cmds) = button.long_press {
                 for (idx, cmd) in cmds.iter().enumerate() {
-                    errors.extend(validate_command(cmd, "long_press", idx));
+                    errors.extend(validate_command_or_conditional(cmd, "long_press", idx));
                 }
             }
             if let Some(ref cmds) = button.long_release {
                 for (idx, cmd) in cmds.iter().enumerate() {
-                    errors.extend(validate_command(cmd, "long_release", idx));
+                    errors.extend(validate_command_or_conditional(cmd, "long_release", idx));
                 }
             }
 
@@ -412,37 +476,49 @@ impl MidiCaptainConfig {
 
                     if let Some(ref cmds) = state.press {
                         for (cmd_idx, cmd) in cmds.iter().enumerate() {
-                            errors.extend(validate_command(
+                            errors.extend(validate_command_recursive(
                                 cmd,
                                 &format!("states[{}].press", state_num),
                                 cmd_idx,
+                                &prefix,
+                                btn_num,
+                                0,
                             ));
                         }
                     }
                     if let Some(ref cmds) = state.release {
                         for (cmd_idx, cmd) in cmds.iter().enumerate() {
-                            errors.extend(validate_command(
+                            errors.extend(validate_command_recursive(
                                 cmd,
                                 &format!("states[{}].release", state_num),
                                 cmd_idx,
+                                &prefix,
+                                btn_num,
+                                0,
                             ));
                         }
                     }
                     if let Some(ref cmds) = state.long_press {
                         for (cmd_idx, cmd) in cmds.iter().enumerate() {
-                            errors.extend(validate_command(
+                            errors.extend(validate_command_recursive(
                                 cmd,
                                 &format!("states[{}].long_press", state_num),
                                 cmd_idx,
+                                &prefix,
+                                btn_num,
+                                0,
                             ));
                         }
                     }
                     if let Some(ref cmds) = state.long_release {
                         for (cmd_idx, cmd) in cmds.iter().enumerate() {
-                            errors.extend(validate_command(
+                            errors.extend(validate_command_recursive(
                                 cmd,
                                 &format!("states[{}].long_release", state_num),
                                 cmd_idx,
+                                &prefix,
+                                btn_num,
+                                0,
                             ));
                         }
                     }

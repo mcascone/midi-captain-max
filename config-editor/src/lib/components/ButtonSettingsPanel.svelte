@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { slide } from 'svelte/transition';
   import { config, updateField, syncButtonStates, getButtonErrors, activeBank, activeBankIndex, isMultiBankMode } from '$lib/formStore';
   import { selectedButtonIndex, buttonClipboard, showToast } from '$lib/stores';
   import ColorSelect from './ColorSelect.svelte';
   import ButtonCommandsEditor from './ButtonCommandsEditor.svelte';
   import ProfileSelector from './ProfileSelector.svelte';
+  import MidiFlowDiagram from './MidiFlowDiagram.svelte';
+  import Toggle from './Toggle.svelte';
+  import { slide } from 'svelte/transition';
   import type { MidiCommand, ButtonConfig } from '$lib/types';
   import { BUTTON_COLORS } from '$lib/types';
 
@@ -46,14 +48,14 @@
 
   // Color palette for state tabs - cycling through for visual distinction
   const STATE_COLORS = [
-    '#6366f1', // indigo
-    '#8b5cf6', // violet
-    '#ec4899', // pink
+    '#00d4aa', // cyan (primary accent)
+    '#10b981', // emerald green
+    '#3b82f6', // blue
     '#f59e0b', // amber
-    '#10b981', // emerald
-    '#06b6d4', // cyan
+    '#06b6d4', // light cyan
+    '#14b8a6', // teal
     '#f97316', // orange
-    '#a855f7', // purple
+    '#22c55e', // green
   ];
 
   // Get color for active state
@@ -184,14 +186,16 @@
   <div class="panel-header">
     <span class="panel-title">Button Settings</span>
     {#if hasErrors}
-      <span class="error-badge" title="{buttonErrors.size} validation error(s)">⚠ {buttonErrors.size}</span>
+      <span class="error-badge" title="{buttonErrors.size} validation error(s)">
+        {buttonErrors.size} error{buttonErrors.size !== 1 ? 's' : ''}
+      </span>
     {/if}
     <div class="header-actions">
       <button class="action-btn" onclick={copyButton} title="Copy button config">
-        📋 Copy
+        Copy
       </button>
       <button class="action-btn" onclick={pasteButton} disabled={!$buttonClipboard} title="Paste button config">
-        📄 Paste
+        Paste
       </button>
       <button class="dots-btn">•••</button>
     </div>
@@ -214,7 +218,6 @@
     <!-- ── ID Section ─────────────────────────── -->
     <div class="section">
       <div class="section-header">
-        <span class="section-icon">#️⃣</span>
         <span class="section-title">ID</span>
       </div>
       <div class="section-sublabel">Label{hasMultipleStates ? ' (Base)' : ''}. <em>{btn.label}</em></div>
@@ -253,22 +256,27 @@
       </div>
 
       <div class="field full" style="margin-top: 1.5rem;">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            checked={btn.long_press_label_persist ?? true}
-            onchange={(e) => update('long_press_label_persist', e.currentTarget.checked)}
-          />
-          <span>Keep long press label visible</span>
-        </label>
+        <Toggle
+          checked={btn.long_press_label_persist ?? true}
+          label="Keep long press label visible"
+          onchange={(checked) => update('long_press_label_persist', checked)}
+        />
         <span class="field-hint" style="display: block; margin-top: 0.5rem;">When disabled, long press label shows for 3s then returns to button label</span>
+      </div>
+
+      <div class="field full" style="margin-top: 1rem;">
+        <Toggle
+          checked={btn.conditional_label_persist ?? false}
+          label="Keep conditional labels visible"
+          onchange={(checked) => update('conditional_label_persist', checked)}
+        />
+        <span class="field-hint" style="display: block; margin-top: 0.5rem;">When disabled, conditional labels (then/else) show for 3s then return to button label</span>
       </div>
     </div>
 
     <!-- ── Behavior Section ──────────────────── -->
     <div class="section">
       <div class="section-header">
-        <span class="section-icon">🎛️</span>
         <span class="section-title">Behavior</span>
       </div>
 
@@ -359,7 +367,6 @@
     <!-- ── Actions Section ───────────────────── -->
     <div class="section">
       <div class="section-header">
-        <span class="section-icon">⚡</span>
         <span class="section-title">Actions</span>
         {#if hasMultipleStates}
           <div class="header-state-tabs">
@@ -426,6 +433,7 @@
               commands={state.press ?? []}
               globalChannel={globalCh}
               onUpdate={(cmds) => updateState(i, 'press', cmds.length > 0 ? cmds : undefined)}
+              buttonIndex={$selectedButtonIndex}
             />
 
             <ButtonCommandsEditor
@@ -433,6 +441,7 @@
               commands={state.release ?? []}
               globalChannel={globalCh}
               onUpdate={(cmds) => updateState(i, 'release', cmds.length > 0 ? cmds : undefined)}
+              buttonIndex={$selectedButtonIndex}
             />
 
             <ButtonCommandsEditor
@@ -440,6 +449,7 @@
               commands={state.long_press ?? []}
               globalChannel={globalCh}
               onUpdate={(cmds) => updateState(i, 'long_press', cmds.length > 0 ? cmds : undefined)}
+              buttonIndex={$selectedButtonIndex}
             />
 
             <ButtonCommandsEditor
@@ -447,6 +457,7 @@
               commands={state.long_release ?? []}
               globalChannel={globalCh}
               onUpdate={(cmds) => updateState(i, 'long_release', cmds.length > 0 ? cmds : undefined)}
+              buttonIndex={$selectedButtonIndex}
             />
             </div>
           {/if}
@@ -488,18 +499,18 @@
                 onblur={(e) => { const v = numVal(e); update('value_off', v ?? 0); }} />
             </div>
           </div>
-          <label class="inline-checkbox">
-            <input type="checkbox"
-              checked={btn.default_on ?? false}
-              onchange={(e) => update('default_on', (e.target as HTMLInputElement).checked)} />
-            <span>Boot in ON state (sends Value ON at startup)</span>
-          </label>
+          <Toggle
+            checked={btn.default_on ?? false}
+            label="Boot in ON state (sends Value ON at startup)"
+            onchange={(checked) => update('default_on', checked)}
+          />
         </div>
         <ButtonCommandsEditor
           eventLabel="Long Press"
           commands={btn.long_press ?? []}
           globalChannel={globalCh}
           onUpdate={(cmds) => update('long_press', cmds.length > 0 ? cmds : undefined)}
+          buttonIndex={$selectedButtonIndex}
         />
 
       {:else}
@@ -512,6 +523,7 @@
           commands={btn.press ?? []}
           globalChannel={globalCh}
           onUpdate={(cmds) => update('press', cmds.length > 0 ? cmds : undefined)}
+          buttonIndex={$selectedButtonIndex}
         />
 
         {#if (btn.mode ?? 'toggle') === 'momentary' || (btn.mode ?? 'toggle') === 'toggle' || (btn.release && btn.release.length > 0)}
@@ -520,6 +532,7 @@
             commands={btn.release ?? []}
             globalChannel={globalCh}
             onUpdate={(cmds) => update('release', cmds.length > 0 ? cmds : undefined)}
+            buttonIndex={$selectedButtonIndex}
           />
         {/if}
 
@@ -535,9 +548,13 @@
           commands={btn.long_release ?? []}
           globalChannel={globalCh}
           onUpdate={(cmds) => update('long_release', cmds.length > 0 ? cmds : undefined)}
+          buttonIndex={$selectedButtonIndex}
         />
       {/if}
     </div>
+
+    <!-- MIDI Flow Diagram -->
+    <MidiFlowDiagram button={btn} buttonIndex={$selectedButtonIndex} />
 
   {:else}
     <div class="empty-state">Select a button to edit settings</div>
@@ -563,7 +580,7 @@
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    color: #9ca3af;
+    color: var(--text-secondary);
     letter-spacing: 0.15em;
   }
 
@@ -585,9 +602,9 @@
   }
 
   .action-btn {
-    background: #1f2937;
-    border: 1px solid #374151;
-    color: #9ca3af;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    color: var(--text-secondary);
     font-size: 12px;
     padding: 4px 10px;
     border-radius: 5px;
@@ -599,9 +616,9 @@
   }
 
   .action-btn:hover:not(:disabled) {
-    background: #374151;
-    color: #ffffff;
-    border-color: #4b5563;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
   }
 
   .action-btn:disabled {
@@ -612,56 +629,70 @@
   .dots-btn {
     background: none;
     border: none;
-    color: #6b7280;
+    color: var(--text-tertiary);
     font-size: 16px;
     cursor: pointer;
     padding: 2px 6px;
     border-radius: 4px;
   }
-  .dots-btn:hover { color: #d1d5db; }
+  .dots-btn:hover { color: var(--text-secondary); }
 
   /* Button selector */
   .selector-row {
-    padding: 4px 16px 12px;
+    padding: 12px 16px;
+    margin-bottom: 4px;
   }
 
   .btn-selector {
     width: 100%;
-    padding: 8px 12px;
-    background: #1f1f35;
-    border: 1px solid #3a3a55;
-    border-radius: 8px;
-    color: #f3f4f6;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-default);
+    border-radius: 10px;
+    color: var(--text-primary);
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     appearance: auto;
+    transition: all 0.2s ease;
+  }
+
+  .btn-selector:hover {
+    border-color: var(--accent-primary);
+    box-shadow: var(--glow-cyan-sm);
+  }
+
+  .btn-selector:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: var(--glow-cyan);
   }
 
   /* Sections */
   .section {
-    padding: 14px 16px;
-    border-top: 1px solid #1e1e2e;
+    padding: 20px 24px;
+    margin: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
   }
 
   .section-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  .section-icon {
-    font-size: 14px;
-    color: #9ca3af;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #2a2a2a;
   }
 
   .section-title {
-    font-size: 12px;
+    font-size: var(--text-lg);
     font-weight: 700;
-    color: #e5e7eb;
+    color: var(--text-primary);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.05em;
     flex: 1;
   }
 
@@ -673,10 +704,10 @@
 
   .state-tab-btn-header {
     padding: 4px 10px;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 4px;
-    color: #9ca3af;
+    color: var(--text-secondary);
     font-size: 10px;
     font-weight: 600;
     cursor: pointer;
@@ -685,23 +716,23 @@
   }
 
   .state-tab-btn-header:hover {
-    border-color: var(--state-color, #3a3a55);
-    color: #d1d5db;
+    border-color: var(--state-color, var(--accent-primary));
+    color: var(--text-primary);
   }
 
   .state-tab-btn-header.active {
-    background: var(--state-color, #6366f1);
-    border-color: var(--state-color, #6366f1);
-    color: #ffffff;
+    background: var(--state-color, var(--accent-primary));
+    border-color: var(--state-color, var(--accent-primary));
+    color: var(--bg-dark);
   }
 
   .section-sublabel {
     font-size: 11px;
-    color: #6b7280;
+    color: var(--text-tertiary);
     margin-bottom: 14px;
     margin-top: -6px;
   }
-  .section-sublabel em { color: #9ca3af; font-style: normal; }
+  .section-sublabel em { color: var(--text-secondary); font-style: normal; }
 
   /* Form fields */
   .field {
@@ -722,29 +753,33 @@
 
   label {
     font-size: 11px;
-    color: #9ca3af;
+    font-weight: 500;
+    color: var(--text-secondary);
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   input[type="text"],
   input[type="number"],
   select {
-    padding: 7px 10px;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
-    border-radius: 6px;
-    color: #e5e7eb;
-    font-size: 13px;
+    padding: 10px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
     width: 100%;
     min-width: 0;
-    height: 36px;
-    line-height: 1.4;
-    transition: border-color 0.15s;
+    height: 42px;
+    line-height: 1.5;
+    transition: all 0.2s ease;
   }
 
   input:focus, select:focus {
     outline: none;
-    border-color: #6366f1;
+    border-color: var(--accent-primary);
+    box-shadow: var(--glow-cyan-sm);
   }
 
   input.error, select.error {
@@ -775,7 +810,7 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: #d1d5db;
+    color: var(--text-primary);
     cursor: pointer;
     margin-bottom: 10px;
   }
@@ -784,7 +819,7 @@
     width: 15px;
     height: 15px;
     margin: 0;
-    accent-color: #6366f1;
+    accent-color: var(--accent-primary);
     cursor: pointer;
   }
 
@@ -793,7 +828,7 @@
     align-items: center;
     justify-content: center;
     flex: 1;
-    color: #4b5563;
+    color: var(--text-tertiary);
     font-size: 13px;
     padding: 40px;
   }
@@ -813,10 +848,10 @@
 
   .state-tab-btn {
     padding: 6px 12px;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
-    color: #9ca3af;
+    color: var(--text-secondary);
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
@@ -825,14 +860,14 @@
   }
 
   .state-tab-btn:hover {
-    border-color: #3a3a55;
-    color: #d1d5db;
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
   }
 
   .state-tab-btn.active {
-    background: #6366f1;
-    border-color: #6366f1;
-    color: #ffffff;
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--bg-dark);
   }
 
   .state-tab-content {
@@ -841,7 +876,7 @@
 
   .state-content {
     /* Container for state-specific content with transitions */
-    border-left: 3px solid var(--state-color, #6366f1);
+    border-left: 3px solid var(--state-color, var(--accent-primary));
     padding-left: 16px;
     margin-left: -16px;
   }
@@ -849,18 +884,18 @@
   .state-visual-config {
     margin-bottom: 16px;
     padding: 12px;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 8px;
   }
 
   .state-info {
     font-size: 11px;
-    color: #6b7280;
+    color: var(--text-tertiary);
     margin-bottom: 12px;
     padding: 8px 12px;
-    background: #16162a;
-    border-left: 2px solid #4b5563;
+    background: var(--bg-dark);
+    border-left: 2px solid var(--border-default);
     border-radius: 4px;
   }
 
@@ -868,8 +903,8 @@
   .dim-brightness-section {
     margin-top: 12px;
     padding: 12px;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 8px;
   }
 
@@ -877,7 +912,7 @@
     display: block;
     font-size: 11px;
     font-weight: 600;
-    color: #9ca3af;
+    color: var(--text-secondary);
     margin-bottom: 10px;
   }
 
@@ -904,13 +939,13 @@
     width: 48px;
     height: 48px;
     border-radius: 8px;
-    border: 1px solid #3a3a55;
+    border: 1px solid var(--border-default);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
   .preview-label {
     font-size: 10px;
-    color: #6b7280;
+    color: var(--text-tertiary);
     font-weight: 500;
   }
 
@@ -918,7 +953,7 @@
     width: 100%;
     height: 6px;
     border-radius: 3px;
-    background: linear-gradient(to right, #1a1a2e 0%, #6366f1 100%);
+    background: linear-gradient(to right, var(--bg-input) 0%, var(--accent-primary) 100%);
     outline: none;
     -webkit-appearance: none;
     appearance: none;
@@ -930,15 +965,15 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #6366f1;
+    background: var(--accent-primary);
     cursor: pointer;
-    border: 2px solid #1a1a2e;
+    border: 2px solid var(--bg-card);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     transition: all 0.15s;
   }
 
   .dim-slider::-webkit-slider-thumb:hover {
-    background: #818cf8;
+    background: var(--accent-primary-hover);
     transform: scale(1.1);
   }
 
@@ -946,42 +981,42 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #6366f1;
+    background: var(--accent-primary);
     cursor: pointer;
-    border: 2px solid #1a1a2e;
+    border: 2px solid var(--bg-card);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     transition: all 0.15s;
   }
 
   .dim-slider::-moz-range-thumb:hover {
-    background: #818cf8;
+    background: var(--accent-primary-hover);
     transform: scale(1.1);
   }
 
   /* Simplified toggle section */
   .simple-toggle-section {
     padding: 12px;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 8px;
     margin-bottom: 12px;
   }
 
   .simple-toggle-help {
     font-size: 0.8rem;
-    color: #9ca3af;
+    color: var(--text-secondary);
     margin: 0 0 12px;
     line-height: 1.4;
   }
 
-  .simple-toggle-help strong { color: #e5e7eb; }
+  .simple-toggle-help strong { color: var(--text-primary); }
 
   .inline-checkbox {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 12px;
-    color: #d1d5db;
+    color: var(--text-primary);
     cursor: pointer;
     margin-top: 4px;
   }

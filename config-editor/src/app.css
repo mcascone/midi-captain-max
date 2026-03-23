@@ -2,24 +2,71 @@
 @import '@skeletonlabs/skeleton';
 @import '@skeletonlabs/skeleton/themes/modern';
 
+:root {
+  /* Quad Cortex inspired color scheme */
+  --accent-primary: #00d4aa; /* Bright cyan */
+  --accent-primary-hover: #00ffcc;
+  --accent-primary-dim: rgba(0, 212, 170, 0.15);
+  --bg-dark: #0a0a0a;
+  --bg-card: #1a1a1a;
+  --bg-input: #141414;
+  --border-default: #2a2a2a;
+  --border-accent: #00d4aa;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --text-tertiary: #555555;
+
+  /* Shadows & Glow Effects */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --glow-cyan: 0 0 8px rgba(0, 212, 170, 0.4), 0 0 16px rgba(0, 212, 170, 0.2);
+  --glow-cyan-sm: 0 0 4px rgba(0, 212, 170, 0.3);
+
+  /* Spacing scale */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Typography scale */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 24px;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
+  font-family: var(--font-family);
+  font-size: var(--text-base);
   line-height: 1.5;
-  color: #e5e7eb;
-  background: #0f0f1a;
+  color: var(--text-primary);
+  background: var(--bg-dark);
+  font-feature-settings: 'cv11' on; /* Inter stylistic alternates */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
   font-weight: 600;
+  letter-spacing: -0.02em;
 }
+
+h1 { font-size: var(--text-3xl); font-weight: 700; }
+h2 { font-size: var(--text-2xl); font-weight: 600; }
+h3 { font-size: var(--text-xl); font-weight: 600; }
+h4 { font-size: var(--text-lg); font-weight: 600; }
 
 button {
   font-family: inherit;
@@ -30,23 +77,101 @@ input, select, textarea {
   font-size: inherit;
 }
 
-/* Button row tweaks */
+/* Standardized form control styling */
+select,
+input[type="text"],
+input[type="number"] {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #444444;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  background: #1a1a1a;
+  color: #e5e7eb;
+  transition: all 0.15s ease;
+}
+
+select:hover,
+input[type="text"]:hover,
+input[type="number"]:hover {
+  border-color: #555555;
+  background: #222222;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888888' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.5rem;
+}
+
+/* Enhanced input styling with glow effects */
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* Error state highlighting */
+input.error,
+select.error,
+textarea.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+input.error:focus,
+select.error:focus,
+textarea.error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Enhanced button hover states */
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm), var(--glow-cyan-sm);
+  transition: all 0.2s ease;
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-cyan), 0 0 0 3px var(--accent-primary-dim);
+}
+
+/* Section headers */
+.section-header {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Legacy button row styles (kept for compatibility) */
 .button-row {
   display: grid;
   grid-template-columns: 160px 1fr;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-default);
   border-radius: 6px;
-  background: #fafafa;
+  background: var(--bg-card);
   margin-bottom: 10px;
 }
 .button-row .field { display: inline-flex; align-items: center; gap:8px; margin:4px 8px; }
-.button-row .field .field-label { min-width:88px; color:#555; font-size:13px }
+.button-row .field .field-label { min-width:88px; color: var(--text-secondary); font-size:13px }
 .input-cc, .input-channel, .input-cc-value { width:80px }
 .input-label { width:120px }
-.long-section { margin-top:8px; border-top:1px solid #eee; padding-top:8px }
+.long-section { margin-top:8px; border-top:1px solid var(--border-default); padding-top:8px }
 .long-fields { display:flex; gap:10px; align-items:center }
 .long-fields input[type='number'] { width:80px }
-.long-toggle { font-size:13px; color:#444 }
-.checkbox-inline { display:inline-flex; align-items:center; gap:8px; color:#333 }
+.long-toggle { font-size:13px; color: var(--text-secondary) }
+.checkbox-inline { display:inline-flex; align-items:center; gap:8px; color: var(--text-primary) }

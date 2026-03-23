@@ -85,3 +85,62 @@ pub enum BankSwitchMethod {
     Cc,
     Pc,
 }
+
+/// Condition operator for comparisons
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ConditionOperator {
+    #[serde(rename = "==")]
+    Equals,
+    #[serde(rename = "!=")]
+    NotEquals,
+    #[serde(rename = ">")]
+    GreaterThan,
+    #[serde(rename = "<")]
+    LessThan,
+    #[serde(rename = ">=")]
+    GreaterOrEqual,
+    #[serde(rename = "<=")]
+    LessOrEqual,
+}
+
+/// Type of condition to evaluate
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Condition {
+    /// Check if a button is ON or OFF
+    ButtonState {
+        button: u8,
+        state: ButtonState,
+    },
+    /// Check which keytime state a button is in
+    ButtonKeytime {
+        button: u8,
+        keytime: u8,
+    },
+    /// Check last received MIDI CC value from host
+    ReceivedMidi {
+        cc: u8,
+        channel: u8,
+        operator: ConditionOperator,
+        value: u8,
+    },
+    /// Check expression pedal position
+    Expression {
+        pedal: String, // "exp1" or "exp2"
+        operator: ConditionOperator,
+        value: u8,
+    },
+    /// Check encoder position
+    Encoder {
+        operator: ConditionOperator,
+        value: u8,
+    },
+}
+
+/// Button state for conditional checks
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ButtonState {
+    On,
+    Off,
+}

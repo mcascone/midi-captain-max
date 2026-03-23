@@ -41,8 +41,20 @@ export function showToast(message: string, type: 'success' | 'error' | 'info' = 
 import type { ButtonConfig } from './types';
 export const buttonClipboard = writable<ButtonConfig | null>(null);
 
+// MIDI UI state
+export const midiPorts = writable<string[]>([]);
+export const selectedMidiPort = writable<string | null>(null);
+
+// Button runtime states (on/off tracking for visual feedback)
+export const buttonStates = writable<boolean[]>([]);
+
 // Derived: is a device selected and has config
 export const canEdit = derived(
   [selectedDevice, currentConfigRaw],
   ([$device, $configRaw]) => $device !== null && $configRaw !== ''
 );
+
+// Status bar enhancements
+export const lastSavedTimestamp = writable<Date | null>(null);
+export const firmwareVersion = writable<string>('');
+export const saveFeedback = writable<'idle' | 'saving' | 'success' | 'error'>('idle');

@@ -9,16 +9,21 @@ import { get } from 'svelte/store';
 import { message } from '@tauri-apps/plugin-dialog';
 import {
   selectedDevice, currentConfigRaw, hasUnsavedChanges,
-  validationErrors, statusMessage, isLoading, devices, showToast, isReloadingDevice
+  validationErrors, statusMessage, isLoading, devices, showToast, isReloadingDevice,
+  lastSavedTimestamp, saveFeedback, selectedMidiPort
 } from '$lib/stores';
 import {
-  readConfigRaw, writeConfigRaw, ejectDevice, triggerDeviceReload
+  readConfigRaw, writeConfigRaw, ejectDevice, triggerDeviceReload,
+  listMidiPorts
 } from '$lib/api';
 import { loadConfig, validate, normalizeConfig, config } from '$lib/formStore';
 import type { DetectedDevice } from '$lib/types';
 
 // Track reload timeout to allow cancellation on subsequent saves
 let reloadTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+// Track feedback timeout to prevent race conditions
+let feedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Select a device and load its configuration
@@ -74,6 +79,7 @@ export async function saveToDevice(): Promise<boolean> {
   }
 
   isLoading.set(true);
+  saveFeedback.set('saving');
   let saveSucceeded = false;
 
   try {
@@ -82,30 +88,41 @@ export async function saveToDevice(): Promise<boolean> {
     const devMode = currentConfig.dev_mode ?? false;
 
     const configObj = normalizeConfig(currentConfig);
+
+    // Debug: log buttons with conditional commands
+    const buttons = configObj.banks ? configObj.banks[0]?.buttons : configObj.buttons;
+    if (buttons) {
+      buttons.forEach((btn: any, idx: number) => {
+        if (btn.press) {
+          btn.press.forEach((cmd: any, cmdIdx: number) => {
+            if (cmd.type === 'conditional') {
+              console.log(`[SAVE] Button ${idx}, Press[${cmdIdx}]:`, {
+                type: cmd.type,
+                then_label: cmd.then_label,
+                else_label: cmd.else_label
+              });
+            }
+          });
+        }
+      });
+    }
+
     const configJson = JSON.stringify(configObj, null, 2);
+    console.log('[SAVE] Config JSON length:', configJson.length);
+    
+    // Write to filesystem for persistence
     await writeConfigRaw(device.config_path, configJson);
     currentConfigRaw.set(configJson);
-    hasUnsavedChanges.set(false);
-    saveSucceeded = true;
-
-    // Extended delay to ensure FAT32 flush on macOS/Windows USB volumes
-    // Even with sync_all(), OS can buffer writes at volume manager level
-    // 1 second ensures config is fully committed before device reboots
-    statusMessage.set('Config saved — flushing to device…');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Auto-reload only works in dev mode (USB drive remounts after reload)
-    // In performance mode, USB stays hidden after reload and editor loses connection
-
+    console.log('[SAVE] Written to filesystem');
+    
+    // Reload method depends on dev_mode setting
     if (devMode) {
-      // Attempt serial reload — non-fatal; falls back to manual restart message
+      // Dev mode: trigger serial reload (device restarts automatically)
       try {
+        statusMessage.set('Reloading device config...');
         await triggerDeviceReload(device.path);
         isReloadingDevice.set(true);
-        statusMessage.set('Config saved — device reloading…');
-
-        // Clear reload flag after 5s (reload takes ~2-3s, buffer for reconnect)
-        // Cancel any existing timeout from previous saves
+        
         if (reloadTimeoutId !== null) {
           clearTimeout(reloadTimeoutId);
         }
@@ -113,20 +130,46 @@ export async function saveToDevice(): Promise<boolean> {
           isReloadingDevice.set(false);
           reloadTimeoutId = null;
         }, 5000);
+        
+        lastSavedTimestamp.set(new Date());
+        saveFeedback.set('success');
+        hasUnsavedChanges.set(false);
+        saveSucceeded = true;
+        statusMessage.set('Config saved — device restarting…');
+        showToast('Config saved! Device will restart.', 'success');
       } catch (e: any) {
-        console.warn('Serial reload failed:', e.message || e);
-        statusMessage.set('Config saved — restart device to apply changes');
+        console.warn('[SAVE] Serial reload failed:', e);
+        statusMessage.set('Config saved to disk — restart device manually to apply');
+        lastSavedTimestamp.set(new Date());
+        saveFeedback.set('success');
+        hasUnsavedChanges.set(false);
+        saveSucceeded = true;
+        showToast('Config saved! Restart device to apply.', 'info');
       }
     } else {
-      // Performance mode: user must manually restart device
-      statusMessage.set('Config saved — unplug and reconnect device to apply changes');
+      // Performance mode: config saved, manual restart required
+      statusMessage.set('Config saved to disk — unplug and reconnect device to apply');
+      lastSavedTimestamp.set(new Date());
+      saveFeedback.set('success');
+      hasUnsavedChanges.set(false);
+      saveSucceeded = true;
+      showToast('Config saved! Reconnect device to apply changes.', 'info');
     }
   } catch (e: any) {
     const errorMsg = `Error saving config: ${e.message || e}`;
     statusMessage.set(errorMsg);
     showToast(errorMsg, 'error', 5000);
+    saveFeedback.set('error');
   } finally {
     isLoading.set(false);
+    // Reset feedback after animation (cancel any previous timeout)
+    if (feedbackTimeoutId !== null) {
+      clearTimeout(feedbackTimeoutId);
+    }
+    feedbackTimeoutId = setTimeout(() => {
+      saveFeedback.set('idle');
+      feedbackTimeoutId = null;
+    }, 2000);
   }
 
   return saveSucceeded;

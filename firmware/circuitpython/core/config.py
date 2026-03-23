@@ -190,6 +190,81 @@ def _validate_channel(channel, default_channel=0):
     return max(0, min(15, channel_int))
 
 
+def _validate_single_command(cmd, index=0, default_channel=0):
+    """Validate a single command dict.
+
+    Handles MIDI commands (cc, note, pc, pc_inc, pc_dec) and conditional
+    commands (if/then/else) with recursive validation of branches.
+
+    Args:
+        cmd: Command dict with 'type' and type-specific fields
+        index: Button index (for default values)
+        default_channel: Default MIDI channel (0-15)
+
+    Returns:
+        Validated command dict, or None if invalid
+    """
+    if not isinstance(cmd, dict):
+        return None
+
+    a_type = cmd.get("type", "cc")
+
+    # Handle conditional commands: pass through with recursive validation
+    if a_type == "conditional":
+        condition = cmd.get("if")
+        if not isinstance(condition, dict):
+            return None
+        then_cmds = cmd.get("then", [])
+        else_cmds = cmd.get("else", [])
+        a = {
+            "type": "conditional",
+            "if": condition,
+        }
+        # Recursively validate then/else branches
+        validated_then = _validate_command_array(then_cmds, index, default_channel)
+        if validated_then:
+            a["then"] = validated_then
+        else:
+            a["then"] = []
+        validated_else = _validate_command_array(else_cmds, index, default_channel)
+        if validated_else:
+            a["else"] = validated_else
+        else:
+            a["else"] = []
+
+        # Preserve optional labels for conditional branches (validate and truncate to 10 chars)
+        if "then_label" in cmd:
+            label = cmd["then_label"]
+            if isinstance(label, str):
+                a["then_label"] = label[:10]
+        if "else_label" in cmd:
+            label = cmd["else_label"]
+            if isinstance(label, str):
+                a["else_label"] = label[:10]
+
+        return a
+
+    # Standard MIDI command types
+    if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
+        a_type = "cc"
+    a = {"type": a_type, "channel": _validate_channel(cmd.get("channel", default_channel), default_channel)}
+    if a_type == "cc":
+        a["cc"] = _clamp_state_field("cc", cmd.get("cc", 20 + index))
+        a["value"] = _clamp_state_field("cc_on", cmd.get("value", cmd.get("cc_on", 127)))
+    elif a_type == "note":
+        a["note"] = _clamp_state_field("note", cmd.get("note", 60))
+        a["velocity"] = _clamp_state_field("velocity_on", cmd.get("velocity", cmd.get("value", cmd.get("velocity_on", 127))))
+    elif a_type == "pc":
+        a["program"] = _clamp_state_field("program", cmd.get("program", 0))
+    elif a_type in ("pc_inc", "pc_dec"):
+        a["pc_step"] = _clamp_state_field("pc_step", cmd.get("pc_step", 1))
+    # Optional threshold in milliseconds (for long_press events)
+    thresh = cmd.get("threshold_ms", cmd.get("threshold", None))
+    if isinstance(thresh, int) and thresh > 0:
+        a["threshold_ms"] = thresh
+    return a
+
+
 def _validate_command_array(action, index=0, default_channel=0):
     """Validate and normalize a command action (single dict or array).
 
@@ -208,51 +283,16 @@ def _validate_command_array(action, index=0, default_channel=0):
     if isinstance(action, list):
         validated_cmds = []
         for cmd in action:
-            if not isinstance(cmd, dict):
-                continue
-            # Basic action validation
-            a_type = cmd.get("type", "cc")
-            if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
-                a_type = "cc"
-            a = {"type": a_type, "channel": _validate_channel(cmd.get("channel", default_channel), default_channel)}
-            if a_type == "cc":
-                a["cc"] = _clamp_state_field("cc", cmd.get("cc", 20 + index))
-                a["value"] = _clamp_state_field("cc_on", cmd.get("value", cmd.get("cc_on", 127)))
-            elif a_type == "note":
-                a["note"] = _clamp_state_field("note", cmd.get("note", 60))
-                a["velocity"] = _clamp_state_field("velocity_on", cmd.get("velocity", cmd.get("velocity_on", 127)))
-            elif a_type == "pc":
-                a["program"] = _clamp_state_field("program", cmd.get("program", 0))
-            elif a_type in ("pc_inc", "pc_dec"):
-                a["pc_step"] = _clamp_state_field("pc_step", cmd.get("pc_step", 1))
-            # Optional threshold in milliseconds (for long_press events)
-            thresh = cmd.get("threshold_ms", cmd.get("threshold", None))
-            if isinstance(thresh, int) and thresh > 0:
-                a["threshold_ms"] = thresh
-            validated_cmds.append(a)
+            validated = _validate_single_command(cmd, index, default_channel)
+            if validated is not None:
+                validated_cmds.append(validated)
         return validated_cmds if validated_cmds else None
 
     # Handle single command dict (legacy format)
     elif isinstance(action, dict):
-        a_type = action.get("type", "cc")
-        if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
-            a_type = "cc"
-        a = {"type": a_type, "channel": _validate_channel(action.get("channel", default_channel), default_channel)}
-        if a_type == "cc":
-            a["cc"] = _clamp_state_field("cc", action.get("cc", 20 + index))
-            a["value"] = _clamp_state_field("cc_on", action.get("value", action.get("cc_on", 127)))
-        elif a_type == "note":
-            a["note"] = _clamp_state_field("note", action.get("note", 60))
-            a["velocity"] = _clamp_state_field("velocity_on", action.get("velocity", action.get("velocity_on", 127)))
-        elif a_type == "pc":
-            a["program"] = _clamp_state_field("program", action.get("program", 0))
-        elif a_type in ("pc_inc", "pc_dec"):
-            a["pc_step"] = _clamp_state_field("pc_step", action.get("pc_step", 1))
-        # Optional threshold in milliseconds
-        thresh = action.get("threshold_ms", action.get("threshold", None))
-        if isinstance(thresh, int) and thresh > 0:
-            a["threshold_ms"] = thresh
-        return [a]  # Convert to array for consistency
+        validated = _validate_single_command(action, index, default_channel)
+        if validated is not None:
+            return [validated]  # Convert to array for consistency
 
     return None
 
@@ -401,60 +441,7 @@ def validate_button(btn, index=0, global_channel=None):
     # Accepts dicts OR arrays of dicts with shape: type = cc|note|pc|pc_inc|pc_dec and type-specific fields.
     def _validate_action_field(field_name):
         action = btn.get(field_name)
-        if action is None:
-            return None
-
-        # Handle array of commands (new format)
-        if isinstance(action, list):
-            validated_cmds = []
-            for cmd in action:
-                if not isinstance(cmd, dict):
-                    continue
-                # Basic action validation
-                a_type = cmd.get("type", "cc")
-                if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
-                    a_type = "cc"
-                a = {"type": a_type, "channel": cmd.get("channel", default_channel)}
-                if a_type == "cc":
-                    a["cc"] = _clamp_state_field("cc", cmd.get("cc", 20 + index))
-                    a["value"] = _clamp_state_field("cc_on", cmd.get("value", cmd.get("cc_on", 127)))
-                elif a_type == "note":
-                    a["note"] = _clamp_state_field("note", cmd.get("note", 60))
-                    a["velocity"] = _clamp_state_field("velocity_on", cmd.get("velocity", cmd.get("velocity_on", 127)))
-                elif a_type == "pc":
-                    a["program"] = _clamp_state_field("program", cmd.get("program", 0))
-                elif a_type in ("pc_inc", "pc_dec"):
-                    a["pc_step"] = _clamp_state_field("pc_step", cmd.get("pc_step", 1))
-                # Optional threshold in milliseconds (for long_press events)
-                thresh = cmd.get("threshold_ms", cmd.get("threshold", None))
-                if isinstance(thresh, int) and thresh > 0:
-                    a["threshold_ms"] = thresh
-                validated_cmds.append(a)
-            return validated_cmds if validated_cmds else None
-
-        # Handle single command dict (legacy format)
-        elif isinstance(action, dict):
-            a_type = action.get("type", "cc")
-            if a_type not in ("cc", "note", "pc", "pc_inc", "pc_dec"):
-                a_type = "cc"
-            a = {"type": a_type, "channel": action.get("channel", default_channel)}
-            if a_type == "cc":
-                a["cc"] = _clamp_state_field("cc", action.get("cc", 20 + index))
-                a["value"] = _clamp_state_field("cc_on", action.get("value", action.get("cc_on", 127)))
-            elif a_type == "note":
-                a["note"] = _clamp_state_field("note", action.get("note", 60))
-                a["velocity"] = _clamp_state_field("velocity_on", action.get("value", action.get("velocity_on", 127)))
-            elif a_type == "pc":
-                a["program"] = _clamp_state_field("program", action.get("program", 0))
-            elif a_type in ("pc_inc", "pc_dec"):
-                a["pc_step"] = _clamp_state_field("pc_step", action.get("pc_step", 1))
-            # Optional threshold in milliseconds
-            thresh = action.get("threshold_ms", action.get("threshold", None))
-            if isinstance(thresh, int) and thresh > 0:
-                a["threshold_ms"] = thresh
-            return [a]  # Convert to array for consistency
-
-        return None
+        return _validate_command_array(action, index, default_channel)
 
     # Validate event arrays: press, release, long_press, long_release
     for event_name in ("press", "release", "long_press", "long_release"):
@@ -629,7 +616,7 @@ def validate_config(cfg, button_count=10):
                     groups[g] = []
                 if b.get("default_selected"):
                     groups[g].append(i)
-            
+
             for g, indices in groups.items():
                 if len(indices) > 1:
                     # Keep the first default-selected, clear others
@@ -656,7 +643,7 @@ def validate_config(cfg, button_count=10):
                 for idx in indices[1:]:
                     result["buttons"][idx].pop("default_selected", None)
                 print(f"Warning: multiple default_selected in group '{g}'; keeping button {first+1}")
-    
+
     return result
 
 

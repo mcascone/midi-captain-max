@@ -1,11 +1,9 @@
 mod commands;
+mod midi;
 mod config;
 mod device;
 
-use commands::{
-    eject_device, read_config, read_config_raw, trigger_device_reload, validate_config,
-    write_config, write_config_raw,
-};
+use commands::*;
 use device::{scan_devices, start_device_watcher, stop_device_watcher};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -22,6 +20,11 @@ pub fn run() {
             validate_config,
             eject_device,
             trigger_device_reload,
+            list_midi_ports_cmd,
+            send_midi_message_cmd,
+            start_midi_input_listener_cmd,
+            stop_midi_input_listener_cmd,
+
             scan_devices,
             start_device_watcher,
             stop_device_watcher

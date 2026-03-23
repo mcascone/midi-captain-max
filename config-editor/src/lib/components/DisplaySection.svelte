@@ -65,7 +65,7 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
     padding: 1rem;
-    background: #0f172a;
+    background: var(--bg-input);
     border-radius: 4px;
   }
 
@@ -86,21 +86,21 @@
 
   .display-section select {
     padding: 0.5rem 0.75rem;
-    border: 1px solid #4b5563;
+    border: 1px solid #444444;
     border-radius: 4px;
     font-size: 0.875rem;
-    background: #374151;
+    background: #333333;
     color: #e5e7eb;
     width: 100%;
     cursor: pointer;
   }
 
   .display-section select:hover {
-    background: #4b5563;
+    background: #444444;
   }
 
   .display-section select:focus {
-    outline: 2px solid #8b5cf6;
+    outline: 2px solid var(--accent-primary);
     outline-offset: 1px;
   }
 </style>

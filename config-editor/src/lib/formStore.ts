@@ -290,7 +290,7 @@ export function setDevice(deviceType: DeviceType) {
     if (newState.config.banks) {
       for (let bankIdx = 0; bankIdx < newState.config.banks.length; bankIdx++) {
         const buttons = getButtons(bankIdx);
-        
+
         if (deviceType === 'mini6' && currentDevice === 'std10') {
           // Truncate to 6 buttons
           setButtons(buttons.slice(0, 6), bankIdx);
@@ -401,6 +401,98 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
     return [field]; // Convert single object to array
   };
 
+  // Normalize operator from symbolic to string token (firmware expects 'eq', 'ne', etc.)
+  const normalizeOperator = (op: string | undefined): string | undefined => {
+    if (!op) return op;
+    const operatorMap: Record<string, string> = {
+      '==': 'eq',
+      '!=': 'ne',
+      '>': 'gt',
+      '<': 'lt',
+      '>=': 'gte',
+      '<=': 'lte',
+    };
+    return operatorMap[op] ?? op;  // Return normalized or pass through if already correct
+  };
+
+  // Normalize a condition (recursively handles nested conditions)
+  const normalizeCondition = (cond: any): any => {
+    if (!cond || typeof cond !== 'object') return cond;
+
+    const result = { ...cond };
+
+    // Normalize operator if present
+    if (result.operator) {
+      result.operator = normalizeOperator(result.operator);
+    }
+
+    return result;
+  };
+
+  // Normalize a single MIDI command - strip type-irrelevant fields
+  const normalizeCommand = (cmd: any): any => {
+    if (!cmd || typeof cmd !== 'object') return cmd;
+
+    const cmdType = cmd.type ?? 'cc';
+
+    // Handle conditional commands recursively
+    if (cmdType === 'conditional') {
+      const result: any = {
+        type: 'conditional',
+        if: normalizeCondition(cmd.if),  // Normalize the condition
+        then: (cmd.then ?? []).map(normalizeCommand),
+        else: cmd.else ? cmd.else.map(normalizeCommand) : undefined,
+      };
+
+      // Preserve conditional labels
+      if (cmd.then_label !== undefined) {
+        result.then_label = cmd.then_label;
+      }
+      if (cmd.else_label !== undefined) {
+        result.else_label = cmd.else_label;
+      }
+
+      return result;
+    }
+
+    // Base fields common to all command types
+    const base: any = {
+      type: cmdType,
+    };
+
+    // Optional channel (skip if undefined to reduce clutter)
+    if (cmd.channel !== undefined) {
+      base.channel = cmd.channel;
+    }
+
+    // Type-specific fields
+    if (cmdType === 'cc') {
+      if (cmd.cc !== undefined) base.cc = cmd.cc;
+      if (cmd.value !== undefined) base.value = cmd.value;
+    } else if (cmdType === 'note') {
+      if (cmd.note !== undefined) base.note = cmd.note;
+      if (cmd.velocity !== undefined) base.velocity = cmd.velocity;
+    } else if (cmdType === 'pc') {
+      if (cmd.program !== undefined) base.program = cmd.program;
+    } else if (cmdType === 'pc_inc' || cmdType === 'pc_dec') {
+      if (cmd.pc_step !== undefined) base.pc_step = cmd.pc_step;
+    }
+
+    // Optional threshold for long-press (only on first command, but we normalize everywhere)
+    if (cmd.threshold_ms !== undefined) {
+      base.threshold_ms = cmd.threshold_ms;
+    }
+
+    return base;
+  };
+
+  // Normalize command arrays
+  const normalizeCommands = (cmds: any): any => {
+    const arr = ensureArray(cmds);
+    if (!arr) return undefined;
+    return arr.map(normalizeCommand);
+  };
+
   // Auto-migrate: old-style 'toggle' with explicit press/release arrays or keytimes > 1
   // → becomes 'normal' (explicit/advanced toggle) so it keeps working as before.
   const hasExplicitEvents = (btn.press?.length ?? 0) > 0 || (btn.release?.length ?? 0) > 0;
@@ -421,7 +513,7 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
     } = btn as any;
     const result: any = { ...rest };
     if (btn.long_press && (btn.long_press as any[]).length > 0) {
-      result.long_press = ensureArray(btn.long_press);
+      result.long_press = normalizeCommands(btn.long_press);
     } else {
       delete result.long_press;
     }
@@ -439,10 +531,10 @@ function normalizeButton(btn: ButtonConfig): ButtonConfig {
 
   return {
     ...cleanButton,
-    press: ensureArray(btn.press) as any,
-    release: ensureArray(btn.release) as any,
-    long_press: ensureArray(btn.long_press) as any,
-    long_release: ensureArray(btn.long_release) as any,
+    press: normalizeCommands(btn.press),
+    release: normalizeCommands(btn.release),
+    long_press: normalizeCommands(btn.long_press),
+    long_release: normalizeCommands(btn.long_release),
   };
 }
 

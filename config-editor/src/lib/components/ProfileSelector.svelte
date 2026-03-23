@@ -1,6 +1,7 @@
 <script lang="ts">
   import { profiles, getProfileActions, resolveProfileAction } from '$lib/profiles';
-  import type { ButtonConfig, MidiCommand } from '$lib/types';
+  import Toggle from './Toggle.svelte';
+  import type { ButtonConfig, MidiCommand, CommandOrConditional } from '$lib/types';
 
   interface Props {
     button: ButtonConfig;
@@ -10,6 +11,17 @@
   }
 
   let { button, onUpdate, stateIndex, onUpdateState }: Props = $props();
+
+  // Type guard to check if a command is a MIDI command (not conditional)
+  function isMidiCommand(cmd: CommandOrConditional): cmd is MidiCommand {
+    return cmd.type !== 'conditional';
+  }
+
+  // Filter an array to only MIDI commands (exclude conditionals)
+  function filterMidiCommands(commands: CommandOrConditional[] | undefined): MidiCommand[] {
+    if (!commands) return [];
+    return commands.filter(isMidiCommand);
+  }
 
   // Selected profile and action (reactive to button changes)
   let selectedProfileId = $state('');
@@ -25,7 +37,7 @@
 
   // Memoization cache for resolved profile actions to avoid re-resolving on every reactive update
   const resolvedCommandsCache = new Map<string, MidiCommand[] | undefined>();
-  
+
   function getCachedResolvedCommands(profileId: string, actionId: string): MidiCommand[] | undefined {
     const cacheKey = `${profileId}:${actionId}`;
     if (!resolvedCommandsCache.has(cacheKey)) {
@@ -33,7 +45,7 @@
     }
     return resolvedCommandsCache.get(cacheKey);
   }
-  
+
   // Clear cache when profile changes
   $effect(() => {
     resolvedCommandsCache.clear();
@@ -43,12 +55,12 @@
   // Initialize from button props and clear selection when switching states
   $effect(() => {
     selectedProfileId = button.profile_id || '';
-    
+
     // Only set profileMode to true if we have profile data from config
     if (button.profile_id) {
       profileMode = true;
     }
-    
+
     // Handle selectedActionId based on context:
     // - Single state (stateIndex undefined): use button.action_id
     // - Multi-state: clear selection when switching states
@@ -76,12 +88,16 @@
   );
 
   // Get the commands for the selected target event (from state or button)
+  // Returns all commands (including conditionals) for display purposes
   let targetCommands = $derived.by(() => {
     const source = stateIndex !== undefined && button.states?.[stateIndex]
       ? button.states[stateIndex]
       : button;
-    return source[targetEvent] as MidiCommand[] | undefined;
+    return source[targetEvent] as CommandOrConditional[] | undefined;
   });
+
+  // Get only MIDI commands (filter out conditionals) for profile matching
+  let targetMidiCommands = $derived(filterMidiCommands(targetCommands));
 
   // Check which events have commands assigned (from state or button)
   let eventHasCommands = $derived.by(() => {
@@ -105,7 +121,7 @@
       }
       return cmd.pc_step;
     };
-    
+
     return (
       cmd1.type === cmd2.type &&
       cmd1.channel === cmd2.channel &&
@@ -127,14 +143,14 @@
 
   // Find which action (if any) matches the current target event commands
   let matchedActionId = $derived.by(() => {
-    if (!selectedProfileId || !targetCommands || targetCommands.length === 0) return null;
-    
+    if (!selectedProfileId || !targetMidiCommands || targetMidiCommands.length === 0) return null;
+
     const actions = getProfileActions(selectedProfileId);
     if (!actions) return null;
 
     for (const action of actions) {
       const resolvedCommands = getCachedResolvedCommands(selectedProfileId, action.id);
-      if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
+      if (resolvedCommands && commandArraysMatch(targetMidiCommands, resolvedCommands)) {
         return action.id;
       }
     }
@@ -143,7 +159,7 @@
 
   // Auto-detect profile and action from existing commands when profile mode is enabled
   $effect(() => {
-    if (profileMode && !selectedProfileId && targetCommands && targetCommands.length > 0) {
+    if (profileMode && !selectedProfileId && targetMidiCommands && targetMidiCommands.length > 0) {
       // Try to find a matching profile and action
       for (const profile of profiles) {
         const actions = getProfileActions(profile.id);
@@ -151,7 +167,7 @@
 
         for (const action of actions) {
           const resolvedCommands = getCachedResolvedCommands(profile.id, action.id);
-          if (resolvedCommands && commandArraysMatch(targetCommands, resolvedCommands)) {
+          if (resolvedCommands && commandArraysMatch(targetMidiCommands, resolvedCommands)) {
             // Found a match!
             selectedProfileId = profile.id;
             selectedActionId = action.id;
@@ -177,7 +193,7 @@
 
   function handleActionChange(actionId: string) {
     selectedActionId = actionId;
-    
+
     // Update profile metadata - only on button level in single-state mode
     // In multi-state mode, action_id is state-specific (not persisted to config)
     if (stateIndex === undefined) {
@@ -197,7 +213,7 @@
         if (channelOverride !== undefined) {
           commands = commands.map(cmd => ({ ...cmd, channel: channelOverride }));
         }
-        
+
         // Update commands - use state-specific or button-level depending on context
         if (stateIndex !== undefined && onUpdateState) {
           // Updating a specific state (keytimes > 1)
@@ -215,7 +231,7 @@
     selectedActionId = '';
     onUpdate('profile_id', undefined);
     onUpdate('action_id', undefined);
-    
+
     // Clear all event commands
     // In multi-state mode, clear commands from ALL states to match UI labeling
     if (stateIndex !== undefined && onUpdateState && button.states) {
@@ -237,14 +253,11 @@
 
 <div class="profile-selector">
   <div class="profile-mode-toggle">
-    <label>
-      <input
-        type="checkbox"
-        checked={profileMode}
-        onchange={handleProfileModeToggle}
-      />
-      Use Device Profile
-    </label>
+    <Toggle
+      checked={profileMode}
+      label="Use Device Profile"
+      onchange={handleProfileModeToggle}
+    />
     {#if profileMode && (selectedProfileId || button.profile_id)}
       <button
         type="button"
@@ -276,7 +289,7 @@
           >
             <div class="profile-card-header">
               <span class="profile-name">{profile.manufacturer}</span>
-              <span class="profile-type-badge" class:fixed={profile.type === 'fixed'}>
+              <span class="profile-type-badge" class:type-fixed={profile.type === 'fixed'}>
                 {profile.type}
               </span>
             </div>
@@ -393,17 +406,16 @@
       {/if}
 
       <!-- Resolved MIDI Preview -->
-      {#if selectedProfileId && targetCommands && targetCommands.length > 0}
+      {#if selectedProfileId && targetMidiCommands && targetMidiCommands.length > 0}
         <div class="midi-preview">
           <div class="preview-header">
-            <span class="preview-icon">⚡</span>
             <strong>Resolved MIDI ({targetEvent.replace('_', ' ')})</strong>
             {#if matchedActionId && !button.action_id}
               <span class="auto-detected-badge" title="Action auto-detected from MIDI commands">Auto</span>
             {/if}
           </div>
           <div class="midi-commands">
-            {#each targetCommands as cmd}
+            {#each targetMidiCommands as cmd}
               <span class="midi-chip">
                 {#if cmd.type === 'cc'}
                   CC{cmd.cc}={cmd.value}
@@ -432,8 +444,8 @@
   .profile-selector {
     margin-bottom: 1rem;
     padding: 1rem;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
   }
 
@@ -492,31 +504,34 @@
   /* Profile Cards Grid */
   .profile-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 0.75rem;
   }
 
   .profile-card {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.625rem;
     padding: 0.875rem;
-    background: #13131f;
-    border: 2px solid #2a2a3e;
+    background: #131313;
+    border: 2px solid var(--border-default);
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: left;
+    min-height: 70px;
+    width: 100%;
+    position: relative;
   }
 
   .profile-card:hover {
     border-color: #3a3a4e;
-    background: #1a1a2e;
+    background: var(--bg-input);
   }
 
   .profile-card.active {
-    border-color: #6366f1;
-    background: rgba(99, 102, 241, 0.1);
+    border-color: var(--accent-primary);
+    background: var(--accent-primary-dim);
   }
 
   .profile-card-header {
@@ -524,6 +539,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    margin-bottom: 0.125rem;
+    width: 100%;
   }
 
   .profile-name {
@@ -532,6 +549,13 @@
     color: #9ca3af;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    line-height: 1.3;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .profile-type-badge {
@@ -539,12 +563,14 @@
     font-weight: 600;
     padding: 2px 6px;
     border-radius: 3px;
-    background: #2a2a3e;
+    background: var(--bg-input);
     color: #9ca3af;
     text-transform: uppercase;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
-  .profile-type-badge.fixed {
+  .profile-type-badge.type-fixed {
     background: rgba(34, 197, 94, 0.15);
     color: #22c55e;
   }
@@ -553,6 +579,10 @@
     font-size: 14px;
     font-weight: 600;
     color: #e5e7eb;
+    line-height: 1.4;
+    margin-top: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Channel Override */
@@ -585,8 +615,8 @@
   .channel-override input {
     width: 80px;
     padding: 0.5rem;
-    background: #13131f;
-    border: 1px solid #2a2a3e;
+    background: #131313;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
     color: #e5e7eb;
     font-size: 13px;
@@ -595,8 +625,8 @@
 
   .channel-override input:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-primary-dim);
   }
 
   .channel-override input::placeholder {
@@ -622,8 +652,8 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 0.625rem 0.75rem;
-    background: #13131f;
-    border: 1px solid #2a2a3e;
+    background: #131313;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
     color: #d1d5db;
     font-size: 12px;
@@ -635,12 +665,12 @@
 
   .event-button:hover {
     border-color: #3a3a4e;
-    background: #1a1a2e;
+    background: var(--bg-input);
     color: #e5e7eb;
   }
 
   .event-button.has-commands {
-    border-color: #3a3a55;
+    border-color: var(--border-accent);
   }
 
   .event-button.active {
@@ -661,11 +691,11 @@
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    background: rgba(99, 102, 241, 0.25);
+    background: var(--accent-primary-dim);
     border-radius: 9px;
     font-size: 10px;
     font-weight: 700;
-    color: #a5b4fc;
+    color: var(--accent-primary);
   }
 
   .event-button.active .event-badge {
@@ -682,8 +712,8 @@
 
   .action-button {
     padding: 0.625rem 0.75rem;
-    background: #13131f;
-    border: 1px solid #2a2a3e;
+    background: #131313;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
     color: #d1d5db;
     font-size: 12px;
@@ -695,22 +725,22 @@
 
   .action-button:hover {
     border-color: #3a3a4e;
-    background: #1a1a2e;
+    background: var(--bg-input);
     color: #e5e7eb;
   }
 
   .action-button.active {
-    background: rgba(99, 102, 241, 0.15);
-    border-color: #6366f1;
-    color: #818cf8;
+    background: var(--accent-primary-dim);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
     font-weight: 600;
   }
 
   /* MIDI Preview */
   .midi-preview {
     padding: 0.875rem;
-    background: #13131f;
-    border: 1px solid #2a2a3e;
+    background: #131313;
+    border: 1px solid var(--border-default);
     border-radius: 6px;
   }
 
@@ -721,14 +751,10 @@
     margin-bottom: 0.625rem;
   }
 
-  .preview-icon {
-    font-size: 16px;
-  }
-
   .preview-header strong {
     font-size: 11px;
     font-weight: 700;
-    color: #818cf8;
+    color: var(--accent-primary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     flex: 1;
@@ -756,20 +782,20 @@
     align-items: center;
     gap: 0.375rem;
     padding: 0.375rem 0.625rem;
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 4px;
     font-family: 'Courier New', monospace;
     font-size: 12px;
     font-weight: 600;
-    color: #a5b4fc;
+    color: var(--accent-primary);
   }
 
   .midi-channel {
     padding: 0.125rem 0.375rem;
-    background: rgba(99, 102, 241, 0.2);
+    background: var(--accent-primary-dim);
     border-radius: 3px;
     font-size: 10px;
-    color: #c7d2fe;
+    color: var(--accent-primary);
   }
 </style>

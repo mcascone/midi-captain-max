@@ -2,6 +2,7 @@
   import { Tabs } from '@skeletonlabs/skeleton-svelte';
   import BanksPanel from './BanksPanel.svelte';
   import DeviceLayout from './DeviceLayout.svelte';
+  import DeviceGrid from './DeviceGrid.svelte';
   import DisplaySection from './DisplaySection.svelte';
   import SplashScreenSection from './SplashScreenSection.svelte';
   import DeviceSection from './DeviceSection.svelte';
@@ -38,6 +39,10 @@
         {/if}
         <div class="device-layout-section">
           <DeviceLayout />
+        </div>
+        <!-- MIDI interactive grid (hidden behind layout visually but provides MIDI functionality) -->
+        <div style="position: absolute; left: -9999px;">
+          <DeviceGrid />
         </div>
       </Tabs.Content>
       <Tabs.Content value="display" class="tab-content">
@@ -76,8 +81,8 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    border-top: 1px solid #374151;
-    background: #111827;
+    border-top: 1px solid #333333;
+    background: #121212;
     overflow: hidden;
   }
 
@@ -90,8 +95,8 @@
   .tabs-container :global(.tabs-list) {
     display: flex;
     gap: 0;
-    border-bottom: 1px solid #374151;
-    background: #0f0f1a;
+    border-bottom: 1px solid var(--border-default);
+    background: var(--bg-dark);
     align-items: center;
   }
 
@@ -110,21 +115,21 @@
 
   .tabs-container :global(.tab-trigger:hover) {
     color: #e5e7eb;
-    background: #374151;
+    background: var(--bg-input);
   }
 
   .tabs-container :global(.tab-trigger[data-state="active"]),
   .tabs-container :global(.tab-trigger[aria-selected="true"]) {
-    color: #8b5cf6;
-    border-bottom-color: #8b5cf6;
-    background: #0f0f1a;
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+    background: var(--bg-dark);
   }
 
   .tabs-container :global(.tab-content) {
     padding: 16px;
     flex: 1;
     overflow-y: auto;
-    background: #0f0f1a;
+    background: var(--bg-dark);
     color: #e5e7eb;
   }
 
@@ -134,13 +139,15 @@
     flex-direction: column;
     padding: 0;
     gap: 0;
+    overflow-y: auto;
+    overflow-x: visible;
   }
 
   .banks-panel-section {
     flex-shrink: 0;
-    padding: 16px;
-    background: #1a1f2e;
-    border-bottom: 1px solid #374151;
+    background: var(--bg-input);
+    border-bottom: 1px solid var(--border-default);
+    overflow: visible;
   }
 
   .device-layout-section {
@@ -161,13 +168,13 @@
   .tabs-container :global(.tab-content) :global(select),
   .tabs-container :global(.tab-content) :global(input[type="text"]),
   .tabs-container :global(.tab-content) :global(input[type="number"]) {
-    background: #374151;
-    border: 1px solid #4b5563;
+    background: #333333;
+    border: 1px solid #444444;
   }
 
   .tabs-container :global(.tab-content) :global(select:hover),
   .tabs-container :global(.tab-content) :global(input[type="text"]:hover),
   .tabs-container :global(.tab-content) :global(input[type="number"]:hover) {
-    background: #4b5563;
+    background: #444444;
   }
 </style>

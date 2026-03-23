@@ -1,0 +1,308 @@
+<script lang="ts">
+  import type { ConditionalCommand, CommandOrConditional, MidiCommand } from '$lib/types';
+  import ConditionBuilder from './ConditionBuilder.svelte';
+  import CommandRow from './CommandRow.svelte';
+
+  interface Props {
+    conditional: ConditionalCommand;
+    globalChannel: number;
+    onUpdate: (cmd: ConditionalCommand) => void;
+    onRemove: () => void;
+    buttonIndex?: number;
+  }
+
+  let { conditional, globalChannel, onUpdate, onRemove, buttonIndex }: Props = $props();
+
+  function updateCondition(newCondition: any) {
+    onUpdate({ ...conditional, if: newCondition });
+  }
+
+  function updateThenLabel(event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    const finalValue = value || undefined;
+    console.log('[COND LABEL] updateThenLabel:', { value, finalValue });
+    onUpdate({ ...conditional, then_label: finalValue });
+  }
+
+  function updateElseLabel(event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    const finalValue = value || undefined;
+    console.log('[COND LABEL] updateElseLabel:', { value, finalValue });
+    onUpdate({ ...conditional, else_label: finalValue });
+  }
+
+  function updateThen(commands: CommandOrConditional[]) {
+    onUpdate({ ...conditional, then: commands });
+  }
+
+  function updateElse(commands: CommandOrConditional[]) {
+    onUpdate({ ...conditional, else: commands.length > 0 ? commands : undefined });
+  }
+
+  function addThenCommand() {
+    onUpdate({
+      ...conditional,
+      then: [...conditional.then, { type: 'cc', cc: 20, value: 127 }]
+    });
+  }
+
+  function addElseCommand() {
+    onUpdate({
+      ...conditional,
+      else: [...(conditional.else ?? []), { type: 'cc', cc: 20, value: 0 }]
+    });
+  }
+
+  function removeThenCommand(idx: number) {
+    updateThen(conditional.then.filter((_, i) => i !== idx));
+  }
+
+  function removeElseCommand(idx: number) {
+    const filtered = (conditional.else ?? []).filter((_, i) => i !== idx);
+    updateElse(filtered);
+  }
+
+  function updateThenCommand(idx: number, cmd: CommandOrConditional) {
+    const newThen = [...conditional.then];
+    newThen[idx] = cmd;
+    updateThen(newThen);
+  }
+
+  function updateElseCommand(idx: number, cmd: CommandOrConditional) {
+    const newElse = [...(conditional.else ?? [])];
+    newElse[idx] = cmd;
+    updateElse(newElse);
+  }
+</script>
+
+<div class="conditional-block">
+  <div class="condition-header">
+    <span class="if-label">IF</span>
+    <button class="remove-conditional" type="button" onclick={onRemove} title="Remove condition">
+      ✕
+    </button>
+  </div>
+
+  <ConditionBuilder
+    condition={conditional.if}
+    onUpdate={updateCondition}
+    buttonIndex={buttonIndex}
+  />
+
+  <div class="branch-container then-branch">
+    <div class="branch-header">
+      <span class="branch-label">THEN</span>
+      <button class="add-command-btn" type="button" onclick={addThenCommand}>+ Add</button>
+    </div>
+    <div class="label-input-container">
+      <label class="label-input-label">Display Label (optional)</label>
+      <input
+        type="text"
+        class="label-input"
+        placeholder="Label shown when condition is TRUE"
+        value={conditional.then_label ?? ''}
+        oninput={updateThenLabel}
+        maxlength="10"
+      />
+    </div>
+    <div class="branch-commands">
+      {#if conditional.then.length === 0}
+        <div class="empty-branch">No commands. Click "+ Add" to create one.</div>
+      {:else}
+        {#each conditional.then as cmd, i}
+          <CommandRow
+            command={cmd}
+            index={i}
+            globalChannel={globalChannel}
+            onUpdate={(updated) => updateThenCommand(i, updated)}
+            onRemove={() => removeThenCommand(i)}
+          />
+        {/each}
+      {/if}
+    </div>
+  </div>
+
+  <div class="branch-container else-branch">
+    <div class="branch-header">
+      <span class="branch-label">ELSE</span>
+      <button class="add-command-btn" type="button" onclick={addElseCommand}>+ Add</button>
+    </div>
+    <div class="label-input-container">
+      <label class="label-input-label">Display Label (optional)</label>
+      <input
+        type="text"
+        class="label-input"
+        placeholder="Label shown when condition is FALSE"
+        value={conditional.else_label ?? ''}
+        oninput={updateElseLabel}
+        maxlength="10"
+      />
+    </div>
+    <div class="branch-commands">
+      {#if !conditional.else || conditional.else.length === 0}
+        <div class="empty-branch">No commands. Click "+ Add" to create one.</div>
+      {:else}
+        {#each conditional.else as cmd, i}
+          <CommandRow
+            command={cmd}
+            index={i}
+            globalChannel={globalChannel}
+            onUpdate={(updated) => updateElseCommand(i, updated)}
+            onRemove={() => removeElseCommand(i)}
+          />
+        {/each}
+      {/if}
+    </div>
+  </div>
+</div>
+
+<style>
+  .conditional-block {
+    border: 2px solid var(--accent-primary);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 10px 0;
+    background: var(--bg-card);
+  }
+
+  .condition-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .if-label {
+    font-weight: 700;
+    color: var(--accent-primary);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .remove-conditional {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: background 0.2s;
+  }
+
+  .remove-conditional:hover {
+    background: #dc2626;
+  }
+
+  .branch-container {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 3px solid;
+  }
+
+  .then-branch {
+    background: rgba(16, 185, 129, 0.08);
+    border-left-color: #10b981;
+  }
+
+  .else-branch {
+    background: rgba(239, 68, 68, 0.08);
+    border-left-color: #ef4444;
+  }
+
+  .branch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .branch-label {
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .then-branch .branch-label {
+    color: #34d399;
+  }
+
+  .else-branch .branch-label {
+    color: #f87171;
+  }
+
+  .add-command-btn {
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .add-command-btn:hover {
+    background: var(--bg-card);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+  }
+
+  .branch-commands {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .empty-branch {
+    padding: 12px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .label-input-container {
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .label-input-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 500;
+  }
+
+  .label-input {
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+
+  .label-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+  }
+
+  .label-input::placeholder {
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+</style>

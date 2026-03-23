@@ -169,9 +169,33 @@ function validateButtons(
         return;
       }
       const aType = action.type ?? 'cc';
-      if (!['cc', 'note', 'pc'].includes(aType)) {
-        errors.set(`${pathBase}.type`, 'Action type must be cc, note, or pc');
+      if (!['cc', 'note', 'pc', 'pc_inc', 'pc_dec', 'conditional'].includes(aType)) {
+        errors.set(`${pathBase}.type`, 'Action type must be cc, note, pc, pc_inc, pc_dec, or conditional');
       }
+      
+      // Handle conditional commands
+      if (aType === 'conditional') {
+        // Validate condition exists
+        if (!action.if || typeof action.if !== 'object') {
+          errors.set(`${pathBase}.if`, 'Conditional action requires an if condition');
+        }
+        // Validate then array
+        if (action.then && Array.isArray(action.then)) {
+          action.then.forEach((cmd: any, idx: number) => {
+            validateAction(cmd, `${pathBase}.then[${idx}]`);
+          });
+        } else {
+          errors.set(`${pathBase}.then`, 'Conditional action requires a then array');
+        }
+        // Validate optional else array
+        if (action.else && Array.isArray(action.else)) {
+          action.else.forEach((cmd: any, idx: number) => {
+            validateAction(cmd, `${pathBase}.else[${idx}]`);
+          });
+        }
+        return; // Skip MIDI command validation for conditionals
+      }
+      
       if (aType === 'cc') {
         if (action.cc !== undefined) {
           const e = validators.cc(action.cc);
@@ -186,6 +210,10 @@ function validateButtons(
           const e = validators.note(action.note);
           if (e) errors.set(`${pathBase}.note`, e);
         }
+        if (action.velocity !== undefined) {
+          const e = validators.velocity(action.velocity);
+          if (e) errors.set(`${pathBase}.velocity`, e);
+        }
         if (action.value !== undefined) {
           const e = validators.velocity(action.value);
           if (e) errors.set(`${pathBase}.value`, e);
@@ -194,6 +222,11 @@ function validateButtons(
         if (action.program !== undefined) {
           const e = validators.program(action.program);
           if (e) errors.set(`${pathBase}.program`, e);
+        }
+      } else if (aType === 'pc_inc' || aType === 'pc_dec') {
+        if (action.pc_step !== undefined) {
+          const e = validators.pcStep(action.pc_step);
+          if (e) errors.set(`${pathBase}.pc_step`, e);
         }
       }
       if (action.channel !== undefined) {

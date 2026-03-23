@@ -1,8 +1,10 @@
 <script lang="ts">
   import { config, getButtonErrors, activeBank, isMultiBankMode } from '$lib/formStore';
-  import { selectedButtonIndex } from '$lib/stores';
+  import { selectedButtonIndex, buttonStates, selectedMidiPort, midiPorts, showToast } from '$lib/stores';
+  import { sendMidiMessage, listMidiPorts } from '$lib/api';
+  import { get } from 'svelte/store';
   import { BUTTON_COLORS } from '$lib/types';
-  import type { ButtonConfig } from '$lib/types';
+  import type { ButtonConfig, CommandOrConditional, MidiCommand } from '$lib/types';
 
   // Get buttons from active bank if multi-bank mode, otherwise from top-level
   let buttons = $derived(
@@ -41,10 +43,21 @@
     return buttons[index] ?? null;
   }
 
-  // Get LED color for button
-  function getLedColor(btn: ButtonConfig | null): string {
-    if (!btn) return '#4a4a6b'; // Subtle purple-gray for empty
-    return BUTTON_COLORS[btn.color] ?? '#ffffff';
+  // Get LED color for button (responds to button state)
+  function getLedColor(btn: ButtonConfig | null, index: number): string {
+    if (!btn) return '#555555'; // Neutral gray for empty
+
+    const baseColor = BUTTON_COLORS[btn.color] ?? '#ffffff';
+    const isOn = $buttonStates[index] ?? false;
+    const mode = btn.mode ?? 'toggle';
+
+    // For toggle/select buttons, show full brightness when on, dim when off
+    if ((mode === 'toggle' || mode === 'select') && !isOn) {
+      // Dim the color by reducing opacity
+      return baseColor + '40'; // Add 25% opacity
+    }
+
+    return baseColor;
   }
 
   // Get button label
@@ -77,15 +90,15 @@
 
   // Get mode badge color
   function getModeBadgeColor(btn: ButtonConfig | null): string {
-    if (!btn) return '#6b6b8b';
+    if (!btn) return '#6b6b6b';
     const mode = btn.mode || 'toggle';
     switch (mode) {
-      case 'normal': return '#6b6b8b'; // muted purple-gray
+      case 'normal': return '#6b6b6b'; // neutral gray
       case 'toggle': return '#3b82f6'; // blue
       case 'momentary': return '#10b981'; // green
       case 'select': return '#f59e0b'; // amber
-      case 'tap': return '#ec4899'; // pink
-      default: return '#6b6b8b';
+      case 'tap': return '#f97316'; // orange
+      default: return '#6b6b6b';
     }
   }
 
@@ -153,9 +166,92 @@
     return lines.join('\n');
   }
 
-  // Handle button click
-  function handleButtonClick(index: number) {
+  // Type guard to check if a command is a MIDI command (not conditional)
+  function isMidiCommand(cmd: CommandOrConditional | undefined | null): cmd is MidiCommand {
+    return cmd !== undefined && cmd !== null && cmd.type !== 'conditional';
+  }
+
+  // Get primary press command for MIDI sending
+  function getPrimaryPressCommand(btn: ButtonConfig) {
+    const keytimes = btn.keytimes ?? 1;
+    if (keytimes > 1 && btn.states && btn.states.length > 0) {
+      const state = btn.states[0];
+      const pressCommands = (Array.isArray(state.press) && state.press.length > 0)
+        ? state.press
+        : btn.press;
+      return Array.isArray(pressCommands) && pressCommands.length > 0 ? pressCommands[0] : null;
+    }
+
+    if (btn.cc !== undefined) {
+      return { type: 'cc', cc: btn.cc, value: btn.value_on ?? 127, channel: btn.channel } as any;
+    }
+    if (btn.note !== undefined) {
+      return { type: 'note', note: btn.note, velocity: btn.velocity_on ?? 127, channel: btn.channel } as any;
+    }
+
+    const firstCmd = Array.isArray(btn.press) && btn.press.length > 0 ? btn.press[0] : null;
+    return firstCmd;
+  }
+
+  // Handle button click - send MIDI and update selection
+  async function handleButtonClick(index: number) {
     $selectedButtonIndex = index;
+
+    const btn = getButton(index);
+    if (!btn) return;
+
+    // Determine primary press MIDI command
+    const cmd: any = getPrimaryPressCommand(btn);
+    if (!cmd) return;
+
+    // Optimistic state update for toggle/select buttons
+    const mode = btn.mode ?? 'toggle';
+    if (mode === 'toggle' || mode === 'select') {
+      const currentStates = get(buttonStates);
+      const newState = !currentStates[index];
+      currentStates[index] = newState;
+      buttonStates.set([...currentStates]);
+      console.log(`[DeviceLayout] Button ${index} state changed to:`, newState);
+    }
+
+    // Choose MIDI output port
+    let port = get(selectedMidiPort);
+    if (!port) {
+      const ports = await listMidiPorts();
+      if (ports.length === 0) {
+        showToast('No MIDI output ports available', 'error');
+        return;
+      }
+      port = ports[0];
+      selectedMidiPort.set(port);
+    }
+
+    const cmdType = cmd.type ?? 'cc';
+    const channel = (cmd.channel ?? btn.channel ?? $config.global_channel ?? 0) & 0x0f;
+    let bytes: number[] = [];
+    if (cmdType === 'cc') {
+      const cc = cmd.cc;
+      const val = cmd.value ?? cmd.value_on ?? 127;
+      bytes = [0xB0 | channel, cc, val];
+    } else if (cmdType === 'note') {
+      const note = cmd.note;
+      const vel = cmd.velocity ?? cmd.velocity_on ?? 127;
+      bytes = [0x90 | channel, note, vel];
+    } else if (cmdType === 'pc') {
+      const program = cmd.program ?? cmd.program_change ?? 0;
+      bytes = [0xC0 | channel, program];
+    } else {
+      // Unsupported command types (conditionals handled by firmware)
+      return;
+    }
+
+    try {
+      await sendMidiMessage(port, bytes);
+      console.log('[DeviceLayout] MIDI sent:', bytes, `[${bytes.map(b => '0x' + b.toString(16)).join(', ')}]`);
+    } catch (e) {
+      console.error('[DeviceLayout] MIDI send failed', e);
+      showToast('MIDI send failed', 'error');
+    }
   }
 
   // Check if button is selected
@@ -169,7 +265,6 @@
     {#each Array(totalSlots) as _, index}
       {@const pos = getButtonPosition(index)}
       {@const btn = getButton(index)}
-      {@const ledColor = getLedColor(btn)}
       {@const label = getButtonLabel(btn, index)}
       {@const selected = isSelected(index)}
       {@const multiCmd = isMultiCommand(btn)}
@@ -178,6 +273,9 @@
       {@const mode = getButtonMode(btn)}
       {@const modeColor = getModeBadgeColor(btn)}
       {@const hasErrors = hasButtonErrors(index)}
+
+      <!-- Compute LED color reactively in template (respects dimming for off state) -->
+      {@const ledColor = getLedColor(btn, index)}
 
       <!-- Button Group -->
       <g
@@ -326,8 +424,8 @@
   }
 
   .button-group:hover .button-rect {
-    fill: #222238;
-    stroke: #8b5cf6;
+    fill: #1e1e1e;
+    stroke: var(--accent-primary);
   }
 
   .button-group:focus {
@@ -335,20 +433,20 @@
   }
 
   .button-group:focus .button-rect {
-    stroke: #8b5cf6;
+    stroke: var(--accent-primary);
     stroke-width: 3;
   }
 
   .button-rect {
-    fill: #1a1a2e;
-    stroke: #2a2a40;
+    fill: var(--bg-card);
+    stroke: var(--border-default);
     stroke-width: 2;
     transition: all 0.2s ease;
   }
 
   .button-rect.selected {
-    fill: #2a2a40;
-    stroke: #8b5cf6;
+    fill: var(--bg-input);
+    stroke: var(--accent-primary);
     stroke-width: 3;
   }
 
@@ -369,7 +467,7 @@
   }
 
   .badge-bg {
-    fill: #8b5cf6;
+    fill: var(--accent-primary);
   }
 
   .badge-text {
@@ -405,9 +503,9 @@
 
   /* Keyboard accessibility */
   .button-group:focus-visible .button-rect {
-    stroke: #8b5cf6;
+    stroke: var(--accent-primary);
     stroke-width: 3;
-    outline: 2px solid #8b5cf6;
+    outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
   }
 </style>

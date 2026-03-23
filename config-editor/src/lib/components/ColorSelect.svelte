@@ -62,8 +62,8 @@
     gap: 8px;
     width: 100%;
     padding: 8px 12px;
-    background: #1a1a2e;
-    border: 1px solid #2a2a40;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
     color: #e5e7eb;
     cursor: pointer;
@@ -71,18 +71,18 @@
   }
 
   :global(.color-select-trigger:hover) {
-    border-color: #3a3a55;
+    border-color: var(--border-accent);
   }
 
   :global(.color-select-trigger[data-state="open"]) {
-    border-color: #6366f1;
+    border-color: var(--accent-primary);
   }
 
   .selected-color {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 2px solid #2a2a40;
+    border: 2px solid var(--border-default);
   }
 
   .color-label {
@@ -102,8 +102,8 @@
   }
 
   :global(.color-picker-popover) {
-    background: #1a1a2e;
-    border: 1px solid #2a2a40;
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
@@ -120,8 +120,8 @@
     width: 32px;
     height: 32px;
     padding: 3px;
-    background: #1a1a2e;
-    border: 2px solid #2a2a40;
+    background: var(--bg-card);
+    border: 2px solid var(--border-default);
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -131,12 +131,12 @@
   }
 
   .color-circle:hover {
-    border-color: #4b5563;
+    border-color: #444444;
     transform: scale(1.1);
   }
 
   .color-circle.selected {
-    border-color: #6366f1;
+    border-color: var(--accent-primary);
     border-width: 3px;
     padding: 2px;
   }

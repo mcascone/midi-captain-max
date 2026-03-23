@@ -1,5 +1,6 @@
 <script lang="ts">
   import { config, updateField } from '$lib/formStore';
+  import Toggle from './Toggle.svelte';
 
   let splashScreen = $derived($config.splash_screen);
 
@@ -35,14 +36,11 @@
     <span class="header-description">Display a custom image during device startup</span>
   </div>
 
-  <label class="checkbox-label">
-    <input
-      type="checkbox"
-      checked={splashScreen?.enabled ?? true}
-      onchange={handleSplashEnabled}
-    />
-    <span class="field-label-left">Show splash on boot</span>
-  </label>
+  <Toggle
+    checked={splashScreen?.enabled ?? true}
+    label="Show splash on boot"
+    onchange={(checked) => updateField('splash_screen.enabled', checked)}
+  />
 
   <label>
     <span class="field-label">Splash duration (ms):</span>
@@ -95,7 +93,7 @@
     flex-direction: column;
     gap: 1.5rem;
     padding: 1.5rem;
-    background: #0f172a;
+    background: var(--bg-input);
     border-radius: 4px;
   }
 
@@ -104,7 +102,7 @@
     flex-direction: column;
     gap: 0.25rem;
     padding-bottom: 1rem;
-    border-bottom: 2px solid #8b5cf6;
+    border-bottom: 2px solid var(--accent-primary);
   }
 
   .header-text {
@@ -123,21 +121,21 @@
     align-items: center;
     gap: 0.75rem;
     padding: 1rem;
-    background: #1e293b;
+    background: var(--bg-card);
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.2s ease;
   }
 
   .checkbox-label:hover {
-    background: #334155;
+    background: #252525;
   }
 
   .checkbox-label input[type="checkbox"] {
     width: 20px;
     height: 20px;
     cursor: pointer;
-    accent-color: #8b5cf6;
+    accent-color: var(--accent-primary);
   }
 
   .field-label-left {
@@ -152,7 +150,7 @@
     align-items: center;
     gap: 1rem;
     padding: 0.75rem 1rem;
-    background: #1e293b;
+    background: var(--bg-card);
     border-radius: 6px;
     color: #e5e7eb;
   }
@@ -173,24 +171,24 @@
 
   .splash-section input[type="number"] {
     padding: 0.5rem 0.75rem;
-    border: 1px solid #4b5563;
+    border: 1px solid #444444;
     border-radius: 4px;
     font-size: 0.875rem;
-    background: #374151;
+    background: #333333;
     color: #e5e7eb;
     width: 100%;
   }
 
   .splash-section input[type="number"]:focus {
-    outline: 2px solid #8b5cf6;
+    outline: 2px solid var(--accent-primary);
     outline-offset: 1px;
   }
 
   .info-card {
     padding: 1.25rem;
-    background: #1e293b;
+    background: var(--bg-card);
     border-radius: 8px;
-    border-left: 4px solid #8b5cf6;
+    border-left: 4px solid var(--accent-primary);
   }
 
   .info-header {
@@ -227,10 +225,10 @@
 
   code {
     padding: 0.125rem 0.375rem;
-    background: #111827;
-    border: 1px solid #374151;
+    background: #121212;
+    border: 1px solid #333333;
     border-radius: 3px;
-    color: #c084fc;
+    color: var(--accent-primary);
     font-size: 0.8125rem;
     font-family: 'Monaco', 'Courier New', monospace;
   }
@@ -239,10 +237,10 @@
     display: block;
     padding: 0.75rem;
     margin: 0.5rem 0;
-    background: #111827;
-    border: 1px solid #374151;
+    background: #121212;
+    border: 1px solid #333333;
     border-radius: 6px;
-    color: #a5b4fc;
+    color: var(--accent-primary);
     font-size: 0.8125rem;
     overflow-x: auto;
     white-space: nowrap;

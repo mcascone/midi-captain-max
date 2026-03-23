@@ -7,12 +7,13 @@
   import {
     devices, selectedDevice, currentConfigRaw,
     hasUnsavedChanges, validationErrors, statusMessage, isLoading, isReloadingDevice,
-    showToast
+    showToast, lastSavedTimestamp, firmwareVersion, saveFeedback
   } from '$lib/stores';
   import { toaster } from '$lib/toaster';
   import {
     scanDevices, startDeviceWatcher,
-    onDeviceConnected, onDeviceDisconnected
+    onDeviceConnected, onDeviceDisconnected,
+    listMidiPorts
   } from '$lib/api';
   import type { DetectedDevice } from '$lib/types';
   import LeftPanel from '$lib/components/LeftPanel.svelte';
@@ -38,6 +39,35 @@
     : 'idle'
   );
 
+  // Config complexity metrics
+  let configStats = $derived.by(() => {
+    const buttons = $config.buttons?.length ?? 0;
+    const configured = $config.buttons?.filter(b =>
+      (b.press && b.press.length > 0) ||
+      (b.release && b.release.length > 0)
+    ).length ?? 0;
+    const totalCommands = $config.buttons?.reduce((sum, b) => {
+      return sum +
+        (b.press?.length ?? 0) +
+        (b.release?.length ?? 0) +
+        (b.long_press?.length ?? 0) +
+        (b.long_release?.length ?? 0);
+    }, 0) ?? 0;
+    return { buttons, configured, totalCommands };
+  });
+
+  // Format last saved time
+  let lastSavedText = $derived.by(() => {
+    if (!$lastSavedTimestamp) return 'Never';
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - $lastSavedTimestamp.getTime()) / 1000);
+
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return $lastSavedTimestamp.toLocaleDateString();
+  });
+
   function startResize(e: MouseEvent) {
     isResizing = true;
     e.preventDefault();
@@ -59,6 +89,19 @@
   onMount(async () => {
     try {
       appVersion = await getVersion();
+
+      // Test MIDI ports detection
+      console.log('[APP] Testing MIDI ports...');
+      try {
+        const midiPorts = await listMidiPorts();
+        console.log('[APP] MIDI ports available:', midiPorts);
+        if (midiPorts.length === 0) {
+          console.warn('[APP] No MIDI ports detected!');
+        }
+      } catch (midiErr) {
+        console.error('[APP] Failed to list MIDI ports:', midiErr);
+      }
+
       $devices = await scanDevices();
       await startDeviceWatcher();
 
@@ -127,7 +170,7 @@
         }
       };
       document.addEventListener('keydown', handleKeydown);
-      
+
       // Cleanup in onDestroy instead of returning from async onMount
     } catch (e: any) {
       $statusMessage = `Error initializing: ${e.message || e}`;
@@ -145,7 +188,7 @@
       }
     };
     document.removeEventListener('keydown', handleKeydown);
-    
+
     // Clean up device watchers
     unlistenConnect?.();
     unlistenDisconnect?.();
@@ -293,9 +336,21 @@
     </div>
     <div class="toolbar-right">
       <button class="tool-btn secondary" onclick={viewJson}>View JSON</button>
-      <button class="tool-btn primary" onclick={saveToDevice}
+      <button
+        class="tool-btn primary save-btn"
+        class:saving={$saveFeedback === 'saving'}
+        class:success={$saveFeedback === 'success'}
+        onclick={saveToDevice}
         disabled={!$selectedDevice || $isLoading || hasErrors}>
-        Save to Device <span class="arrow">▾</span>
+        {#if $saveFeedback === 'saving'}
+          <span class="btn-spinner"></span>
+          Saving…
+        {:else if $saveFeedback === 'success'}
+          <span class="checkmark">✓</span>
+          Saved!
+        {:else}
+          Save to Device <span class="arrow">▾</span>
+        {/if}
       </button>
     </div>
   </div>
@@ -314,7 +369,12 @@
       {/if}
       <div class="right-panel"><ButtonSettingsPanel /></div>
     {:else if $isLoading}
-      <div class="center-state"><div class="spinner"></div><span>Loading…</span></div>
+      <div class="center-state">
+        <div class="loading-container">
+          <div class="spinner-modern"></div>
+          <div class="loading-text">Loading configuration…</div>
+        </div>
+      </div>
     {:else}
       <div class="center-state">
         <p class="center-title">No device selected</p>
@@ -331,8 +391,25 @@
     <div class="status-left">
       <span class="dot {statusDot}"></span>
       <span class="status-text">{$statusMessage}</span>
+      {#if $selectedDevice && configStats.buttons > 0}
+        <span class="status-divider">•</span>
+        <span class="status-stat" title="Configured buttons / Total buttons">
+          {configStats.configured}/{configStats.buttons} buttons
+        </span>
+        <span class="status-stat" title="Total MIDI commands across all buttons">
+          {configStats.totalCommands} commands
+        </span>
+      {/if}
     </div>
     <div class="status-right">
+      {#if $lastSavedTimestamp}
+        <span class="status-info" title="Last saved: {$lastSavedTimestamp.toLocaleString()}">
+          Saved {lastSavedText}
+        </span>
+      {/if}
+      {#if $firmwareVersion}
+        <span class="status-info" title="Application version">v{$firmwareVersion}</span>
+      {/if}
       <button class="ghost-btn" onclick={reloadFromDevice} disabled={!$selectedDevice || $isLoading}>Reload</button>
       <button class="ghost-btn" onclick={resetDevice} disabled={!$selectedDevice || $isLoading}>Reset Device</button>
     </div>
@@ -380,59 +457,96 @@
   :global(body) {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 14px;
-    background: #0f0f1a;
+    background: var(--bg-dark);
     color: #e5e7eb;
     height: 100vh;
     overflow: hidden;
   }
   :global(input,select,button) { font-family: inherit; font-size: inherit; }
 
-  .app { display: flex; flex-direction: column; height: 100vh; background: #0f0f1a; }
+  .app { display: flex; flex-direction: column; height: 100vh; background: var(--bg-dark); }
 
   /* Header */
   .header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 20px; background: #12121f;
-    border-bottom: 1px solid #1e1e2e; flex-shrink: 0; min-height: 48px;
+    padding: 14px 24px; background: #0d0d0d;
+    border-bottom: 1px solid var(--border-default); flex-shrink: 0; min-height: 56px;
   }
   .header-left { display: flex; align-items: baseline; gap: 8px; }
-  .app-title { font-size: 15px; font-weight: 600; color: #f3f4f6; }
-  .version { font-size: 11px; color: #6b7280; }
+  .app-title { font-size: var(--text-xl); font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+  .version { font-size: var(--text-xs); color: var(--text-tertiary); font-weight: 500; }
   .header-right { display: flex; align-items: center; gap: 10px; }
   .device-pill { position: relative; display: flex; align-items: center; }
   .device-select {
-    appearance: none; background: #1a1a2e; border: 1px solid #2a2a40;
-    border-radius: 8px; color: #e5e7eb; padding: 6px 32px 6px 12px;
-    font-size: 13px; font-weight: 500; cursor: pointer;
+    appearance: none; background: var(--bg-input); border: 1px solid var(--border-default);
+    border-radius: 8px; color: var(--text-primary); padding: 8px 36px 8px 14px;
+    font-size: var(--text-sm); font-weight: 500; cursor: pointer;
+    transition: all 0.2s ease;
   }
-  .device-select:focus { outline: none; border-color: #6366f1; }
-  .device-chevron { position: absolute; right: 10px; font-size: 12px; color: #6b7280; pointer-events: none; }
-  .no-device-text { font-size: 13px; color: #6b7280; font-style: italic; }
+  .device-select:focus { outline: none; border-color: var(--accent-primary); box-shadow: var(--glow-cyan-sm); }
+  .device-chevron { position: absolute; right: 10px; font-size: 12px; color: var(--text-tertiary); pointer-events: none; }
+  .no-device-text { font-size: var(--text-sm); color: var(--text-secondary); font-style: italic; }
 
   /* Toolbar */
   .toolbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 16px; background: #12121f;
-    border-bottom: 1px solid #1e1e2e; flex-shrink: 0; gap: 12px;
+    padding: 12px 24px; background: #0d0d0d;
+    border-bottom: 1px solid var(--border-default); flex-shrink: 0; gap: 16px;
   }
-  .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; }
+  .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 12px; }
   .tool-btn {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 6px 14px; background: #1a1a2e; border: 1px solid #2a2a40;
-    border-radius: 6px; color: #d1d5db; font-size: 13px; cursor: pointer;
-    transition: background 0.15s;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; background: var(--bg-input); border: 1px solid var(--border-default);
+    border-radius: 8px; color: #d1d5db; font-size: 13px; cursor: pointer;
+    transition: all 0.2s ease; height: 38px;
   }
-  .tool-btn:hover:not(:disabled) { background: #222238; border-color: #3d3d5c; color: #f3f4f6; }
+  .tool-btn:hover:not(:disabled) { background: var(--bg-card); border-color: var(--accent-primary); color: #f3f4f6; box-shadow: var(--glow-cyan-sm); }
   .tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .tool-btn.primary { background: #4f46e5; border-color: #4f46e5; color: #fff; font-weight: 600; }
-  .tool-btn.primary:hover:not(:disabled) { background: #5a52f0; }
+  .tool-btn.primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--bg-dark); font-weight: 600; }
+  .tool-btn.primary:hover:not(:disabled) { background: var(--accent-primary-hover); }
   .tool-btn.secondary { background: transparent; color: #9ca3af; }
-  .tool-btn.secondary:hover:not(:disabled) { background: #1a1a2e; color: #e5e7eb; }
+  .tool-btn.secondary:hover:not(:disabled) { background: var(--bg-input); color: #e5e7eb; }
   .arrow { font-size: 11px; }
   .dev-mode-row { display: flex; align-items: center; gap: 6px; margin-left: 4px; }
-  .dev-cb { width: 15px; height: 15px; accent-color: #4f46e5; cursor: pointer; }
+  .dev-cb { width: 15px; height: 15px; accent-color: var(--accent-primary); cursor: pointer; }
   .dev-label { font-size: 13px; color: #d1d5db; cursor: pointer; user-select: none; }
   .dev-hint { font-size: 11px; color: #6b7280; }
+
+  /* Save button animations */
+  .save-btn {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .save-btn.saving {
+    pointer-events: none;
+  }
+
+  .save-btn.success {
+    background: #10b981;
+    border-color: #10b981;
+  }
+
+  .btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    border-top-color: var(--bg-dark);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  .checkmark {
+    font-size: 16px;
+    animation: checkmark-pop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  @keyframes checkmark-pop {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
 
   /* Main */
   .main { display: flex; flex: 1; overflow: hidden; }
@@ -441,8 +555,8 @@
     flex-shrink: 0;
     min-width: 0;
     overflow-y: auto;
-    border-right: 1px solid #1e1e2e;
-    background: #0f0f1a;
+    border-right: 1px solid var(--border-default);
+    background: var(--bg-dark);
     transition: width 0.3s ease;
   }
 
@@ -452,7 +566,7 @@
 
   .resizer {
     width: 4px;
-    background: #1e1e2e;
+    background: var(--border-default);
     cursor: col-resize;
     flex-shrink: 0;
     transition: background 0.2s ease;
@@ -461,7 +575,7 @@
 
   .resizer:hover,
   .resizer.resizing {
-    background: #4f46e5;
+    background: var(--accent-primary);
   }
 
   .resizer::before {
@@ -482,7 +596,7 @@
     height: 32px;
     padding: 0;
     background: #1f2937;
-    border: 1px solid #374151;
+    border: 1px solid #333333;
     border-radius: 6px;
     color: #9ca3af;
     cursor: pointer;
@@ -494,9 +608,9 @@
   }
 
   .collapse-toggle:hover {
-    background: #374151;
+    background: #333333;
     color: #ffffff;
-    border-color: #4b5563;
+    border-color: #444444;
   }
 
   .collapsed .collapse-toggle {
@@ -506,15 +620,45 @@
   .right-panel {
     flex: 1;
     overflow-y: auto;
-    background: #0f0f1a;
+    background: var(--bg-dark);
   }
 
   .center-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; }
   .center-title { font-size: 15px; font-weight: 500; color: #6b7280; }
-  .center-sub { font-size: 13px; color: #4b5563; }
+  .center-sub { font-size: 13px; color: #444444; }
+
+  /* Enhanced loading state */
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .spinner-modern {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #1a1a1a;
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+    filter: drop-shadow(0 0 8px rgba(0, 212, 170, 0.3));
+  }
+
+  .loading-text {
+    font-size: 14px;
+    color: #6b7280;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
   .spinner {
-    width: 28px; height: 28px; border: 3px solid #1e1e2e;
-    border-top-color: #4f46e5; border-radius: 50%;
+    width: 28px; height: 28px; border: 3px solid var(--border-default);
+    border-top-color: var(--accent-primary); border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -522,48 +666,66 @@
   /* Status bar */
   .statusbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 16px; background: #0d0d18;
-    border-top: 1px solid #1e1e2e; flex-shrink: 0; min-height: 40px;
+    padding: 8px 16px; background: #0d0d0d;
+    border-top: 1px solid var(--border-default); flex-shrink: 0; min-height: 40px;
   }
-  .status-left { display: flex; align-items: center; gap: 7px; }
+  .status-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .dot.success { background: #22c55e; }
-  .dot.error { background: #ef4444; }
-  .dot.idle { background: #374151; }
+  .dot.success { background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.4); }
+  .dot.error { background: #ef4444; box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); }
+  .dot.idle { background: #333333; }
   .status-text { font-size: 12px; color: #6b7280; }
-  .status-right { display: flex; gap: 8px; }
+  .status-divider { color: #333333; font-size: 10px; }
+  .status-stat {
+    font-size: 11px;
+    color: #6b7280;
+    background: #1a1a1a;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid #2a2a2a;
+  }
+  .status-right { display: flex; gap: 12px; align-items: center; }
+  .status-info {
+    font-size: 11px;
+    color: #6b7280;
+    padding: 2px 8px;
+    background: #1a1a1a;
+    border-radius: 4px;
+  }
   .ghost-btn {
-    background: transparent; border: 1px solid #2a2a40; border-radius: 6px;
+    background: transparent; border: 1px solid var(--border-default); border-radius: 6px;
     color: #9ca3af; padding: 4px 12px; font-size: 12px; cursor: pointer;
   }
-  .ghost-btn:hover:not(:disabled) { background: #1a1a2e; color: #e5e7eb; }
+  .ghost-btn:hover:not(:disabled) { background: var(--bg-input); color: #e5e7eb; }
   .ghost-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
   /* JSON Modal */
   .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
     display: flex; align-items: center; justify-content: center; z-index: 1000;
+    backdrop-filter: blur(4px);
   }
   .modal {
-    background: #14141f; border: 1px solid #2a2a40; border-radius: 12px;
+    background: var(--bg-card); border: 1px solid var(--border-default); border-radius: 12px;
     width: 560px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: var(--shadow-lg);
   }
   .modal-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; border-bottom: 1px solid #1e1e2e;
+    padding: 20px 24px; border-bottom: 1px solid var(--border-default);
   }
-  .modal-title { font-size: 14px; font-weight: 600; color: #e5e7eb; }
+  .modal-title { font-size: 16px; font-weight: 600; color: #e5e7eb; }
   .modal-close { background: none; border: none; color: #6b7280; font-size: 16px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
-  .modal-close:hover { color: #e5e7eb; background: #1e1e2e; }
+  .modal-close:hover { color: #e5e7eb; background: var(--bg-input); }
   .json-view {
     flex: 1; overflow-y: auto; padding: 16px 18px;
     font-size: 12px; line-height: 1.6;
     font-family: 'SF Mono', 'Fira Mono', monospace;
-    color: #a5b4fc; white-space: pre;
+    color: var(--accent-primary); white-space: pre;
   }
   .modal-footer {
     display: flex; justify-content: flex-end; gap: 8px;
-    padding: 12px 18px; border-top: 1px solid #1e1e2e;
+    padding: 12px 18px; border-top: 1px solid var(--border-default);
   }
 
   /* Toast Notifications */
@@ -577,7 +739,7 @@
     min-width: 300px;
     max-width: 400px;
     background: #1f2937;
-    border: 1px solid #374151;
+    border: 1px solid #333333;
   }
 
   :global(.toast-item.toast-success) {
