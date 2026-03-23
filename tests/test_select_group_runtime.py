@@ -17,7 +17,7 @@ def _first_button_index(fw):
     return 1 if fw.HAS_ENCODER else 0
 
 
-def test_select_group_short_press_and_long_press(tmp_path, monkeypatch, firmware_module, mock_time):
+def test_select_group_short_press_and_long_press(tmp_path, monkeypatch, mock_time, firmware_module):
     # Two buttons in same group; second has long_press configured
     fw = firmware_module
     cfg = {

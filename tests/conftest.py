@@ -140,12 +140,15 @@ _firmware_compiled_code = None
 
 
 @pytest.fixture
-def firmware_module():
+def firmware_module(monkeypatch):
     """
     Load firmware code module for runtime tests with per-test isolation.
     
     Compiles the firmware code once per session but creates a fresh module
     instance for each test to avoid state pollution between tests.
+    
+    NOTE: This fixture accepts monkeypatch to ensure proper fixture ordering -
+    monkeypatch must be available before firmware loads so time mocking works.
     """
     global _firmware_compiled_code
     
